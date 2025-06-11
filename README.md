@@ -1,6 +1,6 @@
 PyNotes is an advanced text-editor made in python.  
 System: Ubuntu or Windows 10 / 11 with python 3.10 or above (Everything may not work with older versions).  
-**EASYTK REQUIRES TTKTHEMES TO RUN. IT IS ALSO AUTOINSTALLED WITH OTHER PACKAGES FROM PYNOTES VERSION 1.4.2. INSTALL WITH:**  
+**EASYTK REQUIRES TTKTHEMES TO RUN IN OLD VERSIONS. IT IS ALSO AUTOINSTALLED WITH OTHER PACKAGES FROM PYNOTES VERSION 1.4.2. INSTALL WITH:**  
 `pip3 install ttkthemes`  
 # Installation:  
 ## Linux:  
