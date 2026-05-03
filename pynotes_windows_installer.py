@@ -3,6 +3,7 @@ from tkinter import ttk
 import os
 import sys
 import shutil
+from tkinter import messagebox as mb
 import ctypes
 import time
 def start():
@@ -19,42 +20,46 @@ def start():
 		ver = 'latest'
 	else:
 		ver = customversionno.get()
-	status.config(text = 'Downloading PyNotes')
-	os.system(f'curl -O --ssl-no-revoke https://raw.githubusercontent.com/rafugafu/PyNotes/main/v{ver}/PyNotes%20v{ver}.tar.gz')
-	pbar['value'] = 20
-	status.config(text = 'Extracting PyNotes')
-	root.update()
-	os.system(f'tar -xf "PyNotes%20v{ver}.tar.gz"')
-	pbar['value'] = 40
-	status.config(text = 'Copying Files...')
-	root.update()
-	os.chdir(f'PyNotes v{ver}')
-	os.chdir('Data Windows')
-	shutil.copytree(os.getcwd(), 'C:/Program Files/PyNotes')
-	pbar['value'] = 60
-	if not update == True:
-		status.config(text = 'Adding to PATH')
+	try:
+		status.config(text = 'Downloading PyNotes')
+		os.system(f'curl -O --ssl-no-revoke https://raw.githubusercontent.com/rafugafu/PyNotes/main/v{ver}/PyNotes%20v{ver}.tar.gz')
+		pbar['value'] = 20
+		status.config(text = 'Extracting PyNotes')
 		root.update()
-		os.system('setx PATH "%PATH%;C:/Program Files/PyNotes" /M')
-		pbar['value'] = 80
-		status.config(text = 'Adding shortcut to Start Menu')
+		os.system(f'tar -xf "PyNotes%20v{ver}.tar.gz"')
+		pbar['value'] = 40
+		status.config(text = 'Copying Files...')
 		root.update()
-		os.system('"start menu shortcut.bat"')
-	pbar['value'] = 100
-	status.config(text = 'Cleaning Up...')
-	root.update()
-	os.chdir('..')
-	os.chdir('..')
-	os.remove(f'PyNotes%20v{ver}.tar.gz')
-	shutil.rmtree(f'PyNotes v{ver}')
+		os.chdir(f'PyNotes v{ver}')
+		os.chdir('Data Windows')
+		shutil.copytree(os.getcwd(), 'C:/Program Files/PyNotes')
+		pbar['value'] = 60
+		if not update == True:
+			status.config(text = 'Adding to PATH')
+			root.update()
+			os.system('setx PATH "%PATH%;C:/Program Files/PyNotes" /M')
+			pbar['value'] = 80
+			status.config(text = 'Adding shortcut to Start Menu')
+			root.update()
+			os.system('"start menu shortcut.bat"')
+		pbar['value'] = 100
+		status.config(text = 'Cleaning Up...')
+		root.update()
+		os.chdir('..')
+		os.chdir('..')
+		os.remove(f'PyNotes%20v{ver}.tar.gz')
+		shutil.rmtree(f'PyNotes v{ver}')
+	except Exception as e:
+		mb.showerror('Error', f'There was an error:\n{e}')
 	button.config(text = 'Finish', command = root.destroy)
 	button.grid(column = 0, row = 6, padx = 10, pady = 10, sticky = 'ew')
 	status.config(text = 'Done!')
 if ctypes.windll.shell32.IsUserAnAdmin() == 0:
 	ctypes.windll.shell32.ShellExecuteW(None, 'runas', sys.executable, f'"{__file__}"', None, 1)
-	time.sleep(200)
+	exit()
 else:
 	root = tk.Tk()
+	root.geometry('300x300')
 	root.title('PyNotes Installation')
 	ttk.Label(master = root, text = 'PyNotes for Windows').grid(column = 0, row = 0, padx = 10, pady = 10, sticky = 'ew')
 	pbar = ttk.Progressbar()

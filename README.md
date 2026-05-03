@@ -59,7 +59,7 @@ error: externally-managed-environment
 note: If you believe this is a mistake, please contact your Python installation or OS distribution provider. You can override this, at the risk of breaking your Python installation or OS, by passing --break-system-packages.  
 hint: See PEP 668 for the detailed specification.  
 ```
-If this happens, you can install the required modules manually with `--break-system-packages` (the modules PyNotes and it's add-ons need do not break system packages, this warning is because some other modules might break system packages for your user only.), run PyNotes inside a Virtual Machine, or remove the `/usr/lib/python3.*/EXTERNALLY-MANAGED` file to stop this warning forever.  
+If this happens, you can install the required modules manually with `--break-system-packages` (the modules PyNotes and it's add-ons need do not break system packages, this warning is because some other modules might break system packages), run PyNotes inside a Virtual Machine, or remove or move the file `/usr/lib/python3.*/EXTERNALLY-MANAGED` to stop this warning forever.  
 ### Debian Package  
 There is a `.deb` package inside every `tar.gz` inside every version folder. You can install this manually with:  
 `sudo dpkg -i PyNotes.deb`  
@@ -74,9 +74,13 @@ Run the [pynotes_rpm_installer.sh](pynotes_rpm_installer.sh) script with root. Y
 Command: `sudo pynotes_rpm_installer.sh {version no. or blank}`  
 ## Windows  
 1. Download Python from [here](https://www.python.org/downloads/windows/).  
-2. Run the installer and add it to the PATH.  
+2. Run the installer to install Python. Make sure to check add Python to PATH.  
 3. Run the [pynotes_windows_installer.py](pynotes_windows_installer.py) script with Python, or using the command-line command `python pynotes_windows_installer.py`.  
 4. It will then open a graphical installer, where you can select the version and install it. This script can also upgrade or downgrade your PyNotes version.  
 # Plugins  
+**Note:** If PyNotes is open when you install a new plugin, you will have to restart it for the plugin to work, as plugins are loaded only on startup.  
+## Script  
+This script works on both Linux and Windows. Run the `pynotes_plugin_installer.py` with Python and it will open a window where you can select the plugin(s) from PyNotes' GitHub to install. Once you are done, it will automatically download and install the plugins you have selected.  
+## Manual  
 Download the plugins from the `Plugins/` folder. You can also make your own or get them from somewhere else. Then extract them if they are compressed, and move the folder to `~/.local/share/PyNotes/add-ons/` on Linux, and `C:/Users/{Your Username}/.local/share/PyNotes/add-ons` on Windows.  
 **Note:** Be careful in downloading plugins from other sources, as they will have full access to your system and be able to run any commands.  
