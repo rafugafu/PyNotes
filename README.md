@@ -36,7 +36,7 @@ System: Ubuntu or Windows 10 / 11 with python 3.10 or above (Everything may not 
 ## Images  
 ## Linux  
 **Note:** In some distros or versions of Linux, tkinter or pip may not come installed. You will then have to manually install tkinter and pip. Example: `sudo apt install python3-tk` and `sudo apt install python3-pip` for Ubuntu. You can also run PyNotes inside a virtual environment.  
-**Note:** If you are using Ubuntu 23 or later, you may get an error like this when PyNotes tries to install the dependencies using pip:  
+**Note:** In older versions of PyNotes, if you are using Ubuntu 23 or later, you may get an error like this when PyNotes tries to install the dependencies using pip:  
 ```
 error: externally-managed-environment  
   
@@ -59,7 +59,7 @@ error: externally-managed-environment
 note: If you believe this is a mistake, please contact your Python installation or OS distribution provider. You can override this, at the risk of breaking your Python installation or OS, by passing --break-system-packages.  
 hint: See PEP 668 for the detailed specification.  
 ```
-If this happens, you can install the required modules manually with `--break-system-packages` (the modules PyNotes and it's add-ons need do not break system packages, this warning is because some other modules might break system packages), run PyNotes inside a Virtual Machine, or remove or move the file `/usr/lib/python3.*/EXTERNALLY-MANAGED` to stop this warning forever.  
+If this happens, you should upgrade your PyNotes version to 1.6 or later, which avoids this problem entirely. Otherwise (Not recommended), you can install the required modules manually with `--break-system-packages` (the modules PyNotes and it's add-ons need do not break system packages, this warning is because some other modules might break system packages), run PyNotes inside a Virtual Machine, or remove or move the file `/usr/lib/python3.*/EXTERNALLY-MANAGED` to stop this warning forever.  
 ### Debian Package  
 There is a `.deb` package inside every `tar.gz` inside every version folder. You can install this manually with:  
 `sudo dpkg -i PyNotes.deb`  

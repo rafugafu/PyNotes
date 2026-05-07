@@ -1,31 +1,13 @@
 import sys
 import os
+import subprocess
+import getpass
+import platform
 v = '1.6'
 if len(sys.argv) > 1:
 	if sys.argv[1] == '--version':
 		os.system(f'echo {v}')
 		exit()
-from encrypter import encryptdecrypt
-import easytk
-import subprocess
-import io
-import time
-import copy
-import smtplib
-import webbrowser
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
-import keyword
-import wave
-import re
-import getpass
-import platform
-import threading
-from runnerpython import ragoae
-from runnerpython import interactive_shell
-from runnerpython import ragoae_other
 if platform.system() == 'Linux':
 	rootdir = '/usr/share/PyNotes'
 	homedir = f'/home/{getpass.getuser()}'
@@ -34,6 +16,16 @@ else:
 	rootdir = 'C:/Program Files/PyNotes'
 	homedir = f'C:/Users/{getpass.getuser()}'
 	monospace = 'Courier'
+if platform.system() == 'Linux':
+	if rootdir not in sys.path:
+		sys.path.insert(0, rootdir)
+import easytk
+def info(title, inf):
+	infowin = easytk.win()
+	infowin.title(title)
+	infowin.text(text = inf).pack(side = 'top', anchor = 'n', padx = 10, pady = 10)
+	infowin.button(text = 'Close', command = infowin.destroy).pack(side = 'right', anchor = 'se', padx = 10, pady = 10)
+	infowin.show()
 def ask(title, askinput):
 	def yes():
 		global returnval
@@ -51,35 +43,58 @@ def ask(title, askinput):
 	askwin.protocol('WM_DELETE_WINDOW', lambda: None)
 	askwin.show()
 	return returnval
-def info(title, info):
-	infowin = easytk.win()
-	infowin.title(title)
-	infowin.text(text = info).pack(side = 'top', anchor = 'n', padx = 10, pady = 10)
-	infowin.button(text = 'Close', command = infowin.destroy).pack(side = 'right', anchor = 'se', padx = 10, pady = 10)
-	infowin.show()
+def switchvenv():
+	if platform.system() != 'Linux':
+		return
+	venvdir = f'{homedir}/.local/share/PyNotes/venv'
+	if not os.path.exists(f'{venvdir}/bin/python'):
+		info('Making Python virtual environment', 'Making the Python virtual environment for PyNotes. This only happens on the first startup of a new\ninstallation of PyNotes.')
+		subprocess.run([sys.executable, '-m', 'venv', venvdir], check = True)
+	if sys.prefix != venvdir:
+		os.execv(f'{venvdir}/bin/python', [f'{venvdir}/bin/python'] + sys.argv)
+if platform.system() == 'Linux':
+	os.environ['PATH'] = f'{homedir}/.local/share/PyNotes/venv/bin:' + os.environ['PATH']
+switchvenv()
+from encrypter import encryptdecrypt
+import io
+import time
+import copy
+import smtplib
+import webbrowser
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+import keyword
+import wave
+import re
+import threading
+from runnerpython import ragoae
+from runnerpython import interactive_shell
+from runnerpython import ragoae_other
 def faketerm(number):
 	termwin = easytk.win()
 	termwin.title('Terminal')
 	term = termwin.textbox(background = 'black', foreground = 'white', font = (monospace, 12))
 	term.insert('end', f'{getpass.getuser()}@PyNotes:~$ ')
 	if number == 0:
-		command = 'pip3 install tika'
+		command = 'pip install tika'
 	elif number == 1:
-		command = 'pip3 install pdfplumber'
+		command = 'pip install pdfplumber'
 	elif number == 2:
-		command = 'pip3 install pyttsx3'
+		command = 'pip install pyttsx3'
 	elif number == 3:
-		command = 'pip3 install matplotlib'
+		command = 'pip install matplotlib'
 	elif number == 4:
-		command = 'pip3 install sympy'
+		command = 'pip install sympy'
 	elif number == 5:
-		command = 'pip3 install ttkthemes'
+		command = 'pip install ttkthemes'
 	elif number == 6:
-		command = 'pip3 install sounddevice'
+		command = 'pip install sounddevice'
 	elif number == 7:
-		command = 'pip3 install SpeechRecognition'
+		command = 'pip install SpeechRecognition'
 	elif number == 8:
-		command = 'pip3 install numpy'
+		command = 'pip install numpy'
 	term.insert('end', command + '\n(This window will not update till the end of process)\n')
 	term.pack(fill = 'both')
 	termwin.update()
