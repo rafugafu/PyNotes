@@ -60,6 +60,10 @@ note: If you believe this is a mistake, please contact your Python installation 
 hint: See PEP 668 for the detailed specification.  
 ```
 If this happens, you should upgrade your PyNotes version to 1.6 or later, which avoids this problem entirely. Otherwise (Not recommended), you can install the required modules manually with `--break-system-packages` (the modules PyNotes and it's add-ons need do not break system packages, this warning is because some other modules might break system packages), run PyNotes inside a Virtual Machine, or remove or move the file `/usr/lib/python3.*/EXTERNALLY-MANAGED` to stop this warning forever.  
+### PPA for Ubuntu  
+Add the PyNotes Launchpad PPA with the command: `sudo add-apt-repository ppa:rafugafu/pynotes`  
+Then, run `sudo apt update`  
+Now PyNotes should be installable through apt like any other package. Run `sudo apt install pynotes` to install it. You will also be able to upgrade PyNotes through `sudo apt upgrade`.  
 ### Debian Package  
 There is a `.deb` package inside every `tar.gz` inside every version folder. You can install this manually with:  
 `sudo dpkg -i PyNotes.deb`  
