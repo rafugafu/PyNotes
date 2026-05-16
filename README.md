@@ -1,21 +1,24 @@
 # About  
 ![](images/Icon.png)  
-PyNotes is a very advanced cross-platform editor and IDE made in Python.  
+PyNotes is an advanced cross-platform editor and IDE made in Python.  
 ## Important Features  
 * **Programming** - Syntax highlighting and running code with outputs and errors for Python, LaTeX, and HTML! Also has a shell for python and graphical tools for formatting LaTeX.  
 * **Commands** - Powerful Emacs-like commands and options inside PyNotes! (Alt-X to use)  
-* **Plugins** - Extensions that can do anything within PyNotes and change it in any way! You can get them from anywhere or make your own. Made by me are: Letter Invaders Game (A fun typing game), Typing (A typing test that also gives feedback and suggestions), 3D Maze Game (A 3D Maze Game with a simple AI as an opponent also), Simple Spellcheck (Spellcheck for the editor with the option to change or add dictionaries), ChessPy (A Chess Program where you can play 2 player or with any engine you provide)  
-* **PyCode** - Small programming language inside PyNotes to customize it even beyond plugins! You can make your own keyboard shortcuts, startup code, etc.  
-* **MathGod** - Notebook like Mathematica for math inside PyNotes!  
+* **Plugins** - Powerful extensions that seamlessly integrate with PyNotes! Very easy to make and install! Currently made by me are: Letter Invaders Game (A fun typing game), Typing (A typing test that also gives feedback and suggestions), 3D Maze Game (A 3D Maze Game with a simple AI as an opponent), Simple Spellcheck (Spellcheck for the editor with the option to change or add dictionaries), ChessPy (A Chess Program where you can play 2 player or with any engine you provide)  
+* **PyCode** - Programming language inside PyNotes to customize it even beyond plugins! You can fully make and change your own keyboard shortcuts, functions, Alt-X commands, startup code, etc!  
+* **MathGod** - Notebook for symbolic math inside PyNotes!  
 * **Email** - Send emails from within PyNotes! Also has a spellcheck and option to change or add new dictionaries for the spellcheck.  
-* **Modes** - Modes like Emacs for different purposes! Changes syntax highlighting, running code, tabs, etc. (Change with command `hmode:{py|la|norm|em}` for Python Mode, LaTeX Mode, Normal Text Mode, and Email Mode.)  
+* **HModes** - Modes like Emacs for different purposes! Changes syntax highlighting, running code, tabs, etc. (Change with Alt-X command `hmode:{py|la|norm|em}` for Python Mode, LaTeX Mode, Normal Text Mode, and Email Mode.)  
 * **Text to speech** - Make PyNotes speak your selection inside the editor!  
 * **Speech to text** - Dictate to write text in the editor!  
-* **Terminal** - Terminal or Commmand Prompt inside PyNotes!  
+* **Terminal** - Terminal or Powershell inside PyNotes!  
 * **Preferences** - Fully customize your syntax highlighting and options easily in the preferences!  
+* **Search** - Incremental search for Find and Find & Replace - Find strings without fully typing them!  
+* **Regexp Search** - Find and Find & Replace using regexp!  
+* **Emacs-like keybindings in search** - Option to use Emacs-like keybindings for Find and Find & Replace!  
 * **Backup** - Auto backup option to save your files!  
 * **Quick Installation** - Fast installation with an installer script for Linux and Windows!  
-* **And many more!**  
+* **And much more!**  
 ## Screenshots  
 ![Typing Test](images/Typing_Test.png)  
 ![3D Maze Game](images/3D_Maze_Game.png)  
@@ -30,7 +33,9 @@ PyNotes is a very advanced cross-platform editor and IDE made in Python.
 ![Opening Images in PyNotes](images/Image_in_PyNotes.png)  
 ![Write Command Example](images/Write_Command_Example.png)  
 # Installation  
-System: Ubuntu or Windows 10 / 11 with python 3.10 or above (Everything may not work with older versions).  
+For Windows, download Python from [here](https://www.python.org/downloads/windows/).  
+Click [here](pynotes_debian_installer.sh) to download the Debian installer script, [here](pynotes_rpm_installer.sh) for the RPM installer script, and [here](pynotes_windows_installer.py) for the Windows Installer.  
+System: Ubuntu or Windows 10 / 11 with python 3.10 or above (Everything may not work properly with older versions of Python).  
 **Easytk needs ttkthemes to work. It is automatically installed with other packages from version 1.4.2. For older versions, install with:**  
 `pip3 install ttkthemes`  
 ## Images  
