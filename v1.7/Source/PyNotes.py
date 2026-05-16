@@ -58,6 +58,7 @@ switchvenv()
 from encrypter import encryptdecrypt
 import io
 import time
+import shutil
 import copy
 import smtplib
 import webbrowser
@@ -403,11 +404,10 @@ def abt(event = None):
 	abw.bind('<Escape>', lambda event: abw.destroy())
 	abw.bind('<Return>', lambda event: abw.destroy())
 	abw.sizablefalse()
-	abw.show()
 def changes(event = None):
 	cw = root.subwin()
 	cw.title(f'Changes in v{v}')
-	changelist = ['You can now make and change Alt-X commands in PyCode!', 'Added Python functions to PyCode!', 'Hugely improved the PyNotes terminal and made it a full, real, live, interactive terminal!', 'Hugely improved the PyNotes Python shell and made if a full, real, live, interactive shell!', 'Hugely improved the Find and Find & Replace and added incremental search!', 'Added a lot of PyCode commands.', 'Added some Alt-X commands.', 'Improved the line numbering of the editor a lot.', 'Improved the PyCode help.', 'Improved the output capturing of the terminal installing modules.', 'Improved and updated the PyNotes About. (Help → About)', 'Fixed some minor bugs.']
+	changelist = ['You can now make and change Alt-X commands in PyCode!', 'Added Python functions to PyCode!', 'Hugely improved the PyNotes terminal and made it a full, real, live, interactive terminal!', 'Hugely improved the PyNotes Python shell and made if a full, real, live, interactive shell!', 'Hugely improved the Find and Find & Replace and added incremental search!', 'Added a lot of PyCode commands.', 'Added some Alt-X commands.', 'Improved the line numbering of the editor a lot.', 'Improved the PyCode help.', 'Improved the output capturing of the terminal installing modules.', 'Improved and updated the PyNotes About. (Help → About)', 'Improved the running of LaTeX code.', 'Fixed some minor bugs.']
 	for i in range(len(changelist)):
 		cw.text(text = f'{i + 1}. {changelist[i]}').grid(column = 0, row = i, padx = 10, pady = 10, sticky = 'w')
 	cw.bind('<Escape>', lambda event: cw.destroy())
@@ -415,7 +415,6 @@ def changes(event = None):
 	cw.sizablefalse()
 	cw.style(root.gettheme())
 	cw.focus()
-	cw.show()
 def hemail(event = None):
 	hew = root.subwin()
 	hew.title('Help with Email')
@@ -430,7 +429,6 @@ def hemail(event = None):
 	hew.sizablefalse()
 	hew.style(root.gettheme())
 	hew.focus()
-	hew.show()
 def lld():
 	fn = root.openfile(('all', 'py', 'txt', 'tex', 'png', 'pdf', 'epub'))
 	if fn:
@@ -736,7 +734,6 @@ def fr(event = None):
 	ok.style(root.gettheme())
 	ok.bind('<Escape>', lambda event: [type_.tag_remove('found', '1.0', 'end'), type_.tag_remove('foundhighlight', '1.0', 'end'), ok.destroy(), type_.unbind('<KeyPress>')])
 	ok.protocol('WM_DELETE_WINDOW', lambda: [type_.tag_remove('found', '1.0', 'end'), type_.tag_remove('foundhighlight', '1.0', 'end'), ok.destroy(), type_.unbind('<KeyPress>')])
-	ok.show()
 def f(event = None):
 	def fback():
 		nonlocal i
@@ -831,7 +828,6 @@ def f(event = None):
 	ok.style(root.gettheme())
 	ok.bind('<Escape>', lambda event: [type_.tag_remove('found', '1.0', 'end'), type_.tag_remove('foundhighlight', '1.0', 'end'), ok.destroy(), type_.unbind('<KeyPress>')])
 	ok.protocol('WM_DELETE_WINDOW', lambda: [type_.tag_remove('found', '1.0', 'end'), type_.tag_remove('foundhighlight', '1.0', 'end'), ok.destroy(), type_.unbind('<KeyPress>')])
-	ok.show()
 def svprf():
 	global bfr
 	global theme
@@ -930,7 +926,6 @@ def prf(event = None):
 	pr.sizablefalse()
 	pr.style(root.gettheme())
 	pr.focus()
-	pr.show()
 def type_getvisible():
 	type_.update_idletasks()
 	top = type_.index('@0,0-2l')
@@ -1361,21 +1356,37 @@ def f5(event = None):
 	else:
 		return
 def pdf(title):
+	title = os.path.basename(title)
 	if os.path.splitext(title)[1] == '.tex':
 		pdf_ = os.path.splitext(title)[0]
 	else:
 		pdf_ = title
 	pdf_ += '.pdf'
-	time.sleep(0.5)
 	if not os.path.exists(os.path.abspath(pdf_)):
-		root.error('Error', 'The pdf could not be shown, there could have been an error in your code?')
-		return
+		if root.ask('Error', 'The pdf could not be shown, there might have been an error in your code.\nDo you want to see the log?', ('yes', 'no')):
+			logwin = root.subwin()
+			logwin.title(f'LaTeX log for {title}')
+			logtextboxscroll = logwin.scroll()
+			logtextbox = logwin.textbox(yscrollcommand = logtextboxscroll.set, font = (monospace, 12))
+			logtextbox.insert('1.0', open(f'{homedir}/.local/share/PyNotes/{title}.log', 'r').read())
+			logtextbox.config(state = 'disabled')
+			logtextboxscroll.config(command = logtextbox.yview)
+			logtextboxscroll.pack(fill = 'y', side = 'right')
+			logtextbox.pack(fill = 'both', expand = True, side = 'left')
+			logwin.style(root.gettheme())
 	else:
 		os.system('xdg-open ' + '"' + pdf_ + '"')
 def runtex(compiler):
 	global type_
 	global title
-	compiler += 'latex '
+	if not title:
+		root.info('Error', 'Save the file to run LaTeX.')
+		return
+	title = os.path.basename(title)
+	compiler += 'latex'
+	if not shutil.which(compiler):
+		root.error('Error', f'Error in running LaTeX - {compiler} is not installed')
+		return
 	if os.path.splitext(title)[1] == '.tex':
 		pdf_ = os.path.splitext(title)[0]
 	else:
@@ -1385,7 +1396,7 @@ def runtex(compiler):
 		os.remove(pdf_)
 	except:
 		pass
-	os.system(compiler + '"' +  title + '"')
+	subprocess.run([compiler, '-interaction=nonstopmode', '-halt-on-error', '-file-line-error', title], stdout = open(f'{homedir}/.local/share/PyNotes/{title}.log', 'w'), stderr = subprocess.STDOUT)
 	pdf(title)
 def lp2(event = None):
 	sv(title)
@@ -1691,7 +1702,7 @@ def term():
 	threading.Thread(target = _read, daemon = True).start()
 	term.after(50, _poll)
 	term.focus()
-	tw.show()
+	tw.deiconify()
 def gl(event = None):
 	l = root.askstring('Go to line', 'Go to line no. :')
 	if not l:
@@ -1731,7 +1742,6 @@ def hx():
 	hxh.bind('<Escape>', lambda event: hxh.destroy())
 	hxh.bind('<Return>', lambda event: hxh.destroy())
 	hxh.focus()
-	hxw.show()
 def st():
 	global recording
 	global audio
@@ -1782,7 +1792,6 @@ def st():
 	dwin.button(master = oframe, text = 'Write to Editor', command = lambda: [type_.insert('insert', output.get('1.0', 'end-1c')), dwin.destroy()]).pack(side = 'bottom', fill = 'x', expand = True)
 	oframe.pack(side = 'bottom', fill = 'both', expand = True)
 	dwin.sizablefalse()
-	dwin.show()
 def cmdrun(command):
 	type_.focus_set()
 	cmdentry.delete('1.0', 'end')
@@ -1981,7 +1990,7 @@ def cmdrun(command):
 		try:
 			for i in range(int(command.split(':')[1].split('*')[1])):
 				cmdrun(command.split(':')[1].split('*')[0])
-			show(f'repeated {command.split(":")[1]} text')
+			show(f'repeated {command.split(":")[1].replace("*", " ")} times')
 		except:
 			show(f'invalid command \'{command}\'')
 	elif command == 'u' or command == 'undo':
@@ -2776,7 +2785,6 @@ def pc(event = None):
 	pcwin.style(root.gettheme())
 	pcwin.update()
 	pcwin.sizablefalse()
-	pcwin.show()
 def helppycode():
 	hpwin = root.subwin()
 	hpwin.title('Help with PyCode')
@@ -2861,7 +2869,6 @@ root.show()',
 	hpwin.sizablefalse()
 	hpwin.style(root.gettheme())
 	hpwin.focus()
-	hpwin.show()
 def undo():
 	try:
 		type_.edit_undo()
@@ -3076,7 +3083,6 @@ def ap():
 	apw.text(text = 'Warning: Plugins have full access to PyNotes and your system\nand can run any commands. Be careful in downloading and using\nplugins from other websites.', font = (monospace, 12, 'bold')).grid(column = 0, row = 3, padx = 10, pady = 10, sticky = 'w')
 	apw.style(root.gettheme())
 	apw.focus()
-	apw.show()
 def helpmathgod():
 	hmgwin = root.subwin()
 	hmgwin.title('Help with MathGod')
@@ -3261,7 +3267,6 @@ def helpmathgod():
 	hmgwin.text(master = ot, text = 'Integral(y^2, (y, 0, x))', style = 'CodeStyle.TLabel').grid(column = 0, row = 3, padx = 10, pady = 10)
 	hmgwin.style(root.gettheme())
 	hmgwin.focus()
-	hmgwin.show()
 m.add_cascade(label = 'File', menu = fm)
 m.add_cascade(label = 'Edit', menu = em)
 m.add_cascade(label = 'Options', menu = om)
@@ -3860,7 +3865,6 @@ def emailsetup(saved = None):
 			for i in range(len(attachmentslist)):
 				attachment = attachmentslist[i]
 				raw.button(text = attachment, command = lambda i = i: actualremoveattachment(i)).grid(column = i % 5, row = mathmod.floor(i / 5), sticky = 'ew')
-			raw.show()
 	def attach():
 		fn = root.openfile(['all'])
 		if fn:
