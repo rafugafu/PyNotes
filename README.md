@@ -1,6 +1,7 @@
 # About  
-![](images/Icon.png)  
+![Icon](images/Icon.png)  
 PyNotes is an advanced cross-platform editor and IDE made in Python.  
+Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](codeberg.org/rafugafu/pynotes), [Sourceforge](https://sourceforge.net/projects/pynotespython/), [Launchpad PPA](https://launchpad.net/~rafugafu/+archive/ubuntu/pynotes)  
 ## Important Features  
 * **Programming** - Syntax highlighting and running code with outputs and errors for Python, LaTeX, and HTML! Also has a shell for python and graphical tools for formatting LaTeX.  
 * **Commands** - Powerful Emacs-like commands and options inside PyNotes! (Alt-X to use)  
@@ -38,7 +39,8 @@ Click [here](pynotes_debian_installer.sh) to download the Debian installer scrip
 System: Ubuntu or Windows 10 / 11 with python 3.10 or above (Everything may not work properly with older versions of Python).  
 **Easytk needs ttkthemes to work. It is automatically installed with other packages from version 1.4.2. For older versions, install with:**  
 `pip3 install ttkthemes`  
-## Images  
+## Sourceforge  
+Download from [Sourceforge](https://sourceforge.net/projects/pynotespython/).  
 ## Linux  
 **Note:** In some distros or versions of Linux, tkinter or pip may not come installed. You will then have to manually install tkinter and pip. Example: `sudo apt install python3-tk` and `sudo apt install python3-pip` for Ubuntu. You can also run PyNotes inside a virtual environment.  
 **Note:** In older versions of PyNotes, if you are using Ubuntu 23 or later, you may get an error like this when PyNotes tries to install the dependencies using pip:  
