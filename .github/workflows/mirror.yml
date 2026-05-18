@@ -1,7 +1,7 @@
+```yaml id="w6crpw"
 name: Mirror repositories
 
-on:
-  push:
+on: [push]
 
 jobs:
   mirror:
@@ -19,28 +19,9 @@ jobs:
           target_repo_url: git@codeberg.org:rafugafu/PyNotes.git
           ssh_private_key: ${{ secrets.CODEBERG_SSH_KEY }}
 
-      - name: Setup SSH for SourceForge
-        run: |
-          mkdir -p ~/.ssh
-
-          echo "${{ secrets.SOURCEFORGE_SSH_KEY }}" > ~/.ssh/sourceforge_key
-          chmod 600 ~/.ssh/sourceforge_key
-
-          cat > ~/.ssh/config <<EOF
-          Host git.code.sf.net
-            HostName git.code.sf.net
-            User git
-            IdentityFile ~/.ssh/sourceforge_key
-            IdentitiesOnly yes
-          EOF
-
-          ssh-keyscan git.code.sf.net >> ~/.ssh/known_hosts
-
-      - name: Test SourceForge SSH
-        run: |
-          ssh -Tv git@git.code.sf.net || true
-
       - name: Mirror to SourceForge
-        run: |
-          git remote add sourceforge git@git.code.sf.net:p/pynotespython/code
-          git push --mirror sourceforge
+        uses: pixta-dev/repository-mirroring-action@v1
+        with:
+          target_repo_url: git@git.code.sf.net:p/pynotespython/code
+          ssh_private_key: ${{ secrets.SOURCEFORGE_SSH_KEY }}
+```
