@@ -22,5 +22,5 @@ jobs:
       - name: Mirror to SourceForge
         uses: pixta-dev/repository-mirroring-action@v1
         with:
-          target_repo_url: git@git.code.sf.net:p/pynotespython/code
+          target_repo_url: git@ssh://rafugafu@git.code.sf.net/p/pynotespython/code pynotespython-code
           ssh_private_key: ${{ secrets.SOURCEFORGE_SSH_KEY }}
