@@ -256,6 +256,9 @@ try:
 	import numpy as np
 	from tklinenums import TkLineNumbers
 	import ttkwidgets.frames
+	import ziamath
+	import cairosvg
+	from PIL import Image
 	if platform.system() != 'Linux':
 		from winpty import PtyProcess
 except Exception:
