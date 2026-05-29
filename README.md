@@ -1,24 +1,25 @@
 # About  
 ![Icon](images/Icon.png)  
-PyNotes is an advanced cross-platform editor and IDE made in Python.  
+PyNotes is an advanced cross-platform text editor and IDE made in Python.  
 Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](codeberg.org/rafugafu/pynotes), [Sourceforge](https://sourceforge.net/projects/pynotespython/), [Launchpad PPA](https://launchpad.net/~rafugafu/+archive/ubuntu/pynotes)  
 ## Important Features  
-* **Programming** - Syntax highlighting and running code with outputs and errors for Python, LaTeX, and HTML! Also has a shell for python and graphical tools for formatting LaTeX.  
-* **Commands** - Powerful Emacs-like commands and options inside PyNotes! (Alt-X to use)  
+* **Programming** - Syntax highlighting and running code with outputs and errors for Python, LaTeX, and HTML! Graphical buttons for formatting LaTeX!  
+* **Alt-X Commands** - Powerful Emacs-like commands and options inside PyNotes!  
 * **Plugins** - Powerful extensions that seamlessly integrate with PyNotes! Very easy to make and install! Currently made by me are: Letter Invaders Game (A fun typing game), Typing (A typing test that also gives feedback and suggestions), 3D Maze Game (A 3D Maze Game with a simple AI as an opponent), Simple Spellcheck (Spellcheck for the editor with the option to change or add dictionaries), ChessPy (A Chess Program where you can play 2 player or with any engine you provide)  
 * **PyCode** - Programming language inside PyNotes to customize it even beyond plugins! You can fully make and change your own keyboard shortcuts, functions, Alt-X commands, startup code, etc!  
 * **MathGod** - Notebook for symbolic math inside PyNotes!  
 * **Email** - Send emails from within PyNotes! Also has a spellcheck and option to change or add new dictionaries for the spellcheck.  
-* **HModes** - Modes like Emacs for different purposes! Changes syntax highlighting, running code, tabs, etc. (Change with Alt-X command `hmode:{py|la|norm|em}` for Python Mode, LaTeX Mode, Normal Text Mode, and Email Mode.)  
+* **HModes** - Modes like Emacs for different purposes! Changes syntax highlighting, running code, tabs, etc.  
 * **Text to speech** - Make PyNotes speak your selection inside the editor!  
 * **Speech to text** - Dictate to write text in the editor!  
-* **Terminal** - Terminal or Powershell inside PyNotes!  
+* **Terminal** - Full Terminal or Powershell inside PyNotes!  
+* **Python Shell / REPL** - Full Python shell / REPL inside PyNotes!  
 * **Preferences** - Fully customize your syntax highlighting and options easily in the preferences!  
 * **Search** - Incremental search for Find and Find & Replace - Find strings without fully typing them!  
 * **Regexp Search** - Find and Find & Replace using regexp!  
 * **Emacs-like keybindings in search** - Option to use Emacs-like keybindings for Find and Find & Replace!  
 * **Backup** - Auto backup option to save your files!  
-* **Quick Installation** - Fast installation with an installer script for Linux and Windows!  
+* **Quick Installation** - Fast installation with an installer script for Linux and a graphical installer for Windows!  
 * **And much more!**  
 ## Screenshots  
 ![Typing Test](images/Typing_Test.png)  
