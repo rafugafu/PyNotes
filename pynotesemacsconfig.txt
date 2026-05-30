@@ -1,0 +1,94 @@
+(python:tabpressed)
+→:
+(
+if pycode:{getselection}: ↩
+	pycode:{indentselection} ↩
+else: ↩
+	pycode:{insert tkindex ('insert'), '	'}
+);
+
+<Tab> → <tabpressed>;
+
+(python:transposechars) →:
+(
+chars = pycode:{get 'insert-1c', 'insert'} ↩
+pycode:{delete 'insert-1c', 'insert'} ↩
+swapped = chars[::-1] ↩
+pycode:{insert 'insert-1c', swapped}
+);
+
+(python:killline) →:
+(
+lineno = pycode:{tkindex 'insert', 'line'} ↩
+textaftercursor = pycode:{get tkindex ('insert'), lineno + '.end'} ↩
+if textaftercursor: ↩
+	pycode:{copytext textaftercursor} ↩
+	pycode:{delete tkindex ('insert'), lineno + '.end'} ↩
+else: ↩
+	pycode:{delete tkindex ('insert'), lineno + '.end+1c'}
+);
+
+(python:killwholeline) →:
+(
+lineno = pycode:{tkindex 'insert', 'line'} ↩
+pycode:{copytext get tkindex ('insert', 'line') + '.0', lineno + '.end+1c'} ↩
+pycode:{delete tkindex ('insert', 'line') + '.0', lineno + '.end+1c'}
+);
+
+⌊transpose-chars⌋ → ⌊transposechars⌋;
+⌊query-replace⌋ → ⌊findreplace⌋;
+⌊kill-ring-save⌋ → ⌊copy⌋;
+⌊isearch-forward⌋ → ⌊findtext⌋;
+⌊kill-region⌋ → ⌊cut⌋;
+⌊yank⌋ → ⌊paste⌋;
+⌊move-beginning-of-line⌋ → ⌊movecursor tkindex ('insert', 'line') + '.0'⌋;
+⌊move-end-of-line⌋ → ⌊movecursor tkindex ('insert', 'line') + '.end'⌋;
+⌊next-line⌋ → ⌊movecursor 'insert+1l'⌋;
+⌊previous-line⌋ → ⌊movecursor 'insert-1l'⌋;
+⌊forward-char⌋ → ⌊movecursor 'insert+1c'⌋;
+⌊backward-char⌋ → ⌊movecursor 'insert-1c'⌋;
+⌊find-file⌋ → ⌊openfile⌋;
+⌊mark-whole-buffer⌋ → ⌊select '1.0', 'end'⌋;
+⌊save-buffers-kill-terminal⌋ → ⌊close⌋;
+⌊save-buffer⌋ → ⌊savefile⌋;
+⌊write-file⌋ → ⌊saveasfile⌋;
+⌊undo⌋ → ⌊undo⌋;
+⌊python-mode⌋ → ⌊hmode 'py'⌋;
+⌊latex-mode⌋ → ⌊hmode 'la'⌋;
+⌊html-mode⌋ → ⌊hmode 'html'⌋;
+⌊text-mode⌋ → ⌊hmode 'norm'⌋;
+⌊kill-line⌋ → ⌊killline⌋;
+⌊kill-whole-line⌋ → ⌊killwholeline⌋;
+
+<Alt-semicolon> → <commentselection>;
+<Alt-percent> → <findreplace>;
+<Alt-w> → <copy>;
+<Control-slash> → <undo>;
+<Control-underscore> → <undo>;
+<Control-t> → <transposechars>;
+<Control-s> → <findtext>;
+<Control-w> → <cut>;
+<Control-y> → <paste>;
+<Control-a> → <movecursor tkindex ('insert', 'line') + '.0'>;
+<Control-e> → <movecursor tkindex ('insert', 'line') + '.end'>;
+<Control-n> → <movecursor 'insert+1l'>;
+<Control-p> → <movecursor 'insert-1l'>;
+<Control-f> → <movecursor 'insert+1c'>;
+<Control-b> → <movecursor 'insert-1c'>;
+<Control-k> → <killline>;
+<Control-c> → <pass>;
+<Control-z> → <pass>;
+<Control-Alt-backslash> → <indentselection>;
+<Alt-v> → <pageback>;
+<Control-v> → <pageforw>;
+<Alt-less> → <movecursor '1.0'>;
+<Alt-greater> → <movecursor 'end'>;
+<Control-Shift-BackSpace> → <killwholeline>;
+
+<Control-x & h> → <select '1.0', 'end-1c'>;
+<Control-x & Control-c> → <close>;
+<Control-c & less> → <unindentselection>;
+<Control-c & greater> → <indentselection>;
+<Control-x & Control-s> → <savefile>;
+<Control-x & Control-w> → <saveasfile>;
+<Control-x & u> → <undo>;

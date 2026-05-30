@@ -97,3 +97,65 @@ This script works on both Linux and Windows. Run the `pynotes_plugin_installer.p
 ## Manual  
 Download the plugins from the `Plugins/` folder. You can also make your own or get them from somewhere else. Then extract them if they are compressed, and move the folder to `~/.local/share/PyNotes/add-ons/` on Linux, and `C:/Users/{Your Username}/.local/share/PyNotes/add-ons` on Windows.  
 **Note:** Be careful in downloading plugins from other sources, as they will have full access to your system and be able to run any commands.  
+# PyNotes Emacs Config  
+**Note:** This config only works on PyNotes versions 1.8 and above, as it uses chord keybindings, which did not exist before PyNotes v1.8.  
+## What it does  
+This PyNotes Emacs config copies the following Emacs `M-x` commands and keybindings:  
+### Emacs M-x Commands  
+* `transpose-chars` - Transpose (swap) the two characters behind the cursor in the editor.  
+* `query-replace` - Find & Replace.  
+* `kill-ring-save` - Copy selected text.  
+* `isearch-forward` - Find.  
+* `kill-region` - Cut (kill) the selected text.  
+* `yank` - Paste previously copied or cut text.  
+* `move-beginning-of-line` - Move the cursor to the start of the current line.  
+* `move-end-of-line` - Move the cursor to the end of the current line.  
+* `next-line` - Move the cursor down one line.  
+* `previous-line` - Move the cursor up one line.  
+* `forward-char` - Move the cursor forward one character.  
+* `backward-char` - Move the cursor backward one character.  
+* `find-file` - Open a file.  
+* `mark-whole-buffer` - Select all text in the buffer.  
+* `save-buffers-kill-terminal` - Close PyNotes normally, after asking to save unsaved changes.  
+* `save-buffer` - Save the current file.  
+* `write-file` - Save As.  
+* `undo` - Undo.  
+* `python-mode` - Switch the HMode to Python.  
+* `latex-mode` - Switch the HMode to LaTeX.  
+* `html-mode` - Switch the HMode to HTML.  
+* `text-mode` - Switch the HMode to Normal.  
+* `kill-line` - Cut (kill) text from the cursor to the end of the line.  
+* `kill-whole-line` - Cut (kill) the entire current line.  
+### Emacs Keybindings  
+* `Alt-semicolon` - Comment the current selection.  
+* `Alt-percent` - Find & Replace.  
+* `Alt-w` - Copy selected text.  
+* `Control-slash` - Undo.  
+* `Control-underscore` - Undo.  
+* `Control-t` - Transpose (swap) the two characters behind the cursor in the editor.  
+* `Control-s` - Find.  
+* `Control-w` - Cut (kill) selected text.  
+* `Control-y` - Paste previously copied or cut text.  
+* `Control-a` - Move cursor to start of line.  
+* `Control-e` - Move cursor to end of line.  
+* `Control-n` - Move cursor to next line.  
+* `Control-p` - Move cursor to previous line.  
+* `Control-f` - Move cursor forward one character.  
+* `Control-b` - Move cursor backward one character.  
+* `Control-k` - Kill (cut) from cursor to end of line.  
+* `Control-Alt-backslash` - Indent selected text.  
+* `Alt-v` - Scroll/page backward.  
+* `Control-v` - Scroll/page forward.  
+* `Alt-less` - Move cursor to start of buffer.  
+* `Alt-greater` - Move cursor to end of buffer.  
+* `Control-Shift-BackSpace` - Kill (cut) the entire current line.  
+* `Control-x & h` - Select the entire buffer.  
+* `Control-x & Control-c` - Close the editor/application.  
+* `Control-c & less` - Unindent selected text.  
+* `Control-c & greater` - Indent selected text.  
+* `Control-x & Control-s` - Save file.  
+* `Control-x & Control-w` - Save As.  
+* `Control-x & u` - Undo last change.  
+## To Use  
+For Emacs users, there is a readymade PyCode config in [pynotesemacsconfig.txt](pynotesemacsconfig.txt) that copies a lot of standard Emacs keybindings and `M-x` commands. To use it, open PyCode with `Alt-X pc`, and paste the contents of the file in the window that appears. Then, click the 'Done' button on the bottom. This automatically saves and applies the config to the instance of PyNotes you opened it in. For other already open PyNotes windows, just open PyCode and click 'Done' in them to apply the config. Alternatively, directly copy the file to `~/pynotes` on Linux, and `C:\Users\{yourusername}\.pynotes on Windows. This will only apply to PyNotes opened after this, or if you open PyCode and close it in already open PyNotes windows.  
+**Note:** Make sure to close PyCode with the 'Done' button only, and not close the window in any other way, as this will cancel the changes to your PyCode config.  
