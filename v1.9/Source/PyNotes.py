@@ -1943,6 +1943,17 @@ def _python_resolve_module_members(name, visited = None):
 							for k, v in sub_members.items():
 								if k.startswith(pfx):
 									members[exported + k[len(alias.name):]] = v
+						elif _python_find_spec_cached(f'{sub_name}.{alias.name}') is not None:
+							members[exported] = 'module'
+							members['@modtarget:' + exported] = f'{sub_name}.{alias.name}'
+		elif isinstance(node, ast.Import):
+			for alias in node.names:
+				if alias.asname:
+					members.setdefault(alias.asname, 'module')
+					members.setdefault('@modtarget:' + alias.asname, alias.name)
+				else:
+					members.setdefault(alias.name.split('.')[0], 'module')
+					members.setdefault('@modtarget:' + alias.name.split('.')[0], alias.name.split('.')[0])
 	_python_module_members_cache[name] = members
 	return members
 _python_module_func_params_cache = {}
@@ -2217,6 +2228,12 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 	module_contents = {}
 	local_classes = {}
 	class_module_origin = dict(seed_origins) if seed_origins else {}
+	dynamic_class_attrs = {}
+	dynamic_class_attr_types = {}
+	dynamic_module_attrs = {}
+	dynamic_module_attr_types = {}
+	dynamic_modclass_attrs = {}
+	dynamic_modclass_attr_types = {}
 	tree_class_defs = []
 	tree_func_defs = []
 	tree_assigns = []
@@ -2379,7 +2396,10 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				class_module_origin[imported_name] = (module_name, _orig_name)
 	base_to_module = {}
 	for _, imported_name, top_name, used_name, _ in builder.import_names:
-		if imported_name in valid_modules:
+		if used_name == top_name:
+			if top_name in valid_modules:
+				base_to_module[used_name] = top_name
+		elif imported_name in valid_modules:
 			base_to_module[used_name] = imported_name
 		elif top_name in valid_modules:
 			base_to_module[used_name] = top_name
@@ -2435,6 +2455,7 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 					builder.func_accepts_any.add(_aname)
 			if _srckind == 'class' and _asrc in local_classes and _aname not in local_classes:
 				local_classes[_aname] = local_classes[_asrc]
+				class_type_maps[_aname] = class_type_maps.setdefault(_asrc, {})
 				if _asrc in class_module_origin:
 					class_module_origin[_aname] = class_module_origin[_asrc]
 				for _mk in list(local_class_method_params):
@@ -2467,7 +2488,7 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 	for _dln, _dnm, _dk in builder.def_names:
 		local_def_lines.setdefault(_dnm, []).append(_dln)
 	def _lookup_module_callable(mod_name, key):
-		if mod_name not in valid_modules:
+		if mod_name not in valid_modules and _python_find_spec_cached(mod_name) is None:
 			return None, None
 		fp = _python_resolve_module_func_params(mod_name)
 		if key not in fp:
@@ -2487,6 +2508,11 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				idx += 1
 				continue
 			mems = _python_resolve_module_members(cur_mod)
+			_tgt = mems.get('@modtarget:' + seg)
+			if _tgt is not None:
+				cur_mod = _tgt
+				idx += 1
+				continue
 			if mems.get(seg) == 'class':
 				if idx + 1 < len(rest):
 					return _lookup_module_callable(cur_mod, seg + '.' + rest[idx + 1])
@@ -2716,6 +2742,27 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				return None
 			sidx = sc['parent']
 		return None
+	def _assign_type_name(val):
+		if isinstance(val, ast.Call):
+			func = val.func
+			if isinstance(func, ast.Name):
+				return func.id if func.id in local_classes else None
+			if isinstance(func, ast.Attribute):
+				return func.attr if func.attr in local_classes else None
+			return None
+		if isinstance(val, ast.Constant):
+			return type(val.value).__name__
+		if isinstance(val, ast.List):
+			return 'list'
+		if isinstance(val, ast.Dict):
+			return 'dict'
+		if isinstance(val, ast.Tuple):
+			return 'tuple'
+		if isinstance(val, ast.Set):
+			return 'set'
+		if isinstance(val, ast.JoinedStr):
+			return 'str'
+		return None
 	def _literal_type(node):
 		if isinstance(node, ast.Constant):
 			return type(node.value).__name__
@@ -2735,6 +2782,9 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 		_k = _mm.get(attr)
 		if _k is not None:
 			return _k
+		_dk = dynamic_module_attrs.get(mod, {}).get(attr)
+		if _dk is not None:
+			return _dk
 		_sub = f'{mod}.{attr}'
 		if _sub in valid_modules:
 			return 'module'
@@ -2752,6 +2802,8 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				if vt in class_module_origin and vt not in local_classes:
 					return ('minstance', class_module_origin[vt][0], class_module_origin[vt][1])
 				return ('instance', vt)
+			if node.id in class_module_origin and _call_name_kind(node.id, node.lineno) == 'class':
+				return ('modclass', class_module_origin[node.id][0], class_module_origin[node.id][1])
 			if node.id in local_classes:
 				return ('class', node.id)
 			if node.id in base_to_module and _call_name_kind(node.id, node.lineno) == 'module':
@@ -2789,13 +2841,26 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 			if r[0] == 'module':
 				_mk = _module_attr_kind(r[1], node.attr)
 				if _mk == 'module':
-					return ('module', f'{r[1]}.{node.attr}')
+					_tgt = _python_resolve_module_members(r[1]).get('@modtarget:' + node.attr)
+					return ('module', _tgt if _tgt is not None else f'{r[1]}.{node.attr}')
 				if _mk == 'class':
 					return ('modclass', r[1], node.attr)
+				_dmt = dynamic_module_attr_types.get(r[1], {}).get(node.attr)
+				if _dmt is not None and _dmt in local_classes:
+					return ('instance', _dmt)
 				return None
 			if r[0] in ('modclass', 'minstance'):
+				_dt = dynamic_class_attr_types.get(r[2], {}).get(node.attr)
+				if _dt is None and r[0] == 'modclass':
+					_dt = dynamic_modclass_attr_types.get(r[2], {}).get(node.attr)
+				if _dt is not None and _dt in local_classes:
+					return ('instance', _dt)
 				return None
 			members = local_classes.get(r[1], {})
+			if r[0] == 'instance':
+				_dt = dynamic_class_attr_types.get(r[1], {}).get(node.attr)
+				if _dt is not None and _dt in local_classes:
+					return ('instance', _dt)
 			if node.attr not in members:
 				return None
 			tt = class_type_maps.get(r[1], {}).get(node.attr)
@@ -2805,6 +2870,44 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				return ('class', node.attr)
 			return None
 		return None
+	for _an in tree_assigns:
+		for _atgt in _an.targets:
+			if not isinstance(_atgt, ast.Attribute):
+				continue
+			_atn = _assign_type_name(_an.value)
+			if isinstance(_atgt.value, ast.Name) and _call_name_kind(_atgt.value.id, _an.lineno) == 'class' and _atgt.value.id in local_classes and _atgt.value.id not in class_module_origin:
+				local_classes[_atgt.value.id].setdefault(_atgt.attr, 'var')
+				if _atn is not None and _atn in local_classes:
+					class_type_maps.setdefault(_atgt.value.id, {})[_atgt.attr] = _atn
+				continue
+			_br = _infer_type(_atgt.value)
+			if _br is None:
+				continue
+			if _br[0] == 'module':
+				dynamic_module_attrs.setdefault(_br[1], {})[_atgt.attr] = 'var'
+				if _atn is not None and _atn in local_classes:
+					dynamic_module_attr_types.setdefault(_br[1], {})[_atgt.attr] = _atn
+			elif _br[0] == 'modclass':
+				dynamic_modclass_attrs.setdefault(_br[2], {})[_atgt.attr] = 'var'
+				if _atn is not None and _atn in local_classes:
+					dynamic_modclass_attr_types.setdefault(_br[2], {})[_atgt.attr] = _atn
+			elif _br[0] == 'minstance':
+				dynamic_class_attrs.setdefault(_br[2], {})[_atgt.attr] = 'var'
+				if _atn is not None and _atn in local_classes:
+					dynamic_class_attr_types.setdefault(_br[2], {})[_atgt.attr] = _atn
+			elif _br[0] == 'class' and _br[1] in class_module_origin:
+				_ocls = class_module_origin[_br[1]][1]
+				dynamic_modclass_attrs.setdefault(_ocls, {})[_atgt.attr] = 'var'
+				if _atn is not None and _atn in local_classes:
+					dynamic_modclass_attr_types.setdefault(_ocls, {})[_atgt.attr] = _atn
+			elif _br[0] == 'class' and _br[1] in local_classes:
+				local_classes[_br[1]].setdefault(_atgt.attr, 'var')
+				if _atn is not None and _atn in local_classes:
+					class_type_maps.setdefault(_br[1], {})[_atgt.attr] = _atn
+			elif _br[0] == 'instance' and _br[1] in local_classes:
+				dynamic_class_attrs.setdefault(_br[1], {})[_atgt.attr] = 'var'
+				if _atn is not None and _atn in local_classes:
+					dynamic_class_attr_types.setdefault(_br[1], {})[_atgt.attr] = _atn
 	typed_attrs = []
 	_ti = 0
 	for node in tree_attributes:
@@ -2818,8 +2921,14 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 			_k = _module_attr_kind(r[1], node.attr)
 		elif r[0] in ('modclass', 'minstance'):
 			_k = _python_resolve_module_member_kind(r[1], r[2], node.attr)
+			if _k is None and r[0] == 'minstance':
+				_k = dynamic_class_attrs.get(r[2], {}).get(node.attr)
+			if _k is None and r[0] == 'modclass':
+				_k = dynamic_modclass_attrs.get(r[2], {}).get(node.attr)
 		else:
 			_k = local_classes.get(r[1], {}).get(node.attr)
+			if _k is None and r[0] == 'instance':
+				_k = dynamic_class_attrs.get(r[1], {}).get(node.attr)
 		if _k is not None:
 			typed_attrs.append((node.end_lineno, node.end_col_offset - len(node.attr), node.attr, _k))
 	_ck()
@@ -4242,6 +4351,7 @@ def term(pythonfile = None):
 		shell = pythonexecutable if pythonfile else os.environ.get('SHELL', '/bin/bash')
 		env = os.environ.copy()
 		env['TERM'] = 'xterm-256color'
+		env['COLORTERM'] = 'truecolor'
 		_bg_r, _bg_g, _bg_b = term.winfo_rgb(_term_default_bg)
 		_fg_r, _fg_g, _fg_b = term.winfo_rgb(_term_default_fg)
 		_bg_is_light = (0.299 * _bg_r + 0.587 * _bg_g + 0.114 * _bg_b) / 256 >= 128
