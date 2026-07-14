@@ -39,8 +39,9 @@ For Windows, download Python from [here](https://www.python.org/downloads/window
 Click [here](pynotes_debian_installer.sh) to download the Debian installer script, [here](pynotes_rpm_installer.sh) for the RPM installer script, and [here](pynotes_windows_installer.py) for the Windows Installer.  
 For PyNotes version v1.8 and above, you might also have to manually download the Cairo C library. For Linux, install these packages: `python3-tk, python3-venv, zenity, libcairo2-dev, python3-dev, libffi-dev, pkg-config` (names may vary for your distribution). The `.deb` and `.rpm` packages also contain all the dependencies. For Windows, follow [this](https://www.gtk.org/docs/installations/windows).  
 System: Linux or Windows with Python 3.10 or above.  
-**Easytk needs ttkthemes to work. It is automatically installed with other packages from version 1.4.2. For older versions, install with:**  
-`pip3 install ttkthemes`  
+**Easytk in PyNotes version < v1.9 needs ttkthemes to work. It is automatically installed with other packages from PyNotes version 1.4.2. For older versions, install with:**  
+`pip install ttkthemes`  
+**Note:** It is highly recommended to upgrade PyNotes to a newer version. v1.4.2 is very old.  
 ## Sourceforge  
 Download from [Sourceforge](https://sourceforge.net/projects/pynotespython/).  
 ## Linux  
