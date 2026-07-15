@@ -1,19 +1,25 @@
 import platform
-import tkinter as tk
-from tkinter import ttk
 import time
 import shutil
 from tkinter import messagebox as mb
 import getpass
 import requests
 import os
+import tkinter as tk
 try:
-	import ttkthemes
+	import ttkbootstrap
 except:
-	root = ttkthemes.ThemedTk(theme = 'breeze')
+	from tkinter import ttk
+	try:
+		import ttkthemes
+	except:
+		root = tk.Tk()
+		ttk.Style().theme_use('clam')
+	else:
+		root = ttkthemes.ThemedTk(theme = 'breeze')
 else:
-	root = tk.Tk()
-	ttk.Style().theme_use('clam')
+	import ttkbootstrap as ttk
+	root = ttk.Window(themename = 'pulse')
 if platform.system() == 'Linux':
 	homedir = f'/home/{getpass.getuser()}'
 else:
