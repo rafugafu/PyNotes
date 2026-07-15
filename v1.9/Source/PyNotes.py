@@ -629,7 +629,7 @@ for code in first:
 	except Exception as error:
 		root.error('Error!', f'There was an error in the first part of the plugin "{os.path.basename(os.path.normpath(code[0]))}":\n{error}')
 def ss():
-	answer = root.ask('Warning', 'Do you want to save file before closing ?', options = ('yes', 'no', 'cancel'), icon = 'warning') if unsaved else False
+	answer = root.ask('Warning', 'Do you want to save file before closing ?', options = ('yes', 'no', 'cancel')) if unsaved else False
 	if answer != None:
 		if answer:
 			if not saveforclose():
@@ -728,7 +728,7 @@ def saveforclose():
 			return True
 def ext():
 	global stoperrors
-	answer = root.ask('Warning', 'Do you want to save file before closing ?', options = ('yes', 'no', 'cancel'), icon = 'warning') if unsaved else False
+	answer = root.ask('Warning', 'Do you want to save file before closing ?', options = ('yes', 'no', 'cancel')) if unsaved else False
 	if answer != None:
 		if answer:
 			if not saveforclose():
@@ -844,7 +844,7 @@ def ld(nm):
 		type_.edit_reset()
 		_python_reset_scan_state()
 def llld():
-	answer = root.ask('Warning', 'Do you want to save file before closing ?', options = ('yes', 'no', 'cancel'), icon = 'warning') if unsaved else False
+	answer = root.ask('Warning', 'Do you want to save file before closing ?', options = ('yes', 'no', 'cancel')) if unsaved else False
 	if answer != None:
 		if answer:
 			if not saveforclose():
@@ -888,7 +888,7 @@ def nw():
 	global hmode
 	global unsaved
 	global unsavedtext
-	answer = root.ask('Warning', 'Do you want to save file before closing ?', options = ('yes', 'no', 'cancel'), icon = 'warning') if unsaved else False
+	answer = root.ask('Warning', 'Do you want to save file before closing ?', options = ('yes', 'no', 'cancel')) if unsaved else False
 	if answer != None:
 		if answer:
 			if not saveforclose():
@@ -1493,8 +1493,6 @@ def _find_closing_tag(text, start):
 				return i + 1
 		i += 1
 	return len(text)
-_PYTHON_NAME_LEAD = '(?<![\\w.\'"])'
-_PYTHON_NAME_TRAIL = '(?![\\w\'"])'
 def _python_bytecol_to_charcol(line_str, bytecol):
 	if bytecol <= 0:
 		return bytecol
@@ -1524,6 +1522,7 @@ _python_scopes = [{'start': 1, 'end': 1, 'parent': None, 'names': {}}]
 _python_call_kwargs = {}
 _python_module_literals = []
 _python_literal_attrs = []
+_python_name_positions = []
 _python_def_names = []
 _python_typed_attrs = []
 _python_param_default_tags = []
@@ -1538,12 +1537,13 @@ _unsaved_after_id = None
 _prev_visible_region = None
 _python_edit_generation = [0]
 def _python_reset_scan_state():
-	global _python_scopes, _python_call_kwargs, _python_module_literals, _python_literal_attrs, _python_def_names, _python_typed_attrs, _python_param_default_tags, _python_kwarg_positions, _python_import_dotted_lines, _python_import_orig_name_tags
+	global _python_scopes, _python_call_kwargs, _python_module_literals, _python_literal_attrs, _python_name_positions, _python_def_names, _python_typed_attrs, _python_param_default_tags, _python_kwarg_positions, _python_import_dotted_lines, _python_import_orig_name_tags
 	_python_edit_generation[0] += 1
 	_python_scopes = [{'start': 1, 'end': 1, 'parent': None, 'names': {}}]
 	_python_call_kwargs = {}
 	_python_module_literals = []
 	_python_literal_attrs = []
+	_python_name_positions = []
 	_python_def_names = []
 	_python_typed_attrs = []
 	_python_param_default_tags = []
@@ -1872,16 +1872,66 @@ def _python_inspect_ast_members(node_list, prefix = ''):
 				key = f'{prefix}.{node.target.id}' if prefix else node.target.id
 				members[key] = 'var'
 	return members
+import importlib.machinery as _python_importlib_machinery
+_PYTHON_EXTENSION_SUFFIXES = tuple(_python_importlib_machinery.EXTENSION_SUFFIXES)
+_PYTHON_STDLIB_BUILTIN_MODULES = set(sys.builtin_module_names)
+class _PythonModuleSpec:
+	def __init__(self, name, origin, search_locations):
+		self.name = name
+		self.origin = origin
+		self.submodule_search_locations = search_locations
 _python_module_spec_cache = {}
 def _python_find_spec_cached(name):
 	if name in _python_module_spec_cache:
 		return _python_module_spec_cache[name]
-	try:
-		spec = importlib.util.find_spec(name)
-	except Exception:
-		spec = None
+	spec = _python_resolve_spec_fs(name)
 	_python_module_spec_cache[name] = spec
 	return spec
+def _python_resolve_spec_fs(name):
+	parts = name.split('.')
+	if '' in parts or not parts:
+		return None
+	if len(parts) == 1:
+		return _python_resolve_toplevel_fs(parts[0])
+	parent = _python_find_spec_cached('.'.join(parts[:-1]))
+	if parent is None or not parent.submodule_search_locations:
+		return None
+	leaf = parts[-1]
+	for _dir in parent.submodule_search_locations:
+		_pkg = os.path.join(_dir, leaf, '__init__.py')
+		if os.path.isfile(_pkg):
+			return _PythonModuleSpec(name, _pkg, [os.path.dirname(_pkg)])
+		_pdir = os.path.join(_dir, leaf)
+		if os.path.isdir(_pdir):
+			return _PythonModuleSpec(name, None, [_pdir])
+		_mod = os.path.join(_dir, leaf + '.py')
+		if os.path.isfile(_mod):
+			return _PythonModuleSpec(name, _mod, None)
+		for _ext in _PYTHON_EXTENSION_SUFFIXES:
+			if os.path.isfile(os.path.join(_dir, leaf + _ext)):
+				return _PythonModuleSpec(name, os.path.join(_dir, leaf + _ext), None)
+	return None
+def _python_resolve_toplevel_fs(name):
+	for _dir in sys.path:
+		try:
+			_dir = _dir or os.getcwd()
+		except Exception:
+			continue
+		_pkg = os.path.join(_dir, name, '__init__.py')
+		if os.path.isfile(_pkg):
+			return _PythonModuleSpec(name, _pkg, [os.path.dirname(_pkg)])
+		_pdir = os.path.join(_dir, name)
+		if os.path.isdir(_pdir):
+			return _PythonModuleSpec(name, None, [_pdir])
+		_mod = os.path.join(_dir, name + '.py')
+		if os.path.isfile(_mod):
+			return _PythonModuleSpec(name, _mod, None)
+		for _ext in _PYTHON_EXTENSION_SUFFIXES:
+			if os.path.isfile(os.path.join(_dir, name + _ext)):
+				return _PythonModuleSpec(name, os.path.join(_dir, name + _ext), None)
+	if name in _PYTHON_STDLIB_BUILTIN_MODULES:
+		return _PythonModuleSpec(name, 'built-in', None)
+	return None
 def _python_module_src_path(spec, name):
 	if spec is None or not spec.origin:
 		return None
@@ -1922,7 +1972,45 @@ def _python_resolve_module_members(name, visited = None):
 		_python_module_members_cache[name] = {}
 		return {}
 	members = _python_inspect_ast_members(mod_ast.body)
-	for node in mod_ast.body:
+	_import_nodes = []
+	def _collect_scope_imports(_stmts, _globals):
+		for _st in _stmts:
+			if isinstance(_st, (ast.Import, ast.ImportFrom)):
+				if _globals is None:
+					_import_nodes.append(_st)
+				else:
+					for _al in _st.names:
+						_bound = _al.asname if _al.asname else _al.name.split('.')[0]
+						if _bound in _globals:
+							_import_nodes.append(_st)
+							break
+			elif isinstance(_st, ast.Global):
+				if _globals is not None:
+					_globals.update(_st.names)
+			elif isinstance(_st, ast.If):
+				_collect_scope_imports(_st.body, _globals)
+				_collect_scope_imports(_st.orelse, _globals)
+			elif isinstance(_st, ast.Try):
+				_collect_scope_imports(_st.body, _globals)
+				for _h in _st.handlers:
+					_collect_scope_imports(_h.body, _globals)
+				_collect_scope_imports(_st.orelse, _globals)
+				_collect_scope_imports(_st.finalbody, _globals)
+			elif isinstance(_st, (ast.With, ast.AsyncWith)):
+				_collect_scope_imports(_st.body, _globals)
+			elif isinstance(_st, (ast.For, ast.AsyncFor, ast.While)):
+				_collect_scope_imports(_st.body, _globals)
+				_collect_scope_imports(_st.orelse, _globals)
+			elif isinstance(_st, (ast.FunctionDef, ast.AsyncFunctionDef)):
+				_fnglobals = set()
+				for _sub in ast.walk(_st):
+					if isinstance(_sub, ast.Global):
+						_fnglobals.update(_sub.names)
+				_collect_scope_imports(_st.body, _fnglobals)
+			elif isinstance(_st, ast.ClassDef):
+				_collect_scope_imports(_st.body, set())
+	_collect_scope_imports(mod_ast.body, None)
+	for node in _import_nodes:
 		if isinstance(node, ast.ImportFrom):
 			sub_name = (node.module if node.level == 0 else f'{name}.{node.module}') if node.module else name
 			sub_members = None
@@ -2238,12 +2326,23 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 	tree_func_defs = []
 	tree_assigns = []
 	tree_attributes = []
+	tree_imports = []
+	tree_importfroms = []
+	name_positions = []
+	def _skip_ws(enc, i):
+		while i < len(enc) and enc[i:i + 1] in (b' ', b'\t'):
+			i += 1
+		return i
 	_tw = 0
 	for _tn in ast.walk(tree):
 		_tw += 1
 		if _tw % 2000 == 0:
 			_ck()
-		if isinstance(_tn, ast.Attribute):
+		if isinstance(_tn, ast.Name):
+			name_positions.append((_tn.lineno, _tn.col_offset, _tn.id, isinstance(_tn.ctx, ast.Store)))
+		elif isinstance(_tn, ast.arg):
+			name_positions.append((_tn.lineno, _tn.col_offset, _tn.arg, True))
+		elif isinstance(_tn, ast.Attribute):
 			tree_attributes.append(_tn)
 		elif isinstance(_tn, ast.Assign):
 			tree_assigns.append(_tn)
@@ -2251,6 +2350,52 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 			tree_class_defs.append(_tn)
 		elif isinstance(_tn, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
 			tree_func_defs.append(_tn)
+		elif isinstance(_tn, ast.alias):
+			if _tn.asname:
+				name_positions.append((_tn.end_lineno, _tn.end_col_offset - len(_tn.asname.encode('utf-8')), _tn.asname, True))
+			elif _tn.name != '*' and '.' not in _tn.name:
+				name_positions.append((_tn.lineno, _tn.col_offset, _tn.name, True))
+		elif isinstance(_tn, ast.Import):
+			tree_imports.append(_tn)
+		elif isinstance(_tn, ast.ImportFrom):
+			tree_importfroms.append(_tn)
+		elif isinstance(_tn, ast.ExceptHandler):
+			if _tn.name and _tn.type is not None and 0 < _tn.type.end_lineno <= len(lines):
+				_enc = lines[_tn.type.end_lineno - 1].encode('utf-8')
+				_i = _skip_ws(_enc, _tn.type.end_col_offset)
+				if _enc[_i:_i + 2] == b'as':
+					_i = _skip_ws(_enc, _i + 2)
+					_nb = _tn.name.encode('utf-8')
+					if _enc[_i:_i + len(_nb)] == _nb:
+						name_positions.append((_tn.type.end_lineno, _i, _tn.name, True))
+		elif isinstance(_tn, (ast.Global, ast.Nonlocal)):
+			if 0 < _tn.lineno <= len(lines):
+				_enc = lines[_tn.lineno - 1].encode('utf-8')
+				_i = _tn.col_offset + (6 if isinstance(_tn, ast.Global) else 8)
+				for _gname in _tn.names:
+					while _i < len(_enc) and _enc[_i:_i + 1] in (b' ', b'\t', b','):
+						_i += 1
+					_nb = _gname.encode('utf-8')
+					if _enc[_i:_i + len(_nb)] != _nb:
+						break
+					name_positions.append((_tn.lineno, _i, _gname, False))
+					_i += len(_nb)
+	def_name_positions = []
+	for _tn in tree_class_defs + tree_func_defs:
+		if isinstance(_tn, ast.Lambda) or not (0 < _tn.lineno <= len(lines)):
+			continue
+		_enc = lines[_tn.lineno - 1].encode('utf-8')
+		_i = _tn.col_offset
+		if isinstance(_tn, ast.ClassDef):
+			_i += 5
+		else:
+			if _enc[_i:_i + 5] == b'async':
+				_i = _skip_ws(_enc, _i + 5)
+			_i += 3
+		_i = _skip_ws(_enc, _i)
+		_nb = _tn.name.encode('utf-8')
+		if _enc[_i:_i + len(_nb)] == _nb:
+			def_name_positions.append((_tn.lineno, _i, _tn.name, 'class' if isinstance(_tn, ast.ClassDef) else 'func'))
 	_class_def_by_name = {}
 	for _tn in tree_class_defs:
 		if _tn.name not in _class_def_by_name:
@@ -2551,7 +2696,14 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 			return _resolve_through_module(base_to_module[root], rest)
 		return None, None
 	_ck()
-	module_literals = [(lineno, name) for lineno, name in builder.module_literals if name in valid_modules]
+	module_literals = []
+	for _ifn in tree_importfroms:
+		if _ifn.module and '.' not in _ifn.module and _ifn.module in valid_modules:
+			module_literals.append((_ifn.lineno, _ifn.col_offset + 5 + _ifn.level, _ifn.module))
+	for _imn in tree_imports:
+		for _ial in _imn.names:
+			if _ial.asname and '.' not in _ial.name and _ial.name in valid_modules:
+				module_literals.append((_ial.lineno, _ial.col_offset, _ial.name))
 	import_dotted_lines = [(lineno, col, dotted) for lineno, col, dotted in builder.import_dotted_lines if dotted in valid_modules or _python_find_spec_cached(dotted) is not None]
 	import_orig_name_tags = []
 	_kind_to_tag = {'func': 'hpf', 'class': 'hpx', 'var': 'hpv', 'module': 'hpm'}
@@ -3081,23 +3233,25 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 		if _lat and node.attr in _PYTHON_BUILTIN_MEMBERS.get(_lat, {}):
 			literal_attrs.append((node.end_lineno, node.end_col_offset - len(node.attr), node.attr, _lat))
 	_ck()
-	return builder.scopes, call_kwargs, builder.module_aliases, local_classes, module_literals, scope_var_types, literal_attrs, builder.def_names, typed_attrs, param_default_tags, builder.kwarg_positions, import_dotted_lines, import_orig_name_tags, class_module_origin, local_class_method_params, local_class_accepts_any
+	return builder.scopes, call_kwargs, builder.module_aliases, local_classes, module_literals, scope_var_types, literal_attrs, def_name_positions, typed_attrs, param_default_tags, builder.kwarg_positions, import_dotted_lines, import_orig_name_tags, class_module_origin, local_class_method_params, local_class_accepts_any, name_positions
 def _python_scan_names(text, gen = None):
 	global _python_scopes
 	global _python_call_kwargs
 	global _python_module_literals
 	global _python_literal_attrs
+	global _python_name_positions
 	global _python_def_names
 	global _python_typed_attrs
 	global _python_param_default_tags
 	global _python_kwarg_positions, _python_import_dotted_lines, _python_import_orig_name_tags
 	result = _python_build_scopes(text, gen)
 	if result is not None:
-		scopes, call_kwargs, module_aliases, local_classes, module_literals, scope_var_types, literal_attrs, def_names, typed_attrs, param_default_tags, kwarg_positions, import_dotted_lines, import_orig_name_tags, class_module_origin, local_class_method_params, local_class_accepts_any = result
+		scopes, call_kwargs, module_aliases, local_classes, module_literals, scope_var_types, literal_attrs, def_names, typed_attrs, param_default_tags, kwarg_positions, import_dotted_lines, import_orig_name_tags, class_module_origin, local_class_method_params, local_class_accepts_any, name_positions = result
 		_python_scopes = scopes
 		_python_call_kwargs = call_kwargs
 		_python_module_literals = module_literals
 		_python_literal_attrs = literal_attrs
+		_python_name_positions = name_positions
 		_python_def_names = def_names
 		_python_typed_attrs = typed_attrs
 		_python_param_default_tags = param_default_tags
@@ -3168,6 +3322,7 @@ def ha(ft):
 	python_scopes = _python_scopes
 	python_call_kwargs = _python_call_kwargs
 	python_module_literals = _python_module_literals
+	python_name_positions = _python_name_positions
 	python_def_names = _python_def_names
 	python_typed_attrs = _python_typed_attrs
 	python_param_default_tags = _python_param_default_tags
@@ -3191,17 +3346,21 @@ def ha(ft):
 							if line not in line_scopes or sc['start'] >= python_scopes[line_scopes[line]]['start']:
 								line_scopes[line] = k
 				module_literal_lines = {}
-				for lineno, name in python_module_literals:
-					module_literal_lines.setdefault(lineno, []).append(name)
+				for lineno, _mcol, name in python_module_literals:
+					module_literal_lines.setdefault(lineno, []).append((_mcol, name))
 				import_dotted_by_line = {}
 				for lineno, dcol, dotted in python_import_dotted_lines:
 					import_dotted_by_line.setdefault(lineno, []).append((dcol, dotted))
 				import_orig_by_line = {}
 				for _oln, _ocol, _oname, _otag in python_import_orig_name_tags:
 					import_orig_by_line.setdefault(_oln, []).append((_ocol, _oname, _otag))
+				name_pos_by_line = {}
+				for _nl, _ncol, _nname, _nstore in python_name_positions:
+					name_pos_by_line.setdefault(_nl, []).append((_ncol, _nname, _nstore))
 				def_names_by_line = {}
-				for _dl, _dname, _dkind in python_def_names:
-					def_names_by_line.setdefault(_dl, []).append((_dname, _dkind))
+				for _dl, _dcol, _dname, _dkind in python_def_names:
+					def_names_by_line.setdefault(_dl, []).append((_dcol, _dname, _dkind))
+				python_kind_tags = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}
 				python_literal_attrs = _python_literal_attrs
 				literal_attr_by_line = {}
 				for _ln, _col, _attr, _tname in python_literal_attrs:
@@ -3258,47 +3417,36 @@ def ha(ft):
 								if best[0] == abs_line and second_best is not None and second_best[1] != best[1]:
 									prior_kinds[name] = second_best[1]
 						scope_idx = sc['parent']
-					groups = {}
-					for name, kind in active.items():
-						groups.setdefault(prior_kinds.get(name, kind), []).append(name)
-					for kind, names_list in groups.items():
-						if not names_list:
+					for _ncol, _nname, _nstore in name_pos_by_line.get(abs_line, []):
+						_nkind = active.get(_nname)
+						if _nkind is None:
 							continue
-						tag = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(kind)
-						if tag is None:
+						if not _nstore and _nname in prior_kinds:
+							_nkind = prior_kinds[_nname]
+						_ntag = python_kind_tags.get(_nkind)
+						if _ntag is None:
 							continue
-						pat = re.compile(_PYTHON_NAME_LEAD + r'(?:' + '|'.join(re.escape(nm) for nm in names_list) + r')' + _PYTHON_NAME_TRAIL)
-						for m in pat.finditer(line_str):
-							ops.append(('add', tag, f'{top}+{offset + m.start()}c', f'{top}+{offset + m.end()}c'))
-					for name in prior_kinds:
-						new_tag = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(active[name])
-						if new_tag is None:
-							continue
-						m = re.search(_PYTHON_NAME_LEAD + re.escape(name) + _PYTHON_NAME_TRAIL, line_str)
-						if m:
-							s = f'{top}+{offset + m.start()}c'
-							e = f'{top}+{offset + m.end()}c'
-							ops.append(('clear_other', s, e))
-							ops.append(('add', new_tag, s, e))
-					for _dname, _dkind in def_names_by_line.get(abs_line, []):
-						_dm = re.match(r'\s*(?:async\s+)?def\s+(' + re.escape(_dname) + r')\b', line_str) if _dkind == 'func' else re.match(r'\s*class\s+(' + re.escape(_dname) + r')\b', line_str)
-						if _dm:
-							s = f'{top}+{offset + _dm.start(1)}c'
-							e = f'{top}+{offset + _dm.end(1)}c'
-							ops.append(('clear_other', s, e))
-							ops.append(('add', 'hpf' if _dkind == 'func' else 'hpx', s, e))
+						_nccol = _python_bytecol_to_charcol(line_str, _ncol)
+						s = f'{top}+{offset + _nccol}c'
+						e = f'{top}+{offset + _nccol + len(_nname)}c'
+						ops.append(('add', _ntag, s, e))
+					for _dcol, _dname, _dkind in def_names_by_line.get(abs_line, []):
+						_dccol = _python_bytecol_to_charcol(line_str, _dcol)
+						s = f'{top}+{offset + _dccol}c'
+						e = f'{top}+{offset + _dccol + len(_dname)}c'
+						ops.append(('add', 'hpf' if _dkind == 'func' else 'hpx', s, e))
 					for _pcol, _pname, _pkind in param_default_by_line.get(abs_line, []):
 						_pcol = _python_bytecol_to_charcol(line_str, _pcol)
 						_ptag = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(_pkind)
 						if _ptag is not None:
 							s = f'{top}+{offset + _pcol}c'
 							e = f'{top}+{offset + _pcol + len(_pname)}c'
-							ops.append(('clear_other', s, e))
 							ops.append(('add', _ptag, s, e))
-					for name in module_literal_lines.get(abs_line, []):
-						lit_pat = re.compile(_PYTHON_NAME_LEAD + re.escape(name) + _PYTHON_NAME_TRAIL)
-						for m in lit_pat.finditer(line_str):
-							ops.append(('add', 'hpm', f'{top}+{offset + m.start()}c', f'{top}+{offset + m.end()}c'))
+					for _mcol, name in module_literal_lines.get(abs_line, []):
+						_mccol = _python_bytecol_to_charcol(line_str, _mcol)
+						if line_str[_mccol:_mccol + len(name)] != name:
+							continue
+						ops.append(('add', 'hpm', f'{top}+{offset + _mccol}c', f'{top}+{offset + _mccol + len(name)}c'))
 					for dcol, dotted in import_dotted_by_line.get(abs_line, []):
 						dcol = _python_bytecol_to_charcol(line_str, dcol)
 						if line_str[dcol:dcol + len(dotted)] != dotted:
@@ -3332,7 +3480,6 @@ def ha(ft):
 				for m in _PYTHON_OP_PAT.finditer(text):
 					s = f'{top}+{m.start()}c'
 					e = f'{top}+{m.end()}c'
-					ops.append(('clear_other', s, e))
 					ops.append(('add', 'hpo', s, e))
 				pre_n = len(pre_text)
 				pre_i = 0
@@ -3407,7 +3554,6 @@ def ha(ft):
 						j += 1
 					if not found_close:
 						j = n
-					ops.append(('clear_other', f'{top}+0c', f'{top}+{j}c'))
 					ops.append(('add', 'hpd', f'{top}+0c', f'{top}+{j}c'))
 					i = j
 				elif in_single:
@@ -3425,7 +3571,6 @@ def ha(ft):
 						j += 1
 					if j > n:
 						j = n
-					ops.append(('clear_other', f'{top}+0c', f'{top}+{j}c'))
 					ops.append(('add', 'hpd', f'{top}+0c', f'{top}+{j}c'))
 					i = j
 				while i < n:
@@ -3445,7 +3590,6 @@ def ha(ft):
 							j += 1
 						if not found_close:
 							j = n
-						ops.append(('clear_other', f'{top}+{i}c', f'{top}+{j}c'))
 						ops.append(('add', 'hpd', f'{top}+{i}c', f'{top}+{j}c'))
 						i = j
 					elif ch in ('"', "'"):
@@ -3461,7 +3605,6 @@ def ha(ft):
 							if text[j] == '\n':
 								break
 							j += 1
-						ops.append(('clear_other', f'{top}+{i}c', f'{top}+{j}c'))
 						ops.append(('add', 'hpd', f'{top}+{i}c', f'{top}+{j}c'))
 						i = j
 					elif ch == '#':
@@ -3470,7 +3613,6 @@ def ha(ft):
 							j += 1
 						if j < n:
 							j += 1
-						ops.append(('clear_other', f'{top}+{i}c', f'{top}+{j}c'))
 						ops.append(('add', 'hpc', f'{top}+{i}c', f'{top}+{j}c'))
 						i = j
 					else:
@@ -3601,7 +3743,6 @@ def ha(ft):
 				for m in _LH_PAT.finditer(text):
 					s = f'{top}+{m.start()}c'
 					e = f'{top}+{m.end()}c'
-					ops.append(('clear_other', s, e))
 					ops.append(('add', 'hlh', s, e))
 			elif ft == 'html':
 				last_open = pre_text.rfind('<!--')
@@ -3609,12 +3750,10 @@ def ha(ft):
 				if last_open != -1 and last_close < last_open:
 					close_pos = text.find('-->')
 					j = (close_pos + 3) if close_pos != -1 else len(text)
-					ops.append(('clear_other', f'{top}+0c', f'{top}+{j}c'))
 					ops.append(('add', 'hcmt', f'{top}+0c', f'{top}+{j}c'))
 				for m in _HC_PAT.finditer(text):
 					s = f'{top}+{m.start()}c'
 					e = f'{top}+{m.end()}c'
-					ops.append(('clear_other', s, e))
 					ops.append(('add', 'hcmt', s, e))
 				hi = 0
 				htlen = len(text)
@@ -3645,12 +3784,10 @@ def ha(ft):
 				if last_open != -1 and last_close < last_open:
 					close_pos = text.find('-->')
 					j = (close_pos + 3) if close_pos != -1 else len(text)
-					ops.append(('clear_other', f'{top}+0c', f'{top}+{j}c'))
 					ops.append(('add', 'hcmt', f'{top}+0c', f'{top}+{j}c'))
 				for m in _HC_PAT.finditer(text):
 					s = f'{top}+{m.start()}c'
 					e = f'{top}+{m.end()}c'
-					ops.append(('clear_other', s, e))
 					ops.append(('add', 'hcmt', s, e))
 				mhi = 0
 				mhtlen = len(text)
@@ -3697,7 +3834,6 @@ def ha(ft):
 				for m in _MDBI_PAT.finditer(text):
 					s = f'{top}+{m.start()}c'
 					e = f'{top}+{m.end()}c'
-					ops.append(('clear_other', s, e))
 					ops.append(('add', 'hmbi', s, e))
 				for m in _MDS_PAT.finditer(text):
 					s = f'{top}+{m.start()}c'
@@ -3708,12 +3844,10 @@ def ha(ft):
 				for m in _MDC_PAT.finditer(text):
 					s = f'{top}+{m.start()}c'
 					e = f'{top}+{m.end()}c'
-					ops.append(('clear_other', s, e))
 					ops.append(('add', 'hmc', s, e))
 				for m in _MDL_PAT.finditer(text):
 					s = f'{top}+{m.start()}c'
 					e = f'{top}+{m.end()}c'
-					ops.append(('clear_other', s, e))
 					ops.append(('add', 'hml', s, e))
 				for m in _MDQ_PAT.finditer(text):
 					s = f'{top}+{m.start()}c'
@@ -3767,7 +3901,6 @@ def ha(ft):
 						j += 1
 					if not found_close:
 						j = n
-					ops.append(('clear_other', f'{top}+0c', f'{top}+{j}c'))
 					ops.append(('add', 'hmf', f'{top}+0c', f'{top}+{j}c'))
 					i = j
 				while i < n:
@@ -3791,7 +3924,6 @@ def ha(ft):
 							k += 1
 						if not found_close:
 							k = n
-						ops.append(('clear_other', f'{top}+{i}c', f'{top}+{k}c'))
 						ops.append(('add', 'hmf', f'{top}+{i}c', f'{top}+{k}c'))
 						i = k
 					else:
@@ -3873,25 +4005,26 @@ def ha(ft):
 				_done()
 				return
 			all_tags = set(type_.tag_names())
+			removable_tags = [tag for tag in all_tags if tag not in _PYTHON_EDITOR_HL_SKIP_REMOVE_TAGS and (tag not in skiptags or hmode not in skiptags[tag])]
 			_HA_CHUNK_SIZE = 4000
 			def _apply_chunk(start):
 				try:
 					end = min(start + _HA_CHUNK_SIZE, len(ops))
 					for op in ops[start:end]:
 						if op[0] == 'remove_all':
-							for tag in all_tags:
-								if tag not in _PYTHON_EDITOR_HL_SKIP_REMOVE_TAGS and (tag not in skiptags or hmode not in skiptags[tag]):
-									type_.tag_remove(tag, top, bottom)
+							for tag in removable_tags:
+								type_.tag_remove(tag, top, bottom)
 						elif op[0] == 'add':
+							for tag in removable_tags:
+								if tag != op[1]:
+									type_.tag_remove(tag, op[2], op[3])
 							type_.tag_add(op[1], op[2], op[3])
 						elif op[0] == 'remove':
 							type_.tag_remove(op[1], op[2], op[3])
 						elif op[0] == 'config':
 							exec("type_.tag_config('" + op[1] + "'," + op[2] + ')')
 						elif op[0] == 'clear_other':
-							for tag in all_tags:
-								if tag in _PYTHON_EDITOR_HL_SKIP_REMOVE_TAGS or (tag in skiptags and hmode in skiptags[tag]):
-									continue
+							for tag in removable_tags:
 								type_.tag_remove(tag, op[1], op[2])
 					if end < len(ops):
 						root.after(0, lambda: _apply_chunk(end))
@@ -5668,7 +5801,7 @@ def cmdrun(fullcommand):
 			cmdlabel.config(text = '')
 			keypress()
 			return
-		if root.ask('Warning', 'Clear the editor?', options = ('ok', 'cancel'), icon = 'warning'):
+		if root.ask('Warning', 'Clear the editor?', options = ('ok', 'cancel')):
 			type_.edit_separator()
 			type_.delete('1.0', 'end')
 			type_.edit_separator()
@@ -6010,7 +6143,7 @@ def pcmax():
 	root.update()
 	show('maximize window')
 def pccleareditor():
-	if root.ask('Warning', 'Clear the editor?', options = ('ok', 'cancel'), icon = 'warning'):
+	if root.ask('Warning', 'Clear the editor?', options = ('ok', 'cancel')):
 		type_.edit_separator()
 		type_.delete('1.0', 'end')
 		type_.edit_separator()
@@ -7458,21 +7591,30 @@ def hapyshell():
 		shell_kwarg_positions = []
 		shell_import_dotted_lines = []
 		shell_import_orig_name_tags = []
+		shell_name_positions = []
 		shell_class_module_origin = {}
 		shell_local_class_method_params = {}
 		shell_local_class_accepts_any = set()
 	else:
-		shell_scopes, shell_call_kwargs, shell_module_aliases, shell_local_classes, shell_module_literals, shell_scope_var_types, shell_literal_attrs, shell_def_names, shell_typed_attrs, shell_param_default_tags, shell_kwarg_positions, shell_import_dotted_lines, shell_import_orig_name_tags, shell_class_module_origin, shell_local_class_method_params, shell_local_class_accepts_any = shell_result
+		shell_scopes, shell_call_kwargs, shell_module_aliases, shell_local_classes, shell_module_literals, shell_scope_var_types, shell_literal_attrs, shell_def_names, shell_typed_attrs, shell_param_default_tags, shell_kwarg_positions, shell_import_dotted_lines, shell_import_orig_name_tags, shell_class_module_origin, shell_local_class_method_params, shell_local_class_accepts_any, shell_name_positions = shell_result
 	for _nm, _defs in shell_scopes[0]['names'].items():
 		_exec_defs = [_d for _d in _defs if _d[0] < _exec_boundary]
 		if _exec_defs and _nm not in shell_scopes[0].get('globals', {}) and _nm not in shell_scopes[0].get('nonlocals', {}):
-			_pyshell_session_names[_nm] = _exec_defs[-1][1]
+			_best_def = _exec_defs[0]
+			for _d in _exec_defs:
+				if _d[0] >= _best_def[0]:
+					_best_def = _d
+			_pyshell_session_names[_nm] = _best_def[1]
 	for _nm, _tl in shell_scope_var_types.get(0, {}).items():
 		_exec_tl = [_t for _t in _tl if _t[0] < _exec_boundary]
 		if _exec_tl:
-			_pyshell_session_types[_nm] = _exec_tl[-1][1]
+			_best_tl = _exec_tl[0]
+			for _t in _exec_tl:
+				if _t[0] >= _best_tl[0]:
+					_best_tl = _t
+			_pyshell_session_types[_nm] = _best_tl[1]
 	_text_class_lines = {}
-	for _dl, _dn, _dk in shell_def_names:
+	for _dl, _dcol, _dn, _dk in shell_def_names:
 		if _dk == 'class':
 			_text_class_lines.setdefault(_dn, []).append(_dl)
 	for _cn, _mem in shell_local_classes.items():
@@ -7485,7 +7627,6 @@ def hapyshell():
 	_pyshell_session_origins.update(shell_class_module_origin)
 	_pyshell_session_method_params.update(shell_local_class_method_params)
 	_pyshell_session_accepts_any.update(shell_local_class_accepts_any)
-	syntax_tags = ('hpv', 'hpf', 'hpfa', 'hpm', 'hpo', 'hpa', 'hpb', 'hpc', 'hpd')
 	try:
 		shell_top = shellcmd.index('@0,0')
 		shell_bottom = shellcmd.index(f'@0,{shellcmd.winfo_height()}')
@@ -7519,18 +7660,19 @@ def hapyshell():
 				else:
 					break
 			return shell_top_line + lo, off - line_starts[lo]
+		def clear_idx(a, b):
+			for _t in all_tags:
+				if _removable(_t):
+					shellcmd.tag_remove(_t, a, b)
+		def add_idx(tag, a, b):
+			for _t in all_tags:
+				if _t != tag and _removable(_t):
+					shellcmd.tag_remove(_t, a, b)
+			shellcmd.tag_add(tag, a, b)
 		def add_span(tag, off_s, off_e):
 			l1, c1 = off2lc(off_s)
 			l2, c2 = off2lc(off_e)
-			shellcmd.tag_add(tag, widx(l1, c1), widx(l2, c2))
-		def clear_span(off_s, off_e):
-			l1, c1 = off2lc(off_s)
-			l2, c2 = off2lc(off_e)
-			_a = widx(l1, c1)
-			_b = widx(l2, c2)
-			for tag in all_tags:
-				if _removable(tag):
-					shellcmd.tag_remove(tag, _a, _b)
+			add_idx(tag, widx(l1, c1), widx(l2, c2))
 		for tag in all_tags:
 			if _removable(tag):
 				shellcmd.tag_remove(tag, shell_top, shell_bottom)
@@ -7545,17 +7687,21 @@ def hapyshell():
 					if line not in line_scopes or sc['start'] >= shell_scopes[line_scopes[line]]['start']:
 						line_scopes[line] = k
 		shell_module_literal_lines = {}
-		for lineno, name in shell_module_literals:
-			shell_module_literal_lines.setdefault(lineno, []).append(name)
+		for lineno, _mcol, name in shell_module_literals:
+			shell_module_literal_lines.setdefault(lineno, []).append((_mcol, name))
 		shell_import_dotted_by_line = {}
 		for lineno, dcol, dotted in shell_import_dotted_lines:
 			shell_import_dotted_by_line.setdefault(lineno, []).append((dcol, dotted))
 		shell_import_orig_by_line = {}
 		for _oln, _ocol, _oname, _otag in shell_import_orig_name_tags:
 			shell_import_orig_by_line.setdefault(_oln, []).append((_ocol, _oname, _otag))
+		shell_name_pos_by_line = {}
+		for _nl, _ncol, _nname, _nstore in shell_name_positions:
+			shell_name_pos_by_line.setdefault(_nl, []).append((_ncol, _nname, _nstore))
 		shell_def_names_by_line = {}
-		for _dl, _dname, _dkind in shell_def_names:
-			shell_def_names_by_line.setdefault(_dl, []).append((_dname, _dkind))
+		for _dl, _dcol, _dname, _dkind in shell_def_names:
+			shell_def_names_by_line.setdefault(_dl, []).append((_dcol, _dname, _dkind))
+		shell_kind_tags = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}
 		shell_literal_attr_by_line = {}
 		for _ln, _col, _attr, _tname in shell_literal_attrs:
 			shell_literal_attr_by_line.setdefault(_ln, []).append((_col, _attr, _tname))
@@ -7610,82 +7756,66 @@ def hapyshell():
 						if best[0] == abs_line and second_best is not None and second_best[1] != best[1]:
 							prior_kinds[name] = second_best[1]
 				scope_idx = sc['parent']
-			groups = {}
-			for name, kind in active.items():
-				groups.setdefault(prior_kinds.get(name, kind), []).append(name)
-			for kind, names_list in groups.items():
-				if not names_list:
+			for _ncol, _nname, _nstore in shell_name_pos_by_line.get(abs_line, []):
+				_nkind = active.get(_nname)
+				if _nkind is None:
 					continue
-				tag = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(kind)
-				if tag is None:
+				if not _nstore and _nname in prior_kinds:
+					_nkind = prior_kinds[_nname]
+				_ntag = shell_kind_tags.get(_nkind)
+				if _ntag is None:
 					continue
-				pat = re.compile(_PYTHON_NAME_LEAD + r'(?:' + '|'.join(re.escape(nm) for nm in names_list) + r')' + _PYTHON_NAME_TRAIL)
-				for m in pat.finditer(line_str):
-					shellcmd.tag_add(tag, widx(abs_line, m.start()), widx(abs_line, m.end()))
-			for name in prior_kinds:
-				new_tag = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(active[name])
-				if new_tag is None:
-					continue
-				m = re.search(_PYTHON_NAME_LEAD + re.escape(name) + _PYTHON_NAME_TRAIL, line_str)
-				if m:
-					s = widx(abs_line, m.start())
-					e = widx(abs_line, m.end())
-					for tag in syntax_tags:
-						shellcmd.tag_remove(tag, s, e)
-					shellcmd.tag_add(new_tag, s, e)
-			for _dname, _dkind in shell_def_names_by_line.get(abs_line, []):
-				_dm = re.match(r'\s*(?:async\s+)?def\s+(' + re.escape(_dname) + r')\b', line_str) if _dkind == 'func' else re.match(r'\s*class\s+(' + re.escape(_dname) + r')\b', line_str)
-				if _dm:
-					s = widx(abs_line, _dm.start(1))
-					e = widx(abs_line, _dm.end(1))
-					for tag in syntax_tags:
-						shellcmd.tag_remove(tag, s, e)
-					shellcmd.tag_add('hpf' if _dkind == 'func' else 'hpx', s, e)
+				_nccol = _python_bytecol_to_charcol(line_str, _ncol)
+				s = widx(abs_line, _nccol)
+				e = widx(abs_line, _nccol + len(_nname))
+				add_idx(_ntag, s, e)
+			for _dcol, _dname, _dkind in shell_def_names_by_line.get(abs_line, []):
+				_dccol = _python_bytecol_to_charcol(line_str, _dcol)
+				s = widx(abs_line, _dccol)
+				e = widx(abs_line, _dccol + len(_dname))
+				add_idx('hpf' if _dkind == 'func' else 'hpx', s, e)
 			for _pcol, _pname, _pkind in shell_param_default_by_line.get(abs_line, []):
 				_pcol = _python_bytecol_to_charcol(line_str, _pcol)
 				_ptag = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(_pkind)
 				if _ptag is not None:
 					s = widx(abs_line, _pcol)
 					e = widx(abs_line, _pcol + len(_pname))
-					for tag in syntax_tags:
-						shellcmd.tag_remove(tag, s, e)
-					shellcmd.tag_add(_ptag, s, e)
-			for name in shell_module_literal_lines.get(abs_line, []):
-				lit_pat = re.compile(_PYTHON_NAME_LEAD + re.escape(name) + _PYTHON_NAME_TRAIL)
-				for m in lit_pat.finditer(line_str):
-					shellcmd.tag_add('hpm', widx(abs_line, m.start()), widx(abs_line, m.end()))
+					add_idx(_ptag, s, e)
+			for _mcol, name in shell_module_literal_lines.get(abs_line, []):
+				_mccol = _python_bytecol_to_charcol(line_str, _mcol)
+				if line_str[_mccol:_mccol + len(name)] != name:
+					continue
+				add_idx('hpm', widx(abs_line, _mccol), widx(abs_line, _mccol + len(name)))
 			for dcol, dotted in shell_import_dotted_by_line.get(abs_line, []):
 				dcol = _python_bytecol_to_charcol(line_str, dcol)
 				if line_str[dcol:dcol + len(dotted)] != dotted:
 					continue
 				pos = dcol
 				for part in dotted.split('.'):
-					shellcmd.tag_add('hpm', widx(abs_line, pos), widx(abs_line, pos + len(part)))
+					add_idx('hpm', widx(abs_line, pos), widx(abs_line, pos + len(part)))
 					pos += len(part) + 1
 			for _ocol, _oname, _otag in shell_import_orig_by_line.get(abs_line, []):
 				_ocol = _python_bytecol_to_charcol(line_str, _ocol)
 				if line_str[_ocol:_ocol + len(_oname)] != _oname:
 					continue
-				shellcmd.tag_add(_otag, widx(abs_line, _ocol), widx(abs_line, _ocol + len(_oname)))
+				add_idx(_otag, widx(abs_line, _ocol), widx(abs_line, _ocol + len(_oname)))
 			for _col, _attr, _tname in shell_literal_attr_by_line.get(abs_line, []):
 				_col = _python_bytecol_to_charcol(line_str, _col)
 				_kind = _PYTHON_BUILTIN_MEMBERS[_tname].get(_attr)
 				if _kind is not None:
-					shellcmd.tag_add('hpf' if _kind == 'func' else 'hpv', widx(abs_line, _col), widx(abs_line, _col + len(_attr)))
+					add_idx('hpf' if _kind == 'func' else 'hpv', widx(abs_line, _col), widx(abs_line, _col + len(_attr)))
 			for _tcol, _tattr, _tkind in shell_typed_attr_by_line.get(abs_line, []):
 				_tcol = _python_bytecol_to_charcol(line_str, _tcol)
 				_ttag = {'func': 'hpf', 'var': 'hpv', 'module': 'hpm', 'class': 'hpx'}.get(_tkind, 'hpx')
-				shellcmd.tag_add(_ttag, widx(abs_line, _tcol), widx(abs_line, _tcol + len(_tattr)))
+				add_idx(_ttag, widx(abs_line, _tcol), widx(abs_line, _tcol + len(_tattr)))
 			for _kcol, _kname in shell_kwarg_pos_by_line.get(abs_line, []):
 				_kcol = _python_bytecol_to_charcol(line_str, _kcol)
 				s = widx(abs_line, _kcol)
 				e = widx(abs_line, _kcol + len(_kname))
-				for tag in syntax_tags:
-					shellcmd.tag_remove(tag, s, e)
+				clear_idx(s, e)
 				if _kname in shell_call_kwargs.get(abs_line, set()):
 					shellcmd.tag_add('hpfa', s, e)
 		for m in _PYTHON_OP_PAT.finditer(visible_code):
-			clear_span(m.start(), m.end())
 			add_span('hpo', m.start(), m.end())
 		shell_pre_text = '\n'.join(stripped_lines[:shell_top_line - 1])
 		if shell_pre_text:
@@ -7763,7 +7893,6 @@ def hapyshell():
 				j += 1
 			if not found_close:
 				j = n
-			clear_span(0, j)
 			add_span('hpd', 0, j)
 			i = j
 		elif in_single:
@@ -7781,7 +7910,6 @@ def hapyshell():
 				j += 1
 			if j > n:
 				j = n
-			clear_span(0, j)
 			add_span('hpd', 0, j)
 			i = j
 		while i < n:
@@ -7801,7 +7929,6 @@ def hapyshell():
 					j += 1
 				if not found_close:
 					j = n
-				clear_span(i, j)
 				add_span('hpd', i, j)
 				i = j
 			elif ch in ('"', "'"):
@@ -7817,14 +7944,12 @@ def hapyshell():
 					if visible_code[j] == '\n':
 						break
 					j += 1
-				clear_span(i, j)
 				add_span('hpd', i, j)
 				i = j
 			elif ch == '#':
 				j = i + 1
 				while j < n and visible_code[j] != '\n':
 					j += 1
-				clear_span(i, j)
 				add_span('hpc', i, j)
 				i = j
 			else:
@@ -8117,6 +8242,7 @@ def shellpy():
 			master_fd, slave_fd = pty.openpty()
 			fcntl.ioctl(master_fd, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 800, 0, 0))
 			env['TERM'] = 'linux'
+			env['COLORTERM'] = 'truecolor'
 			def _shell_preexec():
 				os.setsid()
 				fcntl.ioctl(0, termios.TIOCSCTTY, 0)
