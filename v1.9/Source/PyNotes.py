@@ -1562,6 +1562,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		self.func_accepts_any = set()
 		self.pending_calls = []
 		self.module_aliases = {}
+		self.module_alias_lines = {}
+		self.module_alias_defs = {}
 		self.from_imports = []
 		self.import_names = []
 		self.module_literals = []
@@ -1807,6 +1809,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 					self.import_dotted_lines.append((node.lineno, _acol, imported_name))
 			if alias.asname:
 				self.module_aliases[alias.asname] = imported_name
+				self.module_alias_lines[alias.asname] = node.lineno
+				self.module_alias_defs.setdefault(alias.asname, []).append((node.lineno, imported_name))
 	def visit_ImportFrom(self, node):
 		if node.module:
 			self.module_literals.append((node.lineno, node.module.split('.')[0]))
@@ -2229,10 +2233,17 @@ def _python_resolve_module_class_members(mod, class_name, seen = None):
 	if _top_call:
 		_python_module_class_members_cache[(mod, class_name)] = out
 	return out
-def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None, seed_classes = None, seed_aliases = None, seed_origins = None, seed_method_params = None, seed_accepts_any = None):
+def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None, seed_types = None, seed_classes = None, seed_aliases = None, seed_origins = None, seed_method_params = None, seed_accepts_any = None):
 	def _ck():
 		if gen is not None and _python_edit_generation[0] != gen:
 			raise _PythonScanCancelled()
+	def _same_block(l1, l2):
+		if line_blocks is None or l1 == l2:
+			return True
+		if not (0 < l1 <= len(line_blocks)) or not (0 < l2 <= len(line_blocks)):
+			return False
+		_b1 = line_blocks[l1 - 1]
+		return _b1 != 0 and _b1 == line_blocks[l2 - 1]
 	lines = text.split('\n')
 	tree = None
 	for _ in range(len(lines) + 2):
@@ -2270,15 +2281,16 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 	builder.visit(tree)
 	if seed_names:
 		for _sn, _sk in seed_names.items():
-			if _sn not in builder.scopes[0]['names']:
-				builder.scopes[0]['names'][_sn] = [(0, _sk)]
+			builder.scopes[0]['names'].setdefault(_sn, []).append((0, _sk))
 	if seed_aliases:
 		for _sa, _sm in seed_aliases.items():
 			builder.module_aliases.setdefault(_sa, _sm)
+			builder.module_alias_defs.setdefault(_sa, []).append((0, _sm))
 	if seed_names:
 		for _sn, _sk in seed_names.items():
 			if _sk == 'module':
 				builder.module_aliases.setdefault(_sn, _sn)
+				builder.module_alias_defs.setdefault(_sn, []).append((0, _sn))
 	_ck()
 	line_to_scope = [None] * (len(lines) + 2)
 	for ln in range(1, len(lines) + 1):
@@ -2305,17 +2317,36 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				continue
 			if name in sc['names']:
 				best = None
+				earliest = None
 				for dl, kind in sc['names'][name]:
+					if earliest is None or dl < earliest[0]:
+						earliest = (dl, kind)
 					if sidx == inner and dl > lineno:
 						continue
 					if best is None or dl > best[0]:
 						best = (dl, kind)
+				if best is None and earliest is not None and _same_block(earliest[0], lineno):
+					best = earliest
 				return best[1] if best is not None else '_local'
 			sidx = sc['parent']
 		return None
 	module_contents = {}
 	local_classes = {}
-	class_module_origin = dict(seed_origins) if seed_origins else {}
+	class_module_origin = {_so: [(0, _sv)] for _so, _sv in seed_origins.items()} if seed_origins else {}
+	def _line_def_at(defs, lineno):
+		if not defs:
+			return None
+		_best = None
+		for _dl, _dv in defs:
+			if _dl <= lineno and (_best is None or _dl >= _best[0]):
+				_best = (_dl, _dv)
+		if _best is None:
+			for _dl, _dv in defs:
+				if _same_block(_dl, lineno) and (_best is None or _dl < _best[0]):
+					_best = (_dl, _dv)
+		return _best[1] if _best is not None else None
+	def _class_origin_at(name, lineno):
+		return _line_def_at(class_module_origin.get(name), lineno)
 	dynamic_class_attrs = {}
 	dynamic_class_attr_types = {}
 	dynamic_module_attrs = {}
@@ -2487,6 +2518,9 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 			candidate_modules.add(module_name.split('.')[0])
 			candidate_modules.add(module_name)
 			candidate_modules.add(f'{module_name}.{_orig_name}')
+	for _adefs in builder.module_alias_defs.values():
+		for _, _sm in _adefs:
+			candidate_modules.add(_sm)
 	for _sm in builder.module_aliases.values():
 		candidate_modules.add(_sm)
 	valid_modules = set()
@@ -2519,11 +2553,14 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				kind = contents[_orig_name]
 			elif f'{module_name}.{_orig_name}' in valid_modules or _python_find_spec_cached(f'{module_name}.{_orig_name}') is not None:
 				kind = 'module'
-				builder.module_aliases[imported_name] = f'{module_name}.{_orig_name}'
+				builder.module_alias_defs.setdefault(imported_name, []).append((lineno, f'{module_name}.{_orig_name}'))
+				if lineno >= builder.module_alias_lines.get(imported_name, 0):
+					builder.module_aliases[imported_name] = f'{module_name}.{_orig_name}'
+					builder.module_alias_lines[imported_name] = lineno
 			else:
 				continue
 			builder.scopes[scope_idx]['names'].setdefault(imported_name, []).append((lineno, kind))
-	for _, module_name, imported_name, _orig_name, _ in builder.from_imports:
+	for _, module_name, imported_name, _orig_name, _fln0 in builder.from_imports:
 		if not module_name:
 			continue
 		mc = module_contents.get(module_name, {})
@@ -2533,29 +2570,34 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 					_wmems = _python_resolve_module_class_members(module_name, _wname)
 					if _wmems:
 						local_classes[_wname] = _wmems
-						class_module_origin[_wname] = (module_name, _wname)
+						class_module_origin.setdefault(_wname, []).append((_fln0, (module_name, _wname)))
 		elif mc.get(_orig_name) == 'class' and imported_name not in local_classes:
 			_imp_mems = _python_resolve_module_class_members(module_name, _orig_name)
 			if _imp_mems:
 				local_classes[imported_name] = _imp_mems
-				class_module_origin[imported_name] = (module_name, _orig_name)
+				class_module_origin.setdefault(imported_name, []).append((_fln0, (module_name, _orig_name)))
 	base_to_module = {}
-	for _, imported_name, top_name, used_name, _ in builder.import_names:
+	for _, imported_name, top_name, used_name, _iln in builder.import_names:
 		if used_name == top_name:
 			if top_name in valid_modules:
-				base_to_module[used_name] = top_name
+				base_to_module.setdefault(used_name, []).append((_iln, top_name))
 		elif imported_name in valid_modules:
-			base_to_module[used_name] = imported_name
+			base_to_module.setdefault(used_name, []).append((_iln, imported_name))
 		elif top_name in valid_modules:
-			base_to_module[used_name] = top_name
-	for _alias, _full in builder.module_aliases.items():
-		if _full in valid_modules:
-			base_to_module[_alias] = _full
+			base_to_module.setdefault(used_name, []).append((_iln, top_name))
+	for _alias, _adefs in builder.module_alias_defs.items():
+		for _al, _afull in _adefs:
+			if _afull in valid_modules:
+				base_to_module.setdefault(_alias, []).append((_al, _afull))
+	def _base_module_at(name, lineno):
+		return _line_def_at(base_to_module.get(name), lineno)
 	for _dsc, _dln, _dname, _dmod in builder.dynamic_imports:
 		if _python_find_spec_cached(_dmod) is not None:
 			valid_modules.add(_dmod)
-			base_to_module[_dname] = _dmod
-			builder.module_aliases[_dname] = _dmod
+			base_to_module.setdefault(_dname, []).append((_dln, _dmod))
+			if _dln >= builder.module_alias_lines.get(_dname, 0):
+				builder.module_aliases[_dname] = _dmod
+				builder.module_alias_lines[_dname] = _dln
 			if _dmod not in module_contents:
 				_dmems = _python_resolve_module_members(_dmod)
 				if _dmems:
@@ -2574,11 +2616,16 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				continue
 			if name in sc['names']:
 				best = None
+				earliest = None
 				for _dl, _k in sc['names'][name]:
+					if earliest is None or _dl < earliest[0]:
+						earliest = (_dl, _k)
 					if sidx == inner and _dl > lineno:
 						continue
 					if best is None or _dl > best[0]:
 						best = (_dl, _k)
+				if best is None and earliest is not None and _same_block(earliest[0], lineno):
+					best = earliest
 				return best[1] if best is not None else None
 			sidx = sc['parent']
 		return None
@@ -2601,8 +2648,9 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 			if _srckind == 'class' and _asrc in local_classes and _aname not in local_classes:
 				local_classes[_aname] = local_classes[_asrc]
 				class_type_maps[_aname] = class_type_maps.setdefault(_asrc, {})
-				if _asrc in class_module_origin:
-					class_module_origin[_aname] = class_module_origin[_asrc]
+				_sorig = _class_origin_at(_asrc, _aln)
+				if _sorig is not None:
+					class_module_origin.setdefault(_aname, []).append((_aln, _sorig))
 				for _mk in list(local_class_method_params):
 					if _mk.startswith(_asrc + '.'):
 						_ameth = _mk[len(_asrc) + 1:]
@@ -2611,24 +2659,22 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 							local_class_accepts_any.add(_aname + '.' + _ameth)
 	name_module_class = {}
 	for _asc, _aln, _aname, _abase, _aattr in builder.attr_alias_assigns:
-		_amod = base_to_module.get(_abase)
+		_amod = _base_module_at(_abase, _aln)
 		if _amod is None or _python_resolve_module_members(_amod).get(_aattr) != 'class':
 			continue
 		_anames = builder.scopes[_asc]['names'].setdefault(_aname, [])
 		_anames[:] = [(_l, _k) for _l, _k in _anames if not (_l == _aln and _k == 'var')]
 		_anames.append((_aln, 'class'))
-		name_module_class[_aname] = (_amod, _aattr)
+		name_module_class.setdefault(_aname, []).append((_aln, (_amod, _aattr)))
 		if _aname not in local_classes:
 			_amems = _python_resolve_module_class_members(_amod, _aattr)
 			if _amems:
 				local_classes[_aname] = _amems
-			class_module_origin[_aname] = (_amod, _aattr)
+			class_module_origin.setdefault(_aname, []).append((_aln, (_amod, _aattr)))
 	from_func_module = {}
 	for _, module_name, imported_name, _orig_name, _fln in builder.from_imports:
 		if module_name and imported_name != '*' and module_name in valid_modules:
-			_prev = from_func_module.get(imported_name)
-			if _prev is None or _fln > _prev[2]:
-				from_func_module[imported_name] = (module_name, _orig_name, _fln)
+			from_func_module.setdefault(imported_name, []).append((_fln, (module_name, _orig_name)))
 	local_def_lines = {}
 	for _dln, _dnm, _dk in builder.def_names:
 		local_def_lines.setdefault(_dnm, []).append(_dln)
@@ -2677,8 +2723,12 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 			for _dl in local_def_lines.get(root, []):
 				if _dl <= lineno and (_local_line is None or _dl > _local_line):
 					_local_line = _dl
-			_imp = from_func_module.get(root)
-			_imp_line = _imp[2] if _imp is not None and _imp[2] <= lineno else None
+			_imp = None
+			_imp_line = None
+			for _fl, _fv in from_func_module.get(root, []):
+				if _fl <= lineno and (_imp_line is None or _fl >= _imp_line):
+					_imp_line = _fl
+					_imp = _fv
 			if _local_line is not None and (_imp_line is None or _local_line >= _imp_line):
 				if root in builder.func_accepts_any:
 					return True, None
@@ -2692,8 +2742,10 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 					return True, None
 				return True, builder.func_params.get(root, set())
 			return None, None
-		if root in base_to_module and _call_name_kind(root, lineno) in ('module', None):
-			return _resolve_through_module(base_to_module[root], rest)
+		if _call_name_kind(root, lineno) in ('module', None):
+			_rmod = _base_module_at(root, lineno)
+			if _rmod is not None:
+				return _resolve_through_module(_rmod, rest)
 		return None, None
 	_ck()
 	module_literals = []
@@ -2720,9 +2772,9 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 		if _otag is not None:
 			import_orig_name_tags.append((_oln, _ocol, _oname, _otag))
 	_from_import_map = {}
-	for _, module_name, imported_name, _orig_name, _ in builder.from_imports:
+	for _, module_name, imported_name, _orig_name, _fln in builder.from_imports:
 		if module_name and imported_name != '*':
-			_from_import_map[imported_name] = module_name
+			_from_import_map.setdefault(imported_name, []).append((_fln, module_name))
 	_ck()
 	scope_var_types = {}
 	if seed_types:
@@ -2741,13 +2793,13 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				mod_name = None
 				if isinstance(func, ast.Name):
 					type_name = func.id
-					mod_name = _from_import_map.get(type_name)
+					mod_name = _line_def_at(_from_import_map.get(type_name), node.lineno)
 				elif isinstance(func, ast.Attribute):
 					type_name = func.attr
-					mod_name = base_to_module.get(func.value.id) if isinstance(func.value, ast.Name) else None
+					mod_name = _base_module_at(func.value.id, node.lineno) if isinstance(func.value, ast.Name) else None
 				if type_name and type_name not in local_classes and mod_name:
 					if _python_resolve_module_members(mod_name).get(type_name) == 'class':
-						class_module_origin[type_name] = (mod_name, type_name)
+						class_module_origin.setdefault(type_name, []).append((node.lineno, (mod_name, type_name)))
 			elif isinstance(val, ast.Constant):
 				type_name = type(val.value).__name__
 			elif isinstance(val, ast.List):
@@ -2762,7 +2814,7 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				type_name = 'str'
 			elif isinstance(val, ast.Name):
 				_var_type_alias_assigns.append((node.lineno, tgt.id, val.id))
-			if type_name and (type_name in local_classes or type_name in class_module_origin):
+			if type_name and (type_name in local_classes or _class_origin_at(type_name, node.lineno) is not None):
 				sc_idx = _scope_for_line(node.lineno)
 				if sc_idx is not None:
 					scope_var_types.setdefault(sc_idx, {}).setdefault(tgt.id, []).append((node.lineno, type_name))
@@ -2805,15 +2857,15 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 						mod_name = None
 						if isinstance(func, ast.Name):
 							type_name = func.id
-							mod_name = _from_import_map.get(type_name)
+							mod_name = _line_def_at(_from_import_map.get(type_name), stmt.lineno)
 						elif isinstance(func, ast.Attribute):
 							type_name = func.attr
-							mod_name = base_to_module.get(func.value.id) if isinstance(func.value, ast.Name) else None
+							mod_name = _base_module_at(func.value.id, stmt.lineno) if isinstance(func.value, ast.Name) else None
 						if type_name and type_name not in local_classes and mod_name:
 							mems = _python_resolve_module_class_members(mod_name, type_name)
 							if mems:
 								local_classes[type_name] = mems
-								class_module_origin[type_name] = (mod_name, type_name)
+								class_module_origin.setdefault(type_name, []).append((stmt.lineno, (mod_name, type_name)))
 					elif isinstance(val, ast.Constant):
 						type_name = type(val.value).__name__
 					elif isinstance(val, ast.List):
@@ -2951,15 +3003,19 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				return ('instance', fpc)
 			vt = _var_type_at(node.id, node.lineno)
 			if vt is not None:
-				if vt in class_module_origin and vt not in local_classes:
-					return ('minstance', class_module_origin[vt][0], class_module_origin[vt][1])
+				_vorig = _class_origin_at(vt, node.lineno)
+				if _vorig is not None and vt not in local_classes:
+					return ('minstance', _vorig[0], _vorig[1])
 				return ('instance', vt)
-			if node.id in class_module_origin and _call_name_kind(node.id, node.lineno) == 'class':
-				return ('modclass', class_module_origin[node.id][0], class_module_origin[node.id][1])
+			_norig = _class_origin_at(node.id, node.lineno)
+			if _norig is not None and _call_name_kind(node.id, node.lineno) == 'class':
+				return ('modclass', _norig[0], _norig[1])
 			if node.id in local_classes:
 				return ('class', node.id)
-			if node.id in base_to_module and _call_name_kind(node.id, node.lineno) == 'module':
-				return ('module', base_to_module[node.id])
+			if _call_name_kind(node.id, node.lineno) == 'module':
+				_nmod = _base_module_at(node.id, node.lineno)
+				if _nmod is not None:
+					return ('module', _nmod)
 			return None
 		_lt = _literal_type(node)
 		if _lt is not None and _lt in local_classes:
@@ -3027,7 +3083,7 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 			if not isinstance(_atgt, ast.Attribute):
 				continue
 			_atn = _assign_type_name(_an.value)
-			if isinstance(_atgt.value, ast.Name) and _call_name_kind(_atgt.value.id, _an.lineno) == 'class' and _atgt.value.id in local_classes and _atgt.value.id not in class_module_origin:
+			if isinstance(_atgt.value, ast.Name) and _call_name_kind(_atgt.value.id, _an.lineno) == 'class' and _atgt.value.id in local_classes and _class_origin_at(_atgt.value.id, _an.lineno) is None:
 				local_classes[_atgt.value.id].setdefault(_atgt.attr, 'var')
 				if _atn is not None and _atn in local_classes:
 					class_type_maps.setdefault(_atgt.value.id, {})[_atgt.attr] = _atn
@@ -3047,8 +3103,8 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				dynamic_class_attrs.setdefault(_br[2], {})[_atgt.attr] = 'var'
 				if _atn is not None and _atn in local_classes:
 					dynamic_class_attr_types.setdefault(_br[2], {})[_atgt.attr] = _atn
-			elif _br[0] == 'class' and _br[1] in class_module_origin:
-				_ocls = class_module_origin[_br[1]][1]
+			elif _br[0] == 'class' and _class_origin_at(_br[1], _an.lineno) is not None:
+				_ocls = _class_origin_at(_br[1], _an.lineno)[1]
 				dynamic_modclass_attrs.setdefault(_ocls, {})[_atgt.attr] = 'var'
 				if _atn is not None and _atn in local_classes:
 					dynamic_modclass_attr_types.setdefault(_ocls, {})[_atgt.attr] = _atn
@@ -3093,17 +3149,18 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 		_cmod = None
 		_ccls = None
 		if isinstance(_fn, ast.Attribute) and isinstance(_fn.value, ast.Name):
-			_bmod = base_to_module.get(_fn.value.id)
+			_bmod = _base_module_at(_fn.value.id, _vn.lineno)
 			if _bmod is not None and _python_resolve_module_members(_bmod).get(_fn.attr) == 'class':
 				_cmod = _bmod
 				_ccls = _fn.attr
-		elif isinstance(_fn, ast.Name) and _fn.id in from_func_module:
-			_fm, _forig, _ = from_func_module[_fn.id]
-			if _python_resolve_module_members(_fm).get(_forig) == 'class':
-				_cmod = _fm
-				_ccls = _forig
-		elif isinstance(_fn, ast.Name) and _fn.id in name_module_class:
-			_cmod, _ccls = name_module_class[_fn.id]
+		elif isinstance(_fn, ast.Name):
+			_ffm = _line_def_at(from_func_module.get(_fn.id), _vn.lineno)
+			if _ffm is not None and _python_resolve_module_members(_ffm[0]).get(_ffm[1]) == 'class':
+				_cmod, _ccls = _ffm
+			else:
+				_nmc = _line_def_at(name_module_class.get(_fn.id), _vn.lineno)
+				if _nmc is not None:
+					_cmod, _ccls = _nmc
 		if _cmod is None:
 			continue
 		_vsc = _scope_for_line(_vn.lineno)
@@ -3147,8 +3204,9 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 						ok, params = True, None
 					elif _lkey in local_class_method_params:
 						ok, params = True, local_class_method_params[_lkey]
-					elif _lcls in class_module_origin:
-						found, mp = _python_resolve_module_method(class_module_origin[_lcls][0], class_module_origin[_lcls][1], func_name)
+					elif _class_origin_at(_lcls, lineno) is not None:
+						_lorig = _class_origin_at(_lcls, lineno)
+						found, mp = _python_resolve_module_method(_lorig[0], _lorig[1], func_name)
 						if found:
 							ok, params = True, mp
 		if not ok and isinstance(_cnode.func, ast.Attribute):
@@ -3168,8 +3226,9 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 						ok, params = True, None
 					elif _lkey in local_class_method_params:
 						ok, params = True, local_class_method_params[_lkey]
-					elif _rcv[1] in class_module_origin:
-						found, mp = _python_resolve_module_method(class_module_origin[_rcv[1]][0], class_module_origin[_rcv[1]][1], func_name)
+					elif _class_origin_at(_rcv[1], lineno) is not None:
+						_rorig = _class_origin_at(_rcv[1], lineno)
+						found, mp = _python_resolve_module_method(_rorig[0], _rorig[1], func_name)
 						if found:
 							ok, params = True, mp
 		if ok and (params is None or kwarg_name in params):
@@ -3184,11 +3243,16 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 				continue
 			if name in sc['names']:
 				best = None
+				earliest = None
 				for dl, kind in sc['names'][name]:
+					if earliest is None or dl < earliest[0]:
+						earliest = (dl, kind)
 					if sidx == inner and dl > lineno:
 						continue
 					if best is None or dl > best[0]:
 						best = (dl, kind)
+				if best is None and earliest is not None and _same_block(earliest[0], lineno):
+					best = earliest
 				return best[1] if best is not None else None
 			sidx = sc['parent']
 		return None
@@ -3233,7 +3297,7 @@ def _python_build_scopes(text, gen = None, seed_names = None, seed_types = None,
 		if _lat and node.attr in _PYTHON_BUILTIN_MEMBERS.get(_lat, {}):
 			literal_attrs.append((node.end_lineno, node.end_col_offset - len(node.attr), node.attr, _lat))
 	_ck()
-	return builder.scopes, call_kwargs, builder.module_aliases, local_classes, module_literals, scope_var_types, literal_attrs, def_name_positions, typed_attrs, param_default_tags, builder.kwarg_positions, import_dotted_lines, import_orig_name_tags, class_module_origin, local_class_method_params, local_class_accepts_any, name_positions
+	return builder.scopes, call_kwargs, builder.module_alias_defs, local_classes, module_literals, scope_var_types, literal_attrs, def_name_positions, typed_attrs, param_default_tags, builder.kwarg_positions, import_dotted_lines, import_orig_name_tags, class_module_origin, local_class_method_params, local_class_accepts_any, name_positions
 def _python_scan_names(text, gen = None):
 	global _python_scopes
 	global _python_call_kwargs
@@ -7537,7 +7601,7 @@ readonlyendforshellpy = '1.' + str(len('>>> '))
 continuation = False
 continuationcodeforshellpy = ''
 _hapyshell_running = [False]
-_pyshell_last_stripped_text = None
+_pyshell_last_scan_key = None
 _pyshell_cached_scope_result = None
 _pyshell_session_names = {}
 _pyshell_session_types = {}
@@ -7547,7 +7611,7 @@ _pyshell_session_origins = {}
 _pyshell_session_method_params = {}
 _pyshell_session_accepts_any = set()
 def hapyshell():
-	global _pyshell_last_stripped_text
+	global _pyshell_last_scan_key
 	global _pyshell_cached_scope_result
 	global _pyshell_session_names
 	global _pyshell_session_types
@@ -7561,21 +7625,27 @@ def hapyshell():
 	lenprompt = len('>>> ')
 	full_text = shellcmd.get('1.0', 'end')
 	stripped_lines = []
+	_shell_line_blocks = []
+	_blk = 0
 	_exec_boundary = 1
 	for line in full_text.split('\n'):
 		prefix = line[:lenprompt]
 		if prefix in ('>>> ', '... '):
 			stripped_lines.append(line[lenprompt:])
 			if prefix == '>>> ':
+				_blk += 1
 				_exec_boundary = len(stripped_lines)
+			_shell_line_blocks.append(_blk)
 		else:
 			stripped_lines.append('')
+			_shell_line_blocks.append(0)
 	stripped_text = '\n'.join(stripped_lines)
-	if stripped_text == _pyshell_last_stripped_text:
+	_scan_key = (stripped_text, tuple(_shell_line_blocks))
+	if _scan_key == _pyshell_last_scan_key:
 		shell_result = _pyshell_cached_scope_result
 	else:
-		shell_result = _python_build_scopes(stripped_text, seed_names = _pyshell_session_names, seed_types = _pyshell_session_types, seed_classes = _pyshell_session_classes, seed_aliases = _pyshell_session_aliases, seed_origins = _pyshell_session_origins, seed_method_params = _pyshell_session_method_params, seed_accepts_any = _pyshell_session_accepts_any)
-		_pyshell_last_stripped_text = stripped_text
+		shell_result = _python_build_scopes(stripped_text, line_blocks = _shell_line_blocks, seed_names = _pyshell_session_names, seed_types = _pyshell_session_types, seed_classes = _pyshell_session_classes, seed_aliases = _pyshell_session_aliases, seed_origins = _pyshell_session_origins, seed_method_params = _pyshell_session_method_params, seed_accepts_any = _pyshell_session_accepts_any)
+		_pyshell_last_scan_key = _scan_key
 		_pyshell_cached_scope_result = shell_result
 	if shell_result is None:
 		shell_scopes = [{'start': 1, 'end': 1, 'parent': None, 'names': {}}]
@@ -7623,8 +7693,20 @@ def hapyshell():
 		_cls_lines = _text_class_lines.get(_cn)
 		if _cls_lines is None or _cn in _pyshell_session_classes or any(_l < _exec_boundary for _l in _cls_lines):
 			_pyshell_session_classes[_cn] = _mem
-	_pyshell_session_aliases.update(shell_module_aliases)
-	_pyshell_session_origins.update(shell_class_module_origin)
+	for _an, _adefs in shell_module_aliases.items():
+		_abest = None
+		for _ad in _adefs:
+			if _ad[0] < _exec_boundary and (_abest is None or _ad[0] >= _abest[0]):
+				_abest = _ad
+		if _abest is not None:
+			_pyshell_session_aliases[_an] = _abest[1]
+	for _on, _odefs in shell_class_module_origin.items():
+		_obest = None
+		for _od in _odefs:
+			if _od[0] < _exec_boundary and (_obest is None or _od[0] >= _obest[0]):
+				_obest = _od
+		if _obest is not None:
+			_pyshell_session_origins[_on] = _obest[1]
 	_pyshell_session_method_params.update(shell_local_class_method_params)
 	_pyshell_session_accepts_any.update(shell_local_class_accepts_any)
 	try:
@@ -7638,6 +7720,9 @@ def hapyshell():
 		def _removable(tag):
 			return tag not in _PYTHON_SHELL_HL_SKIP_REMOVE_TAGS and (tag not in skiptagspythonshell or hmode not in skiptagspythonshell[tag])
 		shell_top_line = int(shell_top.split('.')[0])
+		if shell_top_line < _exec_boundary:
+			shell_top_line = _exec_boundary
+			shell_top = f'{shell_top_line}.0'
 		try:
 			shell_bottom_line = int(shellcmd.index(shell_bottom).split('.')[0])
 		except Exception:
@@ -7695,6 +7780,13 @@ def hapyshell():
 		shell_import_orig_by_line = {}
 		for _oln, _ocol, _oname, _otag in shell_import_orig_name_tags:
 			shell_import_orig_by_line.setdefault(_oln, []).append((_ocol, _oname, _otag))
+		def _shell_same_block(l1, l2):
+			if l1 == l2:
+				return True
+			if not (0 < l1 <= len(_shell_line_blocks)) or not (0 < l2 <= len(_shell_line_blocks)):
+				return False
+			_b1 = _shell_line_blocks[l1 - 1]
+			return _b1 != 0 and _b1 == _shell_line_blocks[l2 - 1]
 		shell_name_pos_by_line = {}
 		for _nl, _ncol, _nname, _nstore in shell_name_positions:
 			shell_name_pos_by_line.setdefault(_nl, []).append((_ncol, _nname, _nstore))
@@ -7748,7 +7840,7 @@ def hapyshell():
 							best = (dl, kind)
 						elif second_best is None or dl > second_best[0]:
 							second_best = (dl, kind)
-					if best is None:
+					if best is None and earliest is not None and _shell_same_block(earliest[0], abs_line):
 						best = earliest
 					bound.add(name)
 					if best is not None:
@@ -8371,6 +8463,9 @@ def shellpy():
 			_shellmenu.grab_release()
 		return 'break'
 	def cs():
+		global _pyshell_last_scan_key, _pyshell_cached_scope_result
+		_pyshell_last_scan_key = None
+		_pyshell_cached_scope_result = None
 		shellcmd.delete('1.0', 'end')
 		cursor[0] = '1.0'
 		screen_top[0] = 1
@@ -8387,9 +8482,9 @@ def shellpy():
 			try: _write_ref[0](b'\r')
 			except Exception: pass
 	def ks():
-		global _pyshell_last_stripped_text, _pyshell_cached_scope_result
+		global _pyshell_last_scan_key, _pyshell_cached_scope_result
 		running[0] = False
-		_pyshell_last_stripped_text = None
+		_pyshell_last_scan_key = None
 		_pyshell_cached_scope_result = None
 		_pyshell_session_names.clear()
 		_pyshell_session_types.clear()
