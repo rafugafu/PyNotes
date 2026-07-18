@@ -554,6 +554,9 @@ except Exception:
 	root.error('Error', f'Could not find the icon at {rootdir}/Icon.png.\nQuitting PyNotes.')
 	root.destroy()
 	exit()
+root.tk.call('wm', 'iconphoto', root._w, easytk.tk.PhotoImage(file = f'{rootdir}/Icon.png'))
+root.wm_iconname('PyNotes')
+root.tk.call('tk', 'appname', 'pynotes')
 root.title('PyNotes - Untitled')
 root.geometry('820x800')
 title = ''
@@ -656,7 +659,7 @@ def changes():
 	show('show pynotes changes')
 	cw = root.subwin()
 	cw.title(f'Changes in v{v}')
-	changelist = ['Changed easytk and PyNotes to use ttkbootstrap!\nYou can now also easily make your own themes using TTK Creator in the Preferences and use them in PyNotes!', 'Added a Markdown HMode and Markdown formatting / syntax highlighting to PyNotes!', 'Made the Python syntax highlighting much better!', 'Made the syntax highlighting of Python variables and functions scope aware!', 'Python function arguments, class names, and module names and methods are now also syntax highlighted, separate from the variables!', 'Added full 256-color/truecolor support in the PyNotes terminal!', 'Completely fixed syntax highlighting lag in large files and added debouncing to all syntax highlighting.', 'Plugins can now make their own HModes and syntax highlighting!', 'Made the HTML syntax highlighting much better.', 'Plugin and PyCode defined Alt-X commands can now take any inputs, not just predefined ones!', 'PyCode functions can now take inputs and return values!', 'Plugins can now directly define PyCode commands (with inputs)!', 'Made more space in the main window by hiding widgets instead of disabling them when they are not needed.', 'Made the Python variable definition detection much smarter.', 'Plugins can now make their own preferences with the main PyNotes preferences.', 'Fixed a bug where some nested PyCode code would not get translated.', 'Made the PyCode error messages better.', 'Fixed an important bug in MathGod in the last version of PyNotes where builtins and functions like I, E, N() were not defined.', 'Made MathGod automatically create all undefined variables as symbols, not just everything from sympy.abc.', 'Made the superscripting and subscripting in MathGod a little better by handling nested brackets.', 'Completely changed and improved the default PyNotes syntax highlighting theme.', 'Completed the Python builtins list for syntax higlighting.', 'Added all the other Python operators to syntax highlighting.', 'Fixed a bug in opening multiple files with spaces in them with a single terminal command.', 'Fixed a small bug in the Windows terminal and made it a little better.', 'Made the MathGod syntax highlighting better by including all Sympy functions.', 'Fixed a bug in the PyCode parser where it stopped at the first closing bracket instead of the matching closing bracket because of using regex.', 'Fixed a small bug in MathGod where the Linux save file dialogue would not show files without extensions.', 'Made the scope-aware AST part of the Python syntax highlighting not give up completely and still highlight the valid parts in a gibberish file.', 'Corrupted saved email details are now handled.', 'Made the PyNotes changes show in a scrollable textbox.']
+	changelist = ['Changed easytk and PyNotes to use ttkbootstrap!\nYou can now also easily make your own themes using TTK Creator in the Preferences and use them in PyNotes!', 'Added a Markdown HMode and Markdown formatting / syntax highlighting to PyNotes!', 'Made the Python syntax highlighting much better!', 'Made the syntax highlighting of Python variables and functions scope aware!', 'Python function arguments, class names, and module names and methods are now also syntax highlighted, separate from the variables!', 'Added full 256-color/truecolor support in the PyNotes terminal!', 'Completely fixed syntax highlighting lag in large files and added debouncing to all syntax highlighting.', 'Plugins can now make their own HModes and syntax highlighting!', 'Made the HTML syntax highlighting much better.', 'Plugin and PyCode defined Alt-X commands can now take any inputs, not just predefined ones!', 'PyCode functions can now take inputs and return values!', 'Plugins can now directly define PyCode commands (with inputs)!', 'Made more space in the main window by hiding widgets instead of disabling them when they are not needed.', 'Made the Python variable definition detection much smarter.', 'Plugins can now make their own preferences with the main PyNotes preferences.', 'Fixed a bug where some nested PyCode code would not get translated.', 'Made the PyCode error messages better.', 'Fixed an important bug in MathGod in the last version of PyNotes where builtins and functions like I, E, N() were not defined.', 'Made MathGod automatically create all undefined variables as symbols, not just everything from sympy.abc.', 'Made the superscripting and subscripting in MathGod a little better by handling nested brackets.', 'Completely changed and improved the default PyNotes syntax highlighting theme.', 'Completed the Python builtins list for syntax higlighting.', 'Added all the other Python operators to syntax highlighting.', 'Fixed a bug in opening multiple files with spaces in them with a single terminal command.', 'Fixed a small bug in the Windows terminal and made it a little better.', 'Made the MathGod syntax highlighting better by including all Sympy functions.', 'Fixed a bug in the PyCode parser where it stopped at the first closing bracket instead of the matching closing bracket because of using regex.', 'Fixed a small bug in MathGod where the Linux save file dialogue would not show files without extensions.', 'Made the scope-aware AST part of the Python syntax highlighting not give up completely and still highlight the valid parts in a gibberish file.', 'Corrupted saved email details are now handled.', 'Made the PyNotes changes show in a scrollable textbox.', 'Fixed a bug where sometimes PyNotes would show as \'Tk\' without an icon in the Ubuntu sidebar instead of PyNotes.']
 	chtextbox = cw.textbox(scrolled = True, font = ('TkDefaultFont', 13), wrap = 'word')
 	for i in range(len(changelist) - 1):
 		chtextbox.insert('end', f'{i + 1}. {changelist[i]}\n\n')
@@ -1843,6 +1846,20 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 			if parent_idx is not None:
 				parent_start = self.scopes[parent_idx]['start']
 				self.scopes[parent_idx]['names'].setdefault(name, []).append((parent_start, 'var'))
+def _python_static_value_kind(val, members, prefix):
+	if isinstance(val, ast.Lambda):
+		return 'func'
+	if isinstance(val, ast.Name):
+		_k = members.get(f'{prefix}.{val.id}') if prefix else members.get(val.id)
+		if _k is None:
+			_k = members.get(val.id)
+		if _k in ('func', 'class'):
+			return _k
+		if val.id in _PYTHON_BUILTIN_MEMBERS:
+			return 'class'
+		if val.id in _PYTHON_BUILTIN_CALLABLE_NAMES:
+			return 'func'
+	return None
 def _python_inspect_ast_members(node_list, prefix = ''):
 	members = {}
 	for node in node_list:
@@ -1854,6 +1871,20 @@ def _python_inspect_ast_members(node_list, prefix = ''):
 			members[key] = 'class'
 			class_members = _python_inspect_ast_members(node.body, key)
 			members.update(class_members)
+			for _sub in node.body:
+				if isinstance(_sub, (ast.FunctionDef, ast.AsyncFunctionDef)) and _sub.args.args:
+					_sfp = _sub.args.args[0].arg
+					for _sst in ast.walk(_sub):
+						_stgts = _sst.targets if isinstance(_sst, ast.Assign) else ([_sst.target] if isinstance(_sst, (ast.AnnAssign, ast.AugAssign)) else [])
+						_sval = _sst.value if isinstance(_sst, (ast.Assign, ast.AnnAssign)) else None
+						for _st in _stgts:
+							_sdirect = not isinstance(_st, (ast.Tuple, ast.List))
+							for _ste in (_st.elts if isinstance(_st, (ast.Tuple, ast.List)) else [_st]):
+								if isinstance(_ste, ast.Starred):
+									_ste = _ste.value
+								if isinstance(_ste, ast.Attribute) and isinstance(_ste.value, ast.Name) and _ste.value.id == _sfp:
+									_skind = (_python_static_value_kind(_sval, members, prefix) if _sdirect and _sval is not None else None) or 'var'
+									members.setdefault(f'{key}.{_ste.attr}', _skind)
 			if not prefix:
 				is_global_enum = any(
 					(isinstance(d, ast.Name) and d.id == 'global_enum') or
@@ -1868,13 +1899,16 @@ def _python_inspect_ast_members(node_list, prefix = ''):
 							members[bare] = val
 		elif isinstance(node, ast.Assign):
 			for target in node.targets:
-				if isinstance(target, ast.Name):
-					key = f'{prefix}.{target.id}' if prefix else target.id
-					members[key] = 'var'
+				for _tel in (target.elts if isinstance(target, (ast.Tuple, ast.List)) else [target]):
+					if isinstance(_tel, ast.Starred):
+						_tel = _tel.value
+					if isinstance(_tel, ast.Name):
+						key = f'{prefix}.{_tel.id}' if prefix else _tel.id
+						members[key] = (_python_static_value_kind(node.value, members, prefix) if _tel is target else None) or 'var'
 		elif isinstance(node, ast.AnnAssign):
 			if isinstance(node.target, ast.Name):
 				key = f'{prefix}.{node.target.id}' if prefix else node.target.id
-				members[key] = 'var'
+				members[key] = _python_static_value_kind(node.value, members, prefix) or 'var'
 	return members
 import importlib.machinery as _python_importlib_machinery
 _PYTHON_EXTENSION_SUFFIXES = tuple(_python_importlib_machinery.EXTENSION_SUFFIXES)
@@ -2244,6 +2278,24 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			return False
 		_b1 = line_blocks[l1 - 1]
 		return _b1 != 0 and _b1 == line_blocks[l2 - 1]
+	def _assign_pairs(targets, value):
+		pairs = []
+		def _pair(t, v):
+			if isinstance(t, ast.Starred):
+				_pair(t.value, None)
+			elif isinstance(t, (ast.Tuple, ast.List)):
+				if isinstance(v, (ast.Tuple, ast.List)) and len(v.elts) == len(t.elts):
+					for _t2, _v2 in zip(t.elts, v.elts):
+						_pair(_t2, _v2)
+				else:
+					_ev = v if isinstance(v, ast.JoinedStr) or (isinstance(v, ast.Constant) and isinstance(v.value, str)) else None
+					for _t2 in t.elts:
+						_pair(_t2, _ev)
+			else:
+				pairs.append((t, v))
+		for t in targets:
+			_pair(t, value)
+		return pairs
 	lines = text.split('\n')
 	tree = None
 	for _ in range(len(lines) + 2):
@@ -2443,9 +2495,9 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 								_fp = meth.args.args[0].arg if meth.args.args else None
 								for stmt in ast.walk(meth):
 									tgts = stmt.targets if isinstance(stmt, ast.Assign) else ([stmt.target] if isinstance(stmt, (ast.AnnAssign, ast.AugAssign)) else [])
-									for tgt in tgts:
+									for tgt, _tval in _assign_pairs(tgts, stmt.value if isinstance(stmt, (ast.Assign, ast.AnnAssign)) else None):
 										if _fp and isinstance(tgt, ast.Attribute) and isinstance(tgt.value, ast.Name) and tgt.value.id == _fp:
-											members.setdefault(tgt.attr, 'var')
+											members.setdefault(tgt.attr, 'func' if isinstance(_tval, ast.Lambda) else 'var')
 						local_classes[name] = members
 					except Exception:
 						pass
@@ -2503,6 +2555,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 	for _bname, _bmembers in _PYTHON_BUILTIN_MEMBERS.items():
 		local_classes.setdefault(_bname, dict(_bmembers))
 	class_type_maps = {}
+	class_attr_types = {}
 	for node in tree_class_defs:
 		if node.name in local_classes:
 			class_type_maps[node.name] = {}
@@ -2783,10 +2836,9 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				scope_var_types.setdefault(0, {}).setdefault(_stn, []).append((0, _stt))
 	_var_type_alias_assigns = []
 	for node in tree_assigns:
-		for tgt in node.targets:
-			if not isinstance(tgt, ast.Name):
+		for tgt, val in _assign_pairs(node.targets, node.value):
+			if not isinstance(tgt, ast.Name) or val is None:
 				continue
-			val = node.value
 			type_name = None
 			if isinstance(val, ast.Call):
 				func = val.func
@@ -2847,10 +2899,9 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			for stmt in ast.walk(meth):
 				if not isinstance(stmt, ast.Assign):
 					continue
-				for tgt in stmt.targets:
-					if not (isinstance(tgt, ast.Attribute) and isinstance(tgt.value, ast.Name) and tgt.value.id == _fp):
+				for tgt, val in _assign_pairs(stmt.targets, stmt.value):
+					if not (isinstance(tgt, ast.Attribute) and isinstance(tgt.value, ast.Name) and tgt.value.id == _fp) or val is None:
 						continue
-					val = stmt.value
 					type_name = None
 					if isinstance(val, ast.Call):
 						func = val.func
@@ -2996,6 +3047,95 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if _spec is not None and getattr(_spec, 'submodule_search_locations', None) and _python_find_spec_cached(_sub) is not None:
 			return 'module'
 		return None
+	def _assign_value_kind(val, lineno):
+		if val is None:
+			return None
+		if isinstance(val, ast.Lambda):
+			return 'func'
+		if isinstance(val, ast.Name):
+			if val.id in _PYTHON_BUILTIN_MEMBERS:
+				return 'class'
+			_vk = _call_name_kind(val.id, lineno)
+			if _vk in ('func', 'class', 'module'):
+				return _vk
+			if _vk is None and val.id in _PYTHON_BUILTIN_CALLABLE_NAMES:
+				return 'func'
+			return None
+		if isinstance(val, ast.Attribute) and isinstance(val.value, ast.Name) and _call_name_kind(val.value.id, lineno) in ('module', None):
+			_vmod = _base_module_at(val.value.id, lineno)
+			if _vmod is not None:
+				_vak = _module_attr_kind(_vmod, val.attr)
+				if _vak in ('func', 'class', 'module'):
+					return _vak
+		return None
+	def _value_type(val, lineno):
+		if isinstance(val, ast.Call):
+			_ft = _value_type(val.func, lineno)
+			if _ft is not None:
+				if _ft[0] == 'class':
+					return ('instance', _ft[1])
+				if _ft[0] == 'modclass':
+					return ('minstance', _ft[1], _ft[2])
+			return None
+		if isinstance(val, ast.Name):
+			_vo = _class_origin_at(val.id, lineno)
+			if _vo is not None and _call_name_kind(val.id, lineno) == 'class':
+				return ('modclass', _vo[0], _vo[1])
+			if val.id in local_classes and _call_name_kind(val.id, lineno) in (None, 'class'):
+				return ('class', val.id)
+			if _call_name_kind(val.id, lineno) == 'module':
+				_vm = _base_module_at(val.id, lineno)
+				if _vm is not None:
+					return ('module', _vm)
+			_vvt = _var_type_at(val.id, lineno)
+			if _vvt is not None:
+				_vvo = _class_origin_at(_vvt, lineno)
+				if _vvo is not None and _vvt not in local_classes:
+					return ('minstance', _vvo[0], _vvo[1])
+				if _vvt in local_classes:
+					return ('instance', _vvt)
+			return None
+		if isinstance(val, ast.Attribute) and isinstance(val.value, ast.Name):
+			if _call_name_kind(val.value.id, lineno) in ('module', None):
+				_vm = _base_module_at(val.value.id, lineno)
+				if _vm is not None:
+					_vmk = _module_attr_kind(_vm, val.attr)
+					if _vmk == 'class':
+						return ('modclass', _vm, val.attr)
+					if _vmk == 'module':
+						_vtgt = _python_resolve_module_members(_vm).get('@modtarget:' + val.attr)
+						return ('module', _vtgt if _vtgt is not None else f'{_vm}.{val.attr}')
+			return None
+		return None
+	for _ccnode in tree_class_defs:
+		if _ccnode.name not in local_classes:
+			continue
+		for _cstmt in _ccnode.body:
+			_ctgts = _cstmt.targets if isinstance(_cstmt, ast.Assign) else ([_cstmt.target] if isinstance(_cstmt, ast.AnnAssign) else [])
+			for _ctgt, _cval in _assign_pairs(_ctgts, _cstmt.value if _ctgts else None):
+				if not isinstance(_ctgt, ast.Name) or _cval is None:
+					continue
+				_cvt = _value_type(_cval, _cstmt.lineno)
+				if _cvt is not None:
+					class_attr_types.setdefault(_ccnode.name, {})[_ctgt.id] = _cvt
+	for _ucnode in tree_class_defs:
+		if _ucnode.name not in local_classes:
+			continue
+		for _umeth in _ucnode.body:
+			if not isinstance(_umeth, (ast.FunctionDef, ast.AsyncFunctionDef)) or not _umeth.args.args:
+				continue
+			_ufp = _umeth.args.args[0].arg
+			for _ustmt in ast.walk(_umeth):
+				_utgts = _ustmt.targets if isinstance(_ustmt, ast.Assign) else ([_ustmt.target] if isinstance(_ustmt, ast.AnnAssign) else [])
+				for _utgt, _uval in _assign_pairs(_utgts, _ustmt.value if _utgts else None):
+					if not (isinstance(_utgt, ast.Attribute) and isinstance(_utgt.value, ast.Name) and _utgt.value.id == _ufp):
+						continue
+					_ukind = _assign_value_kind(_uval, _ustmt.lineno)
+					if _ukind is not None and local_classes[_ucnode.name].get(_utgt.attr) == 'var':
+						local_classes[_ucnode.name][_utgt.attr] = _ukind
+					_uvt = _value_type(_uval, _ustmt.lineno) if _uval is not None else None
+					if _uvt is not None:
+						class_attr_types.setdefault(_ucnode.name, {})[_utgt.attr] = _uvt
 	def _infer_type(node):
 		if isinstance(node, ast.Name):
 			fpc = _fp_class_at(node.id, node.lineno)
@@ -3058,6 +3198,9 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					return ('instance', _dmt)
 				return None
 			if r[0] in ('modclass', 'minstance'):
+				_cat = class_attr_types.get(r[2], {}).get(node.attr)
+				if _cat is not None:
+					return _cat
 				_dt = dynamic_class_attr_types.get(r[2], {}).get(node.attr)
 				if _dt is None and r[0] == 'modclass':
 					_dt = dynamic_modclass_attr_types.get(r[2], {}).get(node.attr)
@@ -3065,6 +3208,9 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					return ('instance', _dt)
 				return None
 			members = local_classes.get(r[1], {})
+			_cat = class_attr_types.get(r[1], {}).get(node.attr)
+			if _cat is not None:
+				return _cat
 			if r[0] == 'instance':
 				_dt = dynamic_class_attr_types.get(r[1], {}).get(node.attr)
 				if _dt is not None and _dt in local_classes:
@@ -3079,12 +3225,13 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			return None
 		return None
 	for _an in tree_assigns:
-		for _atgt in _an.targets:
+		for _atgt, _aval in _assign_pairs(_an.targets, _an.value):
 			if not isinstance(_atgt, ast.Attribute):
 				continue
-			_atn = _assign_type_name(_an.value)
+			_atn = _assign_type_name(_aval) if _aval is not None else None
+			_adkind = _assign_value_kind(_aval, _an.lineno) or 'var'
 			if isinstance(_atgt.value, ast.Name) and _call_name_kind(_atgt.value.id, _an.lineno) == 'class' and _atgt.value.id in local_classes and _class_origin_at(_atgt.value.id, _an.lineno) is None:
-				local_classes[_atgt.value.id].setdefault(_atgt.attr, 'var')
+				local_classes[_atgt.value.id].setdefault(_atgt.attr, _adkind)
 				if _atn is not None and _atn in local_classes:
 					class_type_maps.setdefault(_atgt.value.id, {})[_atgt.attr] = _atn
 				continue
@@ -3092,29 +3239,35 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			if _br is None:
 				continue
 			if _br[0] == 'module':
-				dynamic_module_attrs.setdefault(_br[1], {})[_atgt.attr] = 'var'
+				dynamic_module_attrs.setdefault(_br[1], {})[_atgt.attr] = _adkind
 				if _atn is not None and _atn in local_classes:
 					dynamic_module_attr_types.setdefault(_br[1], {})[_atgt.attr] = _atn
 			elif _br[0] == 'modclass':
-				dynamic_modclass_attrs.setdefault(_br[2], {})[_atgt.attr] = 'var'
+				dynamic_modclass_attrs.setdefault(_br[2], {})[_atgt.attr] = _adkind
 				if _atn is not None and _atn in local_classes:
 					dynamic_modclass_attr_types.setdefault(_br[2], {})[_atgt.attr] = _atn
 			elif _br[0] == 'minstance':
-				dynamic_class_attrs.setdefault(_br[2], {})[_atgt.attr] = 'var'
+				dynamic_class_attrs.setdefault(_br[2], {})[_atgt.attr] = _adkind
 				if _atn is not None and _atn in local_classes:
 					dynamic_class_attr_types.setdefault(_br[2], {})[_atgt.attr] = _atn
 			elif _br[0] == 'class' and _class_origin_at(_br[1], _an.lineno) is not None:
 				_ocls = _class_origin_at(_br[1], _an.lineno)[1]
-				dynamic_modclass_attrs.setdefault(_ocls, {})[_atgt.attr] = 'var'
+				dynamic_modclass_attrs.setdefault(_ocls, {})[_atgt.attr] = _adkind
 				if _atn is not None and _atn in local_classes:
 					dynamic_modclass_attr_types.setdefault(_ocls, {})[_atgt.attr] = _atn
 			elif _br[0] == 'class' and _br[1] in local_classes:
-				local_classes[_br[1]].setdefault(_atgt.attr, 'var')
-				if _atn is not None and _atn in local_classes:
+				local_classes[_br[1]][_atgt.attr] = _adkind
+				_avt = _value_type(_aval, _an.lineno) if _aval is not None else None
+				if _avt is not None:
+					class_attr_types.setdefault(_br[1], {})[_atgt.attr] = _avt
+				elif _atn is not None and _atn in local_classes:
 					class_type_maps.setdefault(_br[1], {})[_atgt.attr] = _atn
 			elif _br[0] == 'instance' and _br[1] in local_classes:
-				dynamic_class_attrs.setdefault(_br[1], {})[_atgt.attr] = 'var'
-				if _atn is not None and _atn in local_classes:
+				dynamic_class_attrs.setdefault(_br[1], {})[_atgt.attr] = _adkind
+				_avt = _value_type(_aval, _an.lineno) if _aval is not None else None
+				if _avt is not None:
+					class_attr_types.setdefault(_br[1], {})[_atgt.attr] = _avt
+				elif _atn is not None and _atn in local_classes:
 					dynamic_class_attr_types.setdefault(_br[1], {})[_atgt.attr] = _atn
 	typed_attrs = []
 	_ti = 0
@@ -3128,15 +3281,19 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if r[0] == 'module':
 			_k = _module_attr_kind(r[1], node.attr)
 		elif r[0] in ('modclass', 'minstance'):
-			_k = _python_resolve_module_member_kind(r[1], r[2], node.attr)
-			if _k is None and r[0] == 'minstance':
+			_k = None
+			if r[0] == 'minstance':
 				_k = dynamic_class_attrs.get(r[2], {}).get(node.attr)
 			if _k is None and r[0] == 'modclass':
 				_k = dynamic_modclass_attrs.get(r[2], {}).get(node.attr)
+			if _k is None:
+				_k = _python_resolve_module_member_kind(r[1], r[2], node.attr)
 		else:
-			_k = local_classes.get(r[1], {}).get(node.attr)
-			if _k is None and r[0] == 'instance':
+			_k = None
+			if r[0] in ('instance', 'class'):
 				_k = dynamic_class_attrs.get(r[1], {}).get(node.attr)
+			if _k is None:
+				_k = local_classes.get(r[1], {}).get(node.attr)
 		if _k is not None:
 			typed_attrs.append((node.end_lineno, node.end_col_offset - len(node.attr), node.attr, _k))
 	_ck()
