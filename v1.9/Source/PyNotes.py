@@ -88,7 +88,6 @@ import threading
 import queue
 import ast
 import warnings
-import importlib.util
 _PYTHON_BUILTIN_MEMBERS = {}
 for _bt in (str, int, float, list, dict, tuple, set, frozenset, bool, bytes, bytearray):
 	_ms = {}
@@ -554,9 +553,6 @@ except Exception:
 	root.error('Error', f'Could not find the icon at {rootdir}/Icon.png.\nQuitting PyNotes.')
 	root.destroy()
 	exit()
-root.tk.call('wm', 'iconphoto', root._w, easytk.tk.PhotoImage(file = f'{rootdir}/Icon.png'))
-root.wm_iconname('PyNotes')
-root.tk.call('tk', 'appname', 'pynotes')
 root.title('PyNotes - Untitled')
 root.geometry('820x800')
 title = ''
@@ -659,7 +655,7 @@ def changes():
 	show('show pynotes changes')
 	cw = root.subwin()
 	cw.title(f'Changes in v{v}')
-	changelist = ['Changed easytk and PyNotes to use ttkbootstrap!\nYou can now also easily make your own themes using TTK Creator in the Preferences and use them in PyNotes!', 'Added a Markdown HMode and Markdown formatting / syntax highlighting to PyNotes!', 'Made the Python syntax highlighting much better!', 'Made the syntax highlighting of Python variables and functions scope aware!', 'Python function arguments, class names, and module names and methods are now also syntax highlighted, separate from the variables!', 'Added full 256-color/truecolor support in the PyNotes terminal!', 'Completely fixed syntax highlighting lag in large files and added debouncing to all syntax highlighting.', 'Plugins can now make their own HModes and syntax highlighting!', 'Made the HTML syntax highlighting much better.', 'Plugin and PyCode defined Alt-X commands can now take any inputs, not just predefined ones!', 'PyCode functions can now take inputs and return values!', 'Plugins can now directly define PyCode commands (with inputs)!', 'Made more space in the main window by hiding widgets instead of disabling them when they are not needed.', 'Made the Python variable definition detection much smarter.', 'Plugins can now make their own preferences with the main PyNotes preferences.', 'Fixed a bug where some nested PyCode code would not get translated.', 'Made the PyCode error messages better.', 'Fixed an important bug in MathGod in the last version of PyNotes where builtins and functions like I, E, N() were not defined.', 'Made MathGod automatically create all undefined variables as symbols, not just everything from sympy.abc.', 'Made the superscripting and subscripting in MathGod a little better by handling nested brackets.', 'Completely changed and improved the default PyNotes syntax highlighting theme.', 'Completed the Python builtins list for syntax higlighting.', 'Added all the other Python operators to syntax highlighting.', 'Fixed a bug in opening multiple files with spaces in them with a single terminal command.', 'Fixed a small bug in the Windows terminal and made it a little better.', 'Made the MathGod syntax highlighting better by including all Sympy functions.', 'Fixed a bug in the PyCode parser where it stopped at the first closing bracket instead of the matching closing bracket because of using regex.', 'Fixed a small bug in MathGod where the Linux save file dialogue would not show files without extensions.', 'Made the scope-aware AST part of the Python syntax highlighting not give up completely and still highlight the valid parts in a gibberish file.', 'Corrupted saved email details are now handled.', 'Made the PyNotes changes show in a scrollable textbox.', 'Fixed a bug where sometimes PyNotes would show as \'Tk\' without an icon in the Ubuntu sidebar instead of PyNotes.']
+	changelist = ['Changed easytk and PyNotes to use ttkbootstrap!\nYou can now also easily make your own themes using TTK Creator in the Preferences and use them in PyNotes!', 'Added a Markdown HMode and Markdown formatting / syntax highlighting to PyNotes!', 'Made the Python syntax highlighting much better!', 'Made the syntax highlighting of Python variables and functions scope aware!', 'Python function arguments, class names, and module names and methods are now also syntax highlighted, separate from the variables!', 'Added full 256-color/truecolor support in the PyNotes terminal!', 'Completely fixed syntax highlighting lag in large files and added debouncing to all syntax highlighting.', 'Plugins can now make their own HModes and syntax highlighting!', 'Made the HTML syntax highlighting much better.', 'Plugin and PyCode defined Alt-X commands can now take any inputs, not just predefined ones!', 'PyCode functions can now take inputs and return values!', 'Plugins can now directly define PyCode commands (with inputs)!', 'Made more space in the main window by hiding widgets instead of disabling them when they are not needed.', 'Made the Python variable definition detection much smarter.', 'Plugins can now make their own preferences with the main PyNotes preferences.', 'Fixed a bug where some nested PyCode code would not get translated.', 'Made the PyCode error messages better.', 'Fixed an important bug in MathGod in the last version of PyNotes where builtins and functions like I, E, N() were not defined.', 'Made MathGod automatically create all undefined variables as symbols, not just everything from sympy.abc.', 'Made the superscripting and subscripting in MathGod a little better by handling nested brackets.', 'Completely changed and improved the default PyNotes syntax highlighting theme.', 'Completed the Python builtins list for syntax higlighting.', 'Added all the other Python operators to syntax highlighting.', 'Fixed a bug in opening multiple files with spaces in them with a single terminal command.', 'Fixed a small bug in the Windows terminal and made it a little better.', 'Made the MathGod syntax highlighting better by including all Sympy functions.', 'Fixed a bug in the PyCode parser where it stopped at the first closing bracket instead of the matching closing bracket because of using regex.', 'Fixed a small bug in MathGod where the Linux save file dialogue would not show files without extensions.', 'Made the scope-aware AST part of the Python syntax highlighting not give up completely and still highlight the valid parts in a gibberish file.', 'Corrupted saved email details are now handled.', 'Made the PyNotes changes show in a scrollable textbox.', 'Fixed a bug where PyNotes would sometimes not show in the Open With menu on Linux.']
 	chtextbox = cw.textbox(scrolled = True, font = ('TkDefaultFont', 13), wrap = 'word')
 	for i in range(len(changelist) - 1):
 		chtextbox.insert('end', f'{i + 1}. {changelist[i]}\n\n')
@@ -1577,9 +1573,23 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		self.alias_assigns = []
 		self.attr_alias_assigns = []
 		self.dynamic_imports = []
+		self.global_seed_names = set()
+		self.nonlocal_seeds = []
 		self._in_class_body = False
 	def add_name(self, name, lineno, kind):
-		names = self.scopes[self.scope_stack[-1]]['names']
+		sc_idx = self.scope_stack[-1]
+		sc = self.scopes[sc_idx]
+		if name in sc.get('globals', {}):
+			sc_idx = 0
+		elif name in sc.get('nonlocals', {}):
+			_p = sc['parent']
+			while _p is not None:
+				_ps = self.scopes[_p]
+				if _ps.get('kind') == 'function' and name not in _ps.get('globals', {}) and name not in _ps.get('nonlocals', {}):
+					sc_idx = _p
+					break
+				_p = _ps['parent']
+		names = self.scopes[sc_idx]['names']
 		names.setdefault(name, []).append((lineno, kind))
 	def targets(self, node):
 		out = []
@@ -1837,15 +1847,14 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		scope_idx = self.scope_stack[-1]
 		for name in node.names:
 			self.scopes[scope_idx]['globals'][name] = node.lineno
-			self.scopes[0]['names'].setdefault(name, []).append((1, 'var'))
+			self.global_seed_names.add(name)
 	def visit_Nonlocal(self, node):
 		scope_idx = self.scope_stack[-1]
 		for name in node.names:
 			self.scopes[scope_idx]['nonlocals'][name] = node.lineno
 			parent_idx = self.scopes[scope_idx]['parent']
 			if parent_idx is not None:
-				parent_start = self.scopes[parent_idx]['start']
-				self.scopes[parent_idx]['names'].setdefault(name, []).append((parent_start, 'var'))
+				self.nonlocal_seeds.append((parent_idx, name))
 def _python_static_value_kind(val, members, prefix):
 	if isinstance(val, ast.Lambda):
 		return 'func'
@@ -1987,6 +1996,16 @@ def _python_module_src_path(spec, name):
 				return _pkg_init
 	return None
 _python_module_members_cache = {}
+def _python_relative_import_target(name, level, module, is_package):
+	if level == 0:
+		return module
+	base = name.split('.')
+	_strip = level - 1 if is_package else level
+	if _strip > 0:
+		base = base[:-_strip] if _strip < len(base) else []
+	if module:
+		base = base + module.split('.')
+	return '.'.join(base) if base else module
 def _python_resolve_module_members(name, visited = None):
 	if name in _python_module_members_cache:
 		return _python_module_members_cache[name]
@@ -2050,7 +2069,7 @@ def _python_resolve_module_members(name, visited = None):
 	_collect_scope_imports(mod_ast.body, None)
 	for node in _import_nodes:
 		if isinstance(node, ast.ImportFrom):
-			sub_name = (node.module if node.level == 0 else f'{name}.{node.module}') if node.module else name
+			sub_name = _python_relative_import_target(name, node.level, node.module, bool(getattr(spec, 'submodule_search_locations', None))) if (node.module or node.level) else name
 			sub_members = None
 			for alias in node.names:
 				if alias.name == '*':
@@ -2104,7 +2123,7 @@ def _python_resolve_module_func_params(name):
 	_imp = {}
 	for node in mod_ast.body:
 		if isinstance(node, ast.ImportFrom):
-			_imod = node.module if node.level == 0 else (f'{name}.{node.module}' if node.module else name)
+			_imod = _python_relative_import_target(name, node.level, node.module, bool(getattr(spec, 'submodule_search_locations', None))) if (node.module or node.level) else name
 			if _imod:
 				for alias in node.names:
 					if alias.name != '*':
@@ -2358,6 +2377,21 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if 0 <= ln < len(line_to_scope):
 			return line_to_scope[ln]
 		return None
+	def _binding_scope_for(name, sc_idx):
+		if sc_idx is None:
+			return sc_idx
+		sc = builder.scopes[sc_idx]
+		if name in sc.get('globals', {}):
+			return 0
+		if name in sc.get('nonlocals', {}):
+			_p = sc['parent']
+			while _p is not None:
+				_ps = builder.scopes[_p]
+				if _ps.get('kind') == 'function' and name in _ps['names'] and name not in _ps.get('globals', {}) and name not in _ps.get('nonlocals', {}):
+					return _p
+				_p = _ps['parent']
+			return sc_idx
+		return sc_idx
 	_ck()
 	def _call_name_kind(name, lineno):
 		sidx = _scope_for_line(lineno)
@@ -2369,16 +2403,16 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				continue
 			if name in sc['names']:
 				best = None
-				earliest = None
+				latest = None
 				for dl, kind in sc['names'][name]:
-					if earliest is None or dl < earliest[0]:
-						earliest = (dl, kind)
+					if latest is None or dl > latest[0]:
+						latest = (dl, kind)
 					if sidx == inner and dl > lineno:
 						continue
 					if best is None or dl > best[0]:
 						best = (dl, kind)
-				if best is None and earliest is not None and _same_block(earliest[0], lineno):
-					best = earliest
+				if best is None and latest is not None and _same_block(latest[0], lineno):
+					best = latest
 				return best[1] if best is not None else '_local'
 			sidx = sc['parent']
 		return None
@@ -2394,7 +2428,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				_best = (_dl, _dv)
 		if _best is None:
 			for _dl, _dv in defs:
-				if _same_block(_dl, lineno) and (_best is None or _dl < _best[0]):
+				if _same_block(_dl, lineno) and (_best is None or _dl > _best[0]):
 					_best = (_dl, _dv)
 		return _best[1] if _best is not None else None
 	def _class_origin_at(name, lineno):
@@ -2483,49 +2517,125 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 	for _tn in tree_class_defs:
 		if _tn.name not in _class_def_by_name:
 			_class_def_by_name[_tn.name] = _tn
+	def _compute_class_members(node):
+		members = _python_inspect_ast_members(node.body)
+		for _bstmt in node.body:
+			_btgts = _bstmt.targets if isinstance(_bstmt, ast.Assign) else ([_bstmt.target] if isinstance(_bstmt, ast.AnnAssign) else [])
+			_bval = _bstmt.value if isinstance(_bstmt, (ast.Assign, ast.AnnAssign)) else None
+			if not isinstance(_bval, ast.Name):
+				continue
+			for _btgt in _btgts:
+				if isinstance(_btgt, ast.Name) and members.get(_btgt.id) in ('var', None):
+					_rk = _call_name_kind(_bval.id, _bstmt.lineno)
+					if _rk in ('func', 'class', 'module'):
+						members[_btgt.id] = _rk
+		for meth in node.body:
+			if isinstance(meth, (ast.FunctionDef, ast.AsyncFunctionDef)):
+				_fp = meth.args.args[0].arg if meth.args.args else None
+				for stmt in ast.walk(meth):
+					tgts = stmt.targets if isinstance(stmt, ast.Assign) else ([stmt.target] if isinstance(stmt, (ast.AnnAssign, ast.AugAssign)) else [])
+					for tgt, _tval in _assign_pairs(tgts, stmt.value if isinstance(stmt, (ast.Assign, ast.AnnAssign)) else None):
+						if _fp and isinstance(tgt, ast.Attribute) and isinstance(tgt.value, ast.Name) and tgt.value.id == _fp:
+							_mvk = 'var'
+							if isinstance(_tval, ast.Lambda):
+								_mvk = 'func'
+							elif isinstance(_tval, ast.Attribute) and isinstance(_tval.value, ast.Name) and _tval.value.id == _fp:
+								_svk = members.get(_tval.attr)
+								if _svk in ('func', 'class', 'module'):
+									_mvk = _svk
+							elif isinstance(_tval, ast.Name):
+								_nvk = _call_name_kind(_tval.id, stmt.lineno)
+								if _nvk in ('func', 'class', 'module'):
+									_mvk = _nvk
+							members.setdefault(tgt.attr, _mvk)
+		return members
+	class_def_lines = {}
+	local_class_defs = {}
+	for _tn in tree_class_defs:
+		class_def_lines.setdefault(_tn.name, []).append(_tn.lineno)
+	def _class_def_line_at(name, lineno):
+		_lns = class_def_lines.get(name)
+		if not _lns:
+			return None
+		_best = None
+		for _cl in _lns:
+			if _cl <= lineno and (_best is None or _cl > _best):
+				_best = _cl
+		if _best is None:
+			_best = max(_lns)
+		return _best
 	for scope in builder.scopes:
 		for name, defs in scope['names'].items():
 			for _, kind in defs:
 				if kind == 'class' and name in _class_def_by_name and name not in local_classes:
 					try:
 						node = _class_def_by_name[name]
-						members = _python_inspect_ast_members(node.body)
-						for meth in node.body:
-							if isinstance(meth, (ast.FunctionDef, ast.AsyncFunctionDef)):
-								_fp = meth.args.args[0].arg if meth.args.args else None
-								for stmt in ast.walk(meth):
-									tgts = stmt.targets if isinstance(stmt, ast.Assign) else ([stmt.target] if isinstance(stmt, (ast.AnnAssign, ast.AugAssign)) else [])
-									for tgt, _tval in _assign_pairs(tgts, stmt.value if isinstance(stmt, (ast.Assign, ast.AnnAssign)) else None):
-										if _fp and isinstance(tgt, ast.Attribute) and isinstance(tgt.value, ast.Name) and tgt.value.id == _fp:
-											members.setdefault(tgt.attr, 'func' if isinstance(_tval, ast.Lambda) else 'var')
-						local_classes[name] = members
+						local_classes[name] = _compute_class_members(node)
 					except Exception:
 						pass
+	_class_first_line = {}
+	for _tn in tree_class_defs:
+		if _tn.name not in _class_first_line:
+			_class_first_line[_tn.name] = _tn.lineno
+	def _class_key_at(name, lineno):
+		_dl = _class_def_line_at(name, lineno)
+		if _dl is None or _dl == _class_first_line.get(name):
+			return name
+		return name + '\x00' + str(_dl)
+	for _tn in tree_class_defs:
+		if _tn.name in local_classes and _tn.lineno != _class_first_line.get(_tn.name):
+			_rk = _tn.name + '\x00' + str(_tn.lineno)
+			if _rk not in local_classes:
+				try:
+					local_classes[_rk] = _compute_class_members(_tn)
+				except Exception:
+					local_classes[_rk] = {}
 	if seed_classes:
 		for _scn, _scm in seed_classes.items():
 			local_classes.setdefault(_scn, dict(_scm))
 	_ck()
+	def _node_class_key(node):
+		if node.name in local_classes and node.lineno != _class_first_line.get(node.name):
+			return node.name + '\x00' + str(node.lineno)
+		return node.name
 	class_bases = {}
 	for node in tree_class_defs:
 		if node.name in local_classes:
 			bases = []
 			for base in node.bases:
 				if isinstance(base, ast.Name):
-					bases.append(base.id)
+					bases.append(_class_key_at(base.id, node.lineno))
 				elif isinstance(base, ast.Attribute):
 					bases.append(base.attr)
-			class_bases[node.name] = bases
+			class_bases[_node_class_key(node)] = bases
 	local_class_method_params = {}
 	local_class_accepts_any = set()
+	_class_attr_lambda_params = {}
 	for node in tree_class_defs:
 		if node.name in local_classes:
+			_nk = _node_class_key(node)
 			for sub in node.body:
 				if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
 					_margs = list(sub.args.posonlyargs) + list(sub.args.args) + list(sub.args.kwonlyargs)
 					_mp = set(a.arg for a in _margs[1:]) | set(a.arg for a in sub.args.kwonlyargs)
 					if sub.args.kwarg:
-						local_class_accepts_any.add(node.name + '.' + sub.name)
-					local_class_method_params[node.name + '.' + sub.name] = _mp
+						local_class_accepts_any.add(_nk + '.' + sub.name)
+					local_class_method_params[_nk + '.' + sub.name] = _mp
+					_sfp = sub.args.args[0].arg if sub.args.args else None
+					if _sfp:
+						for _astmt in ast.walk(sub):
+							if not isinstance(_astmt, ast.Assign):
+								continue
+							for _atg in _astmt.targets:
+								if isinstance(_atg, ast.Attribute) and isinstance(_atg.value, ast.Name) and _atg.value.id == _sfp:
+									_av = _astmt.value
+									if isinstance(_av, ast.Lambda):
+										_lp = set(a.arg for a in list(_av.args.posonlyargs) + list(_av.args.args) + list(_av.args.kwonlyargs))
+										local_class_method_params[_nk + '.' + _atg.attr] = _lp
+										if _av.args.kwarg:
+											local_class_accepts_any.add(_nk + '.' + _atg.attr)
+									elif isinstance(_av, ast.Attribute) and isinstance(_av.value, ast.Name) and _av.value.id == _sfp:
+										_class_attr_lambda_params.setdefault(_nk, []).append((_atg.attr, _av.attr))
 	if seed_method_params:
 		for _smk, _smv in seed_method_params.items():
 			local_class_method_params.setdefault(_smk, _smv)
@@ -2551,14 +2661,26 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 								changed = True
 		if not changed:
 			break
+	for _calp_nk, _calp_pairs in _class_attr_lambda_params.items():
+		for _attr_name, _src_meth in _calp_pairs:
+			_src_key = _calp_nk + '.' + _src_meth
+			if _src_key in local_class_method_params and _calp_nk + '.' + _attr_name not in local_class_method_params:
+				local_class_method_params[_calp_nk + '.' + _attr_name] = local_class_method_params[_src_key]
+				if _src_key in local_class_accepts_any:
+					local_class_accepts_any.add(_calp_nk + '.' + _attr_name)
 	_ck()
 	for _bname, _bmembers in _PYTHON_BUILTIN_MEMBERS.items():
 		local_classes.setdefault(_bname, dict(_bmembers))
+	def _name_is_class_at(name, lineno):
+		if name not in local_classes:
+			return False
+		_k = _call_name_kind(name, lineno)
+		return _k == 'class' or _k is None
 	class_type_maps = {}
 	class_attr_types = {}
 	for node in tree_class_defs:
 		if node.name in local_classes:
-			class_type_maps[node.name] = {}
+			class_type_maps[_node_class_key(node)] = {}
 	_ck()
 	candidate_modules = set()
 	for _, imported_name, top_name, _, _ in builder.import_names:
@@ -2593,6 +2715,19 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				builder.scopes[scope_idx]['names'].setdefault(used_name, []).append((lineno, 'module'))
 		elif imported_name in valid_modules:
 			builder.scopes[scope_idx]['names'].setdefault(used_name, []).append((lineno, 'module'))
+	for _gsn in builder.global_seed_names:
+		if not builder.scopes[0]['names'].get(_gsn):
+			builder.scopes[0]['names'].setdefault(_gsn, []).append((1, 'var'))
+	for _nlp, _nln in builder.nonlocal_seeds:
+		_nlbound = False
+		_nlcur = _nlp
+		while _nlcur is not None:
+			if builder.scopes[_nlcur].get('kind') == 'function' and builder.scopes[_nlcur]['names'].get(_nln):
+				_nlbound = True
+				break
+			_nlcur = builder.scopes[_nlcur]['parent']
+		if not _nlbound:
+			builder.scopes[_nlp]['names'].setdefault(_nln, []).append((builder.scopes[_nlp]['start'], 'var'))
 	for scope_idx, module_name, imported_name, _orig_name, lineno in builder.from_imports:
 		if not module_name or module_name not in valid_modules:
 			continue
@@ -2669,16 +2804,16 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				continue
 			if name in sc['names']:
 				best = None
-				earliest = None
+				latest = None
 				for _dl, _k in sc['names'][name]:
-					if earliest is None or _dl < earliest[0]:
-						earliest = (_dl, _k)
+					if latest is None or _dl > latest[0]:
+						latest = (_dl, _k)
 					if sidx == inner and _dl > lineno:
 						continue
 					if best is None or _dl > best[0]:
 						best = (_dl, _k)
-				if best is None and earliest is not None and _same_block(earliest[0], lineno):
-					best = earliest
+				if best is None and latest is not None and _same_block(latest[0], lineno):
+					best = latest
 				return best[1] if best is not None else None
 			sidx = sc['parent']
 		return None
@@ -2691,7 +2826,8 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			if _aname not in builder.func_params and _asrc in _PYTHON_BUILTIN_CALLABLE_PARAMS:
 				builder.func_params[_aname] = _PYTHON_BUILTIN_CALLABLE_PARAMS[_asrc]
 		if _srckind in ('class', 'func'):
-			_anames = builder.scopes[_asc]['names'].setdefault(_aname, [])
+			_absc = _binding_scope_for(_aname, _asc)
+			_anames = builder.scopes[_absc]['names'].setdefault(_aname, [])
 			_anames[:] = [(_l, _k) for _l, _k in _anames if not (_l == _aln and _k == 'var')]
 			_anames.append((_aln, _srckind))
 			if _srckind == 'func' and _asrc in builder.func_params and _aname not in builder.func_params:
@@ -2715,7 +2851,8 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		_amod = _base_module_at(_abase, _aln)
 		if _amod is None or _python_resolve_module_members(_amod).get(_aattr) != 'class':
 			continue
-		_anames = builder.scopes[_asc]['names'].setdefault(_aname, [])
+		_absc = _binding_scope_for(_aname, _asc)
+		_anames = builder.scopes[_absc]['names'].setdefault(_aname, [])
 		_anames[:] = [(_l, _k) for _l, _k in _anames if not (_l == _aln and _k == 'var')]
 		_anames.append((_aln, 'class'))
 		name_module_class.setdefault(_aname, []).append((_aln, (_amod, _aattr)))
@@ -2731,16 +2868,27 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 	local_def_lines = {}
 	for _dln, _dnm, _dk in builder.def_names:
 		local_def_lines.setdefault(_dnm, []).append(_dln)
-	def _lookup_module_callable(mod_name, key):
+	def _lookup_module_callable(mod_name, key, seen = None):
+		if seen is None:
+			seen = set()
+		if (mod_name, key) in seen:
+			return None, None
+		seen.add((mod_name, key))
 		if mod_name not in valid_modules and _python_find_spec_cached(mod_name) is None:
 			return None, None
 		fp = _python_resolve_module_func_params(mod_name)
-		if key not in fp:
-			return None, None
-		v = fp[key]
-		if v is None:
-			return True, None
-		return True, v
+		if key in fp:
+			v = fp[key]
+			if v is None:
+				return True, None
+			return True, v
+		imports = fp.get('@imports', {})
+		_head = key.split('.', 1)[0]
+		_tail = key[len(_head) + 1:] if '.' in key else None
+		if _head in imports and imports[_head][1] is not None:
+			_rmod, _rname = imports[_head]
+			return _lookup_module_callable(_rmod, _rname if _tail is None else f'{_rname}.{_tail}', seen)
+		return None, None
 	def _resolve_through_module(mod_name, rest):
 		cur_mod = mod_name
 		idx = 0
@@ -2776,6 +2924,8 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			for _dl in local_def_lines.get(root, []):
 				if _dl <= lineno and (_local_line is None or _dl > _local_line):
 					_local_line = _dl
+			if _local_line is not None and kind not in ('func', 'class', None):
+				_local_line = None
 			_imp = None
 			_imp_line = None
 			for _fl, _fv in from_func_module.get(root, []):
@@ -2783,10 +2933,17 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					_imp_line = _fl
 					_imp = _fv
 			if _local_line is not None and (_imp_line is None or _local_line >= _imp_line):
+				if kind == 'class' and root in local_classes and root in class_def_lines:
+					_ckey = _class_key_at(root, lineno)
+					if _ckey + '.__init__' in local_class_accepts_any:
+						return True, None
+					if _ckey + '.__init__' in local_class_method_params:
+						return True, local_class_method_params[_ckey + '.__init__']
+					return True, set()
 				if root in builder.func_accepts_any:
 					return True, None
 				return True, builder.func_params.get(root, set())
-			if _imp_line is not None and kind in ('func', 'module', None):
+			if _imp_line is not None and kind in ('func', 'class', 'module', None):
 				return _lookup_module_callable(_imp[0], _imp[1])
 			if kind is None and root in _PYTHON_BUILTIN_CALLABLE_NAMES:
 				return True, _PYTHON_BUILTIN_CALLABLE_PARAMS.get(root, set())
@@ -2795,6 +2952,13 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					return True, None
 				return True, builder.func_params.get(root, set())
 			return None, None
+		if len(rest) == 1 and _name_is_class_at(root, lineno):
+			_ckey = _class_key_at(root, lineno)
+			_mkey = _ckey + '.' + rest[0]
+			if _mkey in local_class_accepts_any:
+				return True, None
+			if _mkey in local_class_method_params:
+				return True, local_class_method_params[_mkey]
 		if _call_name_kind(root, lineno) in ('module', None):
 			_rmod = _base_module_at(root, lineno)
 			if _rmod is not None:
@@ -2866,8 +3030,12 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				type_name = 'str'
 			elif isinstance(val, ast.Name):
 				_var_type_alias_assigns.append((node.lineno, tgt.id, val.id))
+			if isinstance(val, ast.Call) and isinstance(val.func, ast.Name) and type_name and type_name in local_classes and not _name_is_class_at(type_name, node.lineno):
+				type_name = None
+			if isinstance(val, ast.Call) and isinstance(val.func, ast.Name) and type_name and type_name in local_classes:
+				type_name = _class_key_at(type_name, node.lineno)
 			if type_name and (type_name in local_classes or _class_origin_at(type_name, node.lineno) is not None):
-				sc_idx = _scope_for_line(node.lineno)
+				sc_idx = _binding_scope_for(tgt.id, _scope_for_line(node.lineno))
 				if sc_idx is not None:
 					scope_var_types.setdefault(sc_idx, {}).setdefault(tgt.id, []).append((node.lineno, type_name))
 	for _valn, _vatgt, _vasrc in sorted(_var_type_alias_assigns):
@@ -2886,8 +3054,9 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				if _vb is not None:
 					_vtype = _vb[1]
 			_scur = builder.scopes[_scur]['parent']
-		if _vtype is not None and _vsc is not None:
-			scope_var_types.setdefault(_vsc, {}).setdefault(_vatgt, []).append((_valn, _vtype))
+		_vtsc = _binding_scope_for(_vatgt, _vsc)
+		if _vtype is not None and _vtsc is not None:
+			scope_var_types.setdefault(_vtsc, {}).setdefault(_vatgt, []).append((_valn, _vtype))
 	_ck()
 	for cls_node in tree_class_defs:
 		for meth in cls_node.body:
@@ -2909,6 +3078,8 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 						if isinstance(func, ast.Name):
 							type_name = func.id
 							mod_name = _line_def_at(_from_import_map.get(type_name), stmt.lineno)
+							if mod_name is None and not _name_is_class_at(type_name, stmt.lineno):
+								type_name = None
 						elif isinstance(func, ast.Attribute):
 							type_name = func.attr
 							mod_name = _base_module_at(func.value.id, stmt.lineno) if isinstance(func.value, ast.Name) else None
@@ -2930,7 +3101,9 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					elif isinstance(val, ast.JoinedStr):
 						type_name = 'str'
 					if type_name and type_name in local_classes:
-						class_type_maps.setdefault(cls_node.name, {})[tgt.attr] = type_name
+						if isinstance(val, ast.Call) and isinstance(val.func, ast.Name):
+							type_name = _class_key_at(type_name, stmt.lineno)
+						class_type_maps.setdefault(_node_class_key(cls_node), {})[tgt.attr] = type_name
 	for cls_node in tree_class_defs:
 		if cls_node.name not in local_classes:
 			continue
@@ -2958,17 +3131,20 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			elif isinstance(val, ast.JoinedStr):
 				type_name = 'str'
 			if type_name and type_name in local_classes:
+				if isinstance(val, ast.Call) and isinstance(val.func, ast.Name):
+					type_name = _class_key_at(type_name, stmt.lineno)
 				for tgt in stmt.targets:
 					if isinstance(tgt, ast.Name):
-						class_type_maps.setdefault(cls_node.name, {})[tgt.id] = type_name
+						class_type_maps.setdefault(_node_class_key(cls_node), {})[tgt.id] = type_name
 	_ck()
 	_ck()
 	method_fp_ranges = []
 	for _cnode in tree_class_defs:
 		if _cnode.name in local_classes:
+			_cnk = _node_class_key(_cnode)
 			for _meth in _cnode.body:
 				if isinstance(_meth, (ast.FunctionDef, ast.AsyncFunctionDef)) and _meth.args.args:
-					method_fp_ranges.append((_meth.lineno, getattr(_meth, 'end_lineno', _meth.lineno), _meth.args.args[0].arg, _cnode.name))
+					method_fp_ranges.append((_meth.lineno, getattr(_meth, 'end_lineno', _meth.lineno), _meth.args.args[0].arg, _cnk))
 	def _fp_class_at(name, lineno):
 		best = None
 		for ms, me, fp, cn in method_fp_ranges:
@@ -2997,11 +3173,11 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				return None
 			sidx = sc['parent']
 		return None
-	def _assign_type_name(val):
+	def _assign_type_name(val, lineno):
 		if isinstance(val, ast.Call):
 			func = val.func
 			if isinstance(func, ast.Name):
-				return func.id if func.id in local_classes else None
+				return func.id if _name_is_class_at(func.id, lineno) else None
 			if isinstance(func, ast.Attribute):
 				return func.attr if func.attr in local_classes else None
 			return None
@@ -3017,6 +3193,8 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			return 'set'
 		if isinstance(val, ast.JoinedStr):
 			return 'str'
+		if isinstance(val, ast.Name) and _name_is_class_at(val.id, lineno):
+			return _class_key_at(val.id, lineno)
 		return None
 	def _literal_type(node):
 		if isinstance(node, ast.Constant):
@@ -3053,20 +3231,26 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if isinstance(val, ast.Lambda):
 			return 'func'
 		if isinstance(val, ast.Name):
-			if val.id in _PYTHON_BUILTIN_MEMBERS:
-				return 'class'
 			_vk = _call_name_kind(val.id, lineno)
 			if _vk in ('func', 'class', 'module'):
 				return _vk
+			if _vk is None and val.id in _PYTHON_BUILTIN_MEMBERS:
+				return 'class'
 			if _vk is None and val.id in _PYTHON_BUILTIN_CALLABLE_NAMES:
 				return 'func'
 			return None
-		if isinstance(val, ast.Attribute) and isinstance(val.value, ast.Name) and _call_name_kind(val.value.id, lineno) in ('module', None):
-			_vmod = _base_module_at(val.value.id, lineno)
-			if _vmod is not None:
-				_vak = _module_attr_kind(_vmod, val.attr)
-				if _vak in ('func', 'class', 'module'):
-					return _vak
+		if isinstance(val, ast.Attribute) and isinstance(val.value, ast.Name):
+			_vfpc = _fp_class_at(val.value.id, lineno)
+			if _vfpc is not None:
+				_vfk = local_classes.get(_vfpc, {}).get(val.attr)
+				if _vfk in ('func', 'class', 'module'):
+					return _vfk
+			if _call_name_kind(val.value.id, lineno) in ('module', None):
+				_vmod = _base_module_at(val.value.id, lineno)
+				if _vmod is not None:
+					_vak = _module_attr_kind(_vmod, val.attr)
+					if _vak in ('func', 'class', 'module'):
+						return _vak
 		return None
 	def _value_type(val, lineno):
 		if isinstance(val, ast.Call):
@@ -3082,7 +3266,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			if _vo is not None and _call_name_kind(val.id, lineno) == 'class':
 				return ('modclass', _vo[0], _vo[1])
 			if val.id in local_classes and _call_name_kind(val.id, lineno) in (None, 'class'):
-				return ('class', val.id)
+				return ('class', _class_key_at(val.id, lineno))
 			if _call_name_kind(val.id, lineno) == 'module':
 				_vm = _base_module_at(val.id, lineno)
 				if _vm is not None:
@@ -3117,7 +3301,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					continue
 				_cvt = _value_type(_cval, _cstmt.lineno)
 				if _cvt is not None:
-					class_attr_types.setdefault(_ccnode.name, {})[_ctgt.id] = _cvt
+					class_attr_types.setdefault(_node_class_key(_ccnode), {})[_ctgt.id] = _cvt
 	for _ucnode in tree_class_defs:
 		if _ucnode.name not in local_classes:
 			continue
@@ -3131,27 +3315,28 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					if not (isinstance(_utgt, ast.Attribute) and isinstance(_utgt.value, ast.Name) and _utgt.value.id == _ufp):
 						continue
 					_ukind = _assign_value_kind(_uval, _ustmt.lineno)
-					if _ukind is not None and local_classes[_ucnode.name].get(_utgt.attr) == 'var':
-						local_classes[_ucnode.name][_utgt.attr] = _ukind
+					_unk = _node_class_key(_ucnode)
+					if _ukind is not None and local_classes[_unk].get(_utgt.attr) == 'var':
+						local_classes[_unk][_utgt.attr] = _ukind
 					_uvt = _value_type(_uval, _ustmt.lineno) if _uval is not None else None
 					if _uvt is not None:
-						class_attr_types.setdefault(_ucnode.name, {})[_utgt.attr] = _uvt
+						class_attr_types.setdefault(_unk, {})[_utgt.attr] = _uvt
 	def _infer_type(node):
 		if isinstance(node, ast.Name):
-			fpc = _fp_class_at(node.id, node.lineno)
-			if fpc is not None:
-				return ('instance', fpc)
 			vt = _var_type_at(node.id, node.lineno)
 			if vt is not None:
 				_vorig = _class_origin_at(vt, node.lineno)
 				if _vorig is not None and vt not in local_classes:
 					return ('minstance', _vorig[0], _vorig[1])
 				return ('instance', vt)
+			fpc = _fp_class_at(node.id, node.lineno)
+			if fpc is not None:
+				return ('instance', fpc)
 			_norig = _class_origin_at(node.id, node.lineno)
 			if _norig is not None and _call_name_kind(node.id, node.lineno) == 'class':
 				return ('modclass', _norig[0], _norig[1])
-			if node.id in local_classes:
-				return ('class', node.id)
+			if _name_is_class_at(node.id, node.lineno):
+				return ('class', _class_key_at(node.id, node.lineno))
 			if _call_name_kind(node.id, node.lineno) == 'module':
 				_nmod = _base_module_at(node.id, node.lineno)
 				if _nmod is not None:
@@ -3192,6 +3377,9 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					_tgt = _python_resolve_module_members(r[1]).get('@modtarget:' + node.attr)
 					return ('module', _tgt if _tgt is not None else f'{r[1]}.{node.attr}')
 				if _mk == 'class':
+					_dmc = dynamic_module_attr_types.get(r[1], {}).get(node.attr)
+					if _dmc is not None and _dmc in local_classes:
+						return ('class', _dmc)
 					return ('modclass', r[1], node.attr)
 				_dmt = dynamic_module_attr_types.get(r[1], {}).get(node.attr)
 				if _dmt is not None and _dmt in local_classes:
@@ -3228,7 +3416,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		for _atgt, _aval in _assign_pairs(_an.targets, _an.value):
 			if not isinstance(_atgt, ast.Attribute):
 				continue
-			_atn = _assign_type_name(_aval) if _aval is not None else None
+			_atn = _assign_type_name(_aval, _an.lineno) if _aval is not None else None
 			_adkind = _assign_value_kind(_aval, _an.lineno) or 'var'
 			if isinstance(_atgt.value, ast.Name) and _call_name_kind(_atgt.value.id, _an.lineno) == 'class' and _atgt.value.id in local_classes and _class_origin_at(_atgt.value.id, _an.lineno) is None:
 				local_classes[_atgt.value.id].setdefault(_atgt.attr, _adkind)
@@ -3269,6 +3457,18 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					class_attr_types.setdefault(_br[1], {})[_atgt.attr] = _avt
 				elif _atn is not None and _atn in local_classes:
 					dynamic_class_attr_types.setdefault(_br[1], {})[_atgt.attr] = _atn
+	for node in tree_assigns:
+		if not isinstance(node.value, ast.Call) or not isinstance(node.value.func, ast.Attribute):
+			continue
+		for tgt, _tv in _assign_pairs(node.targets, node.value):
+			if not isinstance(tgt, ast.Name):
+				continue
+			_isc = _binding_scope_for(tgt.id, _scope_for_line(node.lineno))
+			if _isc is None or scope_var_types.get(_isc, {}).get(tgt.id):
+				continue
+			_ir = _infer_type(node.value)
+			if _ir is not None and _ir[0] == 'instance' and _ir[1] in local_classes:
+				scope_var_types.setdefault(_isc, {}).setdefault(tgt.id, []).append((node.lineno, _ir[1]))
 	typed_attrs = []
 	_ti = 0
 	for node in tree_attributes:
@@ -3323,7 +3523,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		_vsc = _scope_for_line(_vn.lineno)
 		for _t in _vn.targets:
 			if isinstance(_t, ast.Name):
-				var_module_class.setdefault((_vsc, _t.id), []).append((_vn.lineno, _cmod, _ccls))
+				var_module_class.setdefault((_binding_scope_for(_t.id, _vsc), _t.id), []).append((_vn.lineno, _cmod, _ccls))
 	def _var_modclass_at(name, lineno):
 		sidx = _scope_for_line(lineno)
 		inner = sidx
@@ -3400,16 +3600,16 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				continue
 			if name in sc['names']:
 				best = None
-				earliest = None
+				latest = None
 				for dl, kind in sc['names'][name]:
-					if earliest is None or dl < earliest[0]:
-						earliest = (dl, kind)
+					if latest is None or dl > latest[0]:
+						latest = (dl, kind)
 					if sidx == inner and dl > lineno:
 						continue
 					if best is None or dl > best[0]:
 						best = (dl, kind)
-				if best is None and earliest is not None and _same_block(earliest[0], lineno):
-					best = earliest
+				if best is None and latest is not None and _same_block(latest[0], lineno):
+					best = latest
 				return best[1] if best is not None else None
 			sidx = sc['parent']
 		return None
@@ -3605,6 +3805,13 @@ def ha(ft):
 					innermost_scope = scope_idx
 					innermost_parent = python_scopes[innermost_scope]['parent'] if innermost_scope is not None else None
 					on_header = innermost_scope is not None and abs_line == python_scopes[innermost_scope]['start']
+					_redir_names = set()
+					_rsi = innermost_scope
+					while _rsi is not None:
+						_rsc = python_scopes[_rsi]
+						_redir_names |= set(_rsc.get('globals', {}))
+						_redir_names |= set(_rsc.get('nonlocals', {}))
+						_rsi = _rsc['parent']
 					while scope_idx is not None:
 						sc = python_scopes[scope_idx]
 						if sc.get('kind') == 'class' and scope_idx != innermost_scope and not (on_header and scope_idx == innermost_parent):
@@ -3619,11 +3826,12 @@ def ha(ft):
 								continue
 							best = None
 							second_best = None
-							earliest = None
+							latest = None
+							_guard = scope_idx == innermost_scope or name in _redir_names
 							for dl, kind in defs:
-								if earliest is None or dl < earliest[0]:
-									earliest = (dl, kind)
-								if scope_idx == innermost_scope and dl > abs_line:
+								if latest is None or dl > latest[0]:
+									latest = (dl, kind)
+								if _guard and dl > abs_line:
 									continue
 								if best is None or dl > best[0]:
 									second_best = best
@@ -3631,7 +3839,7 @@ def ha(ft):
 								elif second_best is None or dl > second_best[0]:
 									second_best = (dl, kind)
 							if best is None:
-								best = earliest
+								best = latest
 							bound.add(name)
 							if best is not None:
 								active[name] = best[1]
@@ -4625,6 +4833,21 @@ def term(pythonfile = None):
 		r, g, b = term.winfo_rgb(colour)
 		try: _write(f'\x1b]{which};rgb:{r:04x}/{g:04x}/{b:04x}\x1b\\'.encode())
 		except OSError: pass
+	def _osc_parse_colour(spec):
+		spec = spec.strip()
+		if spec.startswith('rgb:'):
+			parts = spec[4:].split('/')
+			if len(parts) == 3:
+				try:
+					return '#' + ''.join(f'{int(p[:2], 16):02x}' if len(p) >= 2 else f'{int(p, 16):02x}' for p in parts)
+				except Exception:
+					return None
+			return None
+		try:
+			term.winfo_rgb(spec)
+			return spec
+		except Exception:
+			return None
 	def _handle_osc(body):
 		if body.startswith('52;'):
 			parts = body.split(';', 2)
@@ -4639,6 +4862,18 @@ def term(pythonfile = None):
 			_osc_colour_reply('11', _term_default_bg)
 		elif body.startswith('10;?'):
 			_osc_colour_reply('10', _term_default_fg)
+		elif body.startswith('12;'):
+			_spec = body[3:]
+			if _spec == '?':
+				_osc_colour_reply('12', term.cget('insertbackground'))
+			else:
+				_col = _osc_parse_colour(_spec)
+				if _col:
+					try: term.config(insertbackground = _col)
+					except Exception: pass
+		elif body == '112' or body.startswith('112;'):
+			try: term.config(insertbackground = _term_default_fg)
+			except Exception: pass
 	def _enter_alt_screen():
 		if _alt_saved[0] is not None:
 			return
@@ -7972,6 +8207,13 @@ def hapyshell():
 			innermost_scope = scope_idx
 			innermost_parent = shell_scopes[innermost_scope]['parent'] if innermost_scope is not None else None
 			on_header = innermost_scope is not None and abs_line == shell_scopes[innermost_scope]['start']
+			_redir_names = set()
+			_rsi = innermost_scope
+			while _rsi is not None:
+				_rsc = shell_scopes[_rsi]
+				_redir_names |= set(_rsc.get('globals', {}))
+				_redir_names |= set(_rsc.get('nonlocals', {}))
+				_rsi = _rsc['parent']
 			while scope_idx is not None:
 				sc = shell_scopes[scope_idx]
 				if sc.get('kind') == 'class' and scope_idx != innermost_scope and not (on_header and scope_idx == innermost_parent):
@@ -7986,19 +8228,20 @@ def hapyshell():
 						continue
 					best = None
 					second_best = None
-					earliest = None
+					latest = None
+					_guard = scope_idx == innermost_scope or name in _redir_names
 					for dl, kind in defs:
-						if earliest is None or dl < earliest[0]:
-							earliest = (dl, kind)
-						if scope_idx == innermost_scope and dl > abs_line:
+						if latest is None or dl > latest[0]:
+							latest = (dl, kind)
+						if _guard and dl > abs_line:
 							continue
 						if best is None or dl > best[0]:
 							second_best = best
 							best = (dl, kind)
 						elif second_best is None or dl > second_best[0]:
 							second_best = (dl, kind)
-					if best is None and earliest is not None and _shell_same_block(earliest[0], abs_line):
-						best = earliest
+					if best is None and latest is not None and _shell_same_block(latest[0], abs_line):
+						best = latest
 					bound.add(name)
 					if best is not None:
 						active[name] = best[1]
