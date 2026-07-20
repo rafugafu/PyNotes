@@ -4122,6 +4122,10 @@ def ha(ft):
 					m0 = env_pat.match(region)
 					depth = 1
 					search_from = m0.end() if m0 else len(region)
+					hl_start_rel = search_from
+					nl0 = region.find('\n', hl_start_rel)
+					if nl0 != -1:
+						hl_start_rel = nl0 + 1
 					while depth > 0:
 						em2 = env_pat.search(region, search_from)
 						if not em2:
@@ -4133,15 +4137,20 @@ def ha(ft):
 							depth -= 1
 						search_from = em2.end()
 					end_abs = outer_start + search_from
-					ops.append(('add', 'hlb', f'1.0+{outer_start}c', f'1.0+{end_abs}c'))
+					hl_start_abs = outer_start + hl_start_rel
+					if hl_start_abs < end_abs:
+						ops.append(('add', 'hlb', f'1.0+{hl_start_abs}c', f'1.0+{end_abs}c'))
 					scan_from = max(0, end_abs - pre_n)
 				tn = len(text)
 				for begin_m in re.finditer(r'\\begin\{\s*(\w+\*?)\s*\}', text[scan_from:]):
 					if begin_m.group(1) == 'document':
 						continue
 					env_name = re.escape(begin_m.group(1))
-					bstart = scan_from + begin_m.start()
 					search_from2 = scan_from + begin_m.end()
+					bstart = search_from2
+					nl1 = text.find('\n', bstart)
+					if nl1 != -1:
+						bstart = nl1 + 1
 					depth2 = 1
 					env_pat2 = re.compile(r'\\(begin|end)\{\s*' + env_name + r'\s*\}')
 					bend = tn
@@ -4156,7 +4165,8 @@ def ha(ft):
 						search_from2 = em3.end()
 						if depth2 == 0:
 							bend = search_from2
-					ops.append(('add', 'hlb', f'{top}+{bstart}c', f'{top}+{bend}c'))
+					if bstart < bend:
+						ops.append(('add', 'hlb', f'{top}+{bstart}c', f'{top}+{bend}c'))
 				for m in re.finditer(r'\\[a-zA-Z@]+\*?', text):
 					ops.append(('add', 'hld', f'{top}+{m.start()}c', f'{top}+{m.end()}c'))
 				for i in range(len(text)):
@@ -4445,9 +4455,11 @@ def ha(ft):
 								type_.tag_remove(tag, top, bottom)
 						elif op[0] == 'add':
 							for tag in removable_tags:
-								if tag != op[1]:
+								if tag != op[1] and not (ft == 'latex' and tag == 'hlb' and op[1] != 'hlb'):
 									type_.tag_remove(tag, op[2], op[3])
 							type_.tag_add(op[1], op[2], op[3])
+							if ft == 'latex' and op[1] != 'hlb':
+								type_.tag_raise(op[1], 'hlb')
 						elif op[0] == 'remove':
 							type_.tag_remove(op[1], op[2], op[3])
 						elif op[0] == 'config':
