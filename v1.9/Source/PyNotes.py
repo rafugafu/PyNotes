@@ -122,6 +122,7 @@ for _bn, _bkw in {'min': {'key', 'default'}, 'max': {'key', 'default'}, 'int': {
 del _bn, _bkw
 import builtins as _bmod
 _PYTHON_BUILTIN_CALLABLE_NAMES = {n for n in dir(_bmod) if callable(getattr(_bmod, n, None))}
+_PYTHON_BUILTIN_NAMES = set(dir(_bmod))
 del _bmod
 _PYTHON_BUILTIN_METHOD_RETURNS = {'str': {'capitalize': 'str', 'casefold': 'str', 'center': 'str', 'expandtabs': 'str', 'format': 'str', 'format_map': 'str', 'join': 'str', 'ljust': 'str', 'lower': 'str', 'lstrip': 'str', 'removeprefix': 'str', 'removesuffix': 'str', 'replace': 'str', 'rjust': 'str', 'rstrip': 'str', 'strip': 'str', 'swapcase': 'str', 'title': 'str', 'translate': 'str', 'upper': 'str', 'zfill': 'str', 'split': 'list', 'rsplit': 'list', 'splitlines': 'list', 'partition': 'tuple', 'rpartition': 'tuple', 'encode': 'bytes', 'count': 'int', 'find': 'int', 'index': 'int', 'rfind': 'int', 'rindex': 'int', 'maketrans': 'dict', 'isalnum': 'bool', 'isalpha': 'bool', 'isascii': 'bool', 'isdecimal': 'bool', 'isdigit': 'bool', 'isidentifier': 'bool', 'islower': 'bool', 'isnumeric': 'bool', 'isprintable': 'bool', 'isspace': 'bool', 'istitle': 'bool', 'isupper': 'bool', 'startswith': 'bool', 'endswith': 'bool'}, 'bytes': {'capitalize': 'bytes', 'center': 'bytes', 'expandtabs': 'bytes', 'hex': 'str', 'join': 'bytes', 'ljust': 'bytes', 'lower': 'bytes', 'lstrip': 'bytes', 'removeprefix': 'bytes', 'removesuffix': 'bytes', 'replace': 'bytes', 'rjust': 'bytes', 'rstrip': 'bytes', 'strip': 'bytes', 'swapcase': 'bytes', 'title': 'bytes', 'translate': 'bytes', 'upper': 'bytes', 'zfill': 'bytes', 'decode': 'str', 'split': 'list', 'rsplit': 'list', 'splitlines': 'list', 'partition': 'tuple', 'rpartition': 'tuple', 'count': 'int', 'find': 'int', 'index': 'int', 'rfind': 'int', 'rindex': 'int', 'maketrans': 'dict', 'isalnum': 'bool', 'isalpha': 'bool', 'isascii': 'bool', 'isdigit': 'bool', 'islower': 'bool', 'isspace': 'bool', 'istitle': 'bool', 'isupper': 'bool', 'startswith': 'bool', 'endswith': 'bool'}, 'bytearray': {'capitalize': 'bytearray', 'center': 'bytearray', 'expandtabs': 'bytearray', 'hex': 'str', 'join': 'bytearray', 'ljust': 'bytearray', 'lower': 'bytearray', 'lstrip': 'bytearray', 'removeprefix': 'bytearray', 'removesuffix': 'bytearray', 'replace': 'bytearray', 'rjust': 'bytearray', 'rstrip': 'bytearray', 'strip': 'bytearray', 'swapcase': 'bytearray', 'title': 'bytearray', 'translate': 'bytearray', 'upper': 'bytearray', 'zfill': 'bytearray', 'decode': 'str', 'split': 'list', 'rsplit': 'list', 'splitlines': 'list', 'partition': 'tuple', 'rpartition': 'tuple', 'count': 'int', 'find': 'int', 'index': 'int', 'rfind': 'int', 'rindex': 'int', 'maketrans': 'dict', 'isalnum': 'bool', 'isalpha': 'bool', 'isascii': 'bool', 'isdigit': 'bool', 'islower': 'bool', 'isspace': 'bool', 'istitle': 'bool', 'isupper': 'bool', 'startswith': 'bool', 'endswith': 'bool'}, 'list': {'copy': 'list', 'count': 'int', 'index': 'int'}, 'dict': {'copy': 'dict', 'keys': 'list', 'values': 'list', 'items': 'list', 'fromkeys': 'dict'}, 'set': {'copy': 'set', 'union': 'set', 'intersection': 'set', 'difference': 'set', 'symmetric_difference': 'set', 'isdisjoint': 'bool', 'issubset': 'bool', 'issuperset': 'bool'}, 'frozenset': {'copy': 'frozenset', 'union': 'frozenset', 'intersection': 'frozenset', 'difference': 'frozenset', 'symmetric_difference': 'frozenset', 'isdisjoint': 'bool', 'issubset': 'bool', 'issuperset': 'bool'}, 'int': {'bit_length': 'int', 'bit_count': 'int', 'conjugate': 'int', 'as_integer_ratio': 'tuple', 'to_bytes': 'bytes'}, 'float': {'conjugate': 'float', 'as_integer_ratio': 'tuple', 'hex': 'str', 'is_integer': 'bool'}}
 def faketerm(number):
@@ -1500,7 +1501,6 @@ def _python_bytecol_to_charcol(line_str, bytecol):
 		return len(line_str)
 	return len(encoded[:bytecol].decode('utf-8', 'ignore'))
 _PYTHON_KW_PAT = re.compile(r'(?<!\.)\b(?:' + '|'.join(re.escape(k) for k in keyword.kwlist) + r')\b')
-_PYTHON_BI_PAT = re.compile(r'(?<!\.)\b(?:' + '|'.join(re.escape(k) for k in ('ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException', 'BaseExceptionGroup', 'BlockingIOError', 'BrokenPipeError', 'BufferError', 'BytesWarning', 'ChildProcessError', 'ConnectionAbortedError', 'ConnectionError', 'ConnectionRefusedError', 'ConnectionResetError', 'DeprecationWarning', 'EOFError', 'Ellipsis', 'EncodingWarning', 'EnvironmentError', 'Exception', 'ExceptionGroup', 'FileExistsError', 'FileNotFoundError', 'FloatingPointError', 'FutureWarning', 'GeneratorExit', 'IOError', 'ImportError', 'ImportWarning', 'IndentationError', 'IndexError', 'InterruptedError', 'IsADirectoryError', 'KeyError', 'KeyboardInterrupt', 'LookupError', 'MemoryError', 'ModuleNotFoundError', 'NameError', 'NotADirectoryError', 'NotImplemented', 'NotImplementedError', 'OSError', 'OverflowError', 'PendingDeprecationWarning', 'PermissionError', 'ProcessLookupError', 'PythonFinalizationError', 'RecursionError', 'ReferenceError', 'ResourceWarning', 'RuntimeError', 'RuntimeWarning', 'StopAsyncIteration', 'StopIteration', 'SyntaxError', 'SyntaxWarning', 'SystemError', 'SystemExit', 'TabError', 'TimeoutError', 'TypeError', 'UnboundLocalError', 'UnicodeDecodeError', 'UnicodeEncodeError', 'UnicodeError', 'UnicodeTranslateError', 'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning', 'ZeroDivisionError', '_IncompleteInputError', '__build_class__', '__debug__', '__doc__', '__import__', '__loader__', '__name__', '__package__', '__spec__', 'abs', 'aiter', 'all', 'anext', 'any', 'ascii', 'bin', 'bool', 'breakpoint', 'bytearray', 'bytes', 'callable', 'chr', 'classmethod', 'compile', 'complex', 'copyright', 'credits', 'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval', 'exec', 'exit', 'filter', 'float', 'format', 'frozenset', 'getattr', 'globals', 'hasattr', 'hash', 'help', 'hex', 'id', 'input', 'int', 'isinstance', 'issubclass', 'iter', 'len', 'license', 'list', 'locals', 'map', 'max', 'memoryview', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'print', 'property', 'quit', 'range', 'repr', 'reversed', 'round', 'set', 'setattr', 'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple', 'type', 'vars', 'zip')) + r')\b')
 _PYTHON_OP_PAT = re.compile(r'\*\*=|//=|<<=|>>=|:=|==|!=|<=|>=|\+=|-=|\*=|/=|%=|&=|\|=|\^=|@=|->|\*\*|//|<<|>>|[+\-*/%@&|^~=<>]')
 _LH_PAT = re.compile(r'(?<!\\)%[^\n]*(?:\n|$)')
 _LATEX_MATH_PAT = re.compile(r'\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$(?!\$)(?:[^$\\]|\\.)*?\$(?!\$)')
@@ -1634,7 +1634,7 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		for d in list(node.args.defaults) + [kd for kd in node.args.kw_defaults if kd is not None]:
 			self.visit(d)
 		end = getattr(node, 'end_lineno', node.lineno)
-		is_method = self._in_class_body
+		is_method = self._in_class_body and _python_method_has_implicit_first_param(node)
 		prev_in_class_body = self._in_class_body
 		self._in_class_body = False
 		self.push_scope(node.lineno, end)
@@ -1855,6 +1855,22 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 			parent_idx = self.scopes[scope_idx]['parent']
 			if parent_idx is not None:
 				self.nonlocal_seeds.append((parent_idx, name))
+def _python_method_has_implicit_first_param(node):
+	for dec in getattr(node, 'decorator_list', []):
+		_dn = None
+		if isinstance(dec, ast.Name):
+			_dn = dec.id
+		elif isinstance(dec, ast.Attribute):
+			_dn = dec.attr
+		elif isinstance(dec, ast.Call):
+			_df = dec.func
+			if isinstance(_df, ast.Name):
+				_dn = _df.id
+			elif isinstance(_df, ast.Attribute):
+				_dn = _df.attr
+		if _dn == 'staticmethod':
+			return False
+	return True
 def _python_static_value_kind(val, members, prefix):
 	if isinstance(val, ast.Lambda):
 		return 'func'
@@ -1881,7 +1897,7 @@ def _python_inspect_ast_members(node_list, prefix = ''):
 			class_members = _python_inspect_ast_members(node.body, key)
 			members.update(class_members)
 			for _sub in node.body:
-				if isinstance(_sub, (ast.FunctionDef, ast.AsyncFunctionDef)) and _sub.args.args:
+				if isinstance(_sub, (ast.FunctionDef, ast.AsyncFunctionDef)) and _sub.args.args and _python_method_has_implicit_first_param(_sub):
 					_sfp = _sub.args.args[0].arg
 					for _sst in ast.walk(_sub):
 						_stgts = _sst.targets if isinstance(_sst, ast.Assign) else ([_sst.target] if isinstance(_sst, (ast.AnnAssign, ast.AugAssign)) else [])
@@ -2531,7 +2547,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 						members[_btgt.id] = _rk
 		for meth in node.body:
 			if isinstance(meth, (ast.FunctionDef, ast.AsyncFunctionDef)):
-				_fp = meth.args.args[0].arg if meth.args.args else None
+				_fp = meth.args.args[0].arg if (meth.args.args and _python_method_has_implicit_first_param(meth)) else None
 				for stmt in ast.walk(meth):
 					tgts = stmt.targets if isinstance(stmt, ast.Assign) else ([stmt.target] if isinstance(stmt, (ast.AnnAssign, ast.AugAssign)) else [])
 					for tgt, _tval in _assign_pairs(tgts, stmt.value if isinstance(stmt, (ast.Assign, ast.AnnAssign)) else None):
@@ -2616,12 +2632,13 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			_nk = _node_class_key(node)
 			for sub in node.body:
 				if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
+					_mimp = _python_method_has_implicit_first_param(sub)
 					_margs = list(sub.args.posonlyargs) + list(sub.args.args) + list(sub.args.kwonlyargs)
-					_mp = set(a.arg for a in _margs[1:]) | set(a.arg for a in sub.args.kwonlyargs)
+					_mp = set(a.arg for a in (_margs[1:] if _mimp else _margs)) | set(a.arg for a in sub.args.kwonlyargs)
 					if sub.args.kwarg:
 						local_class_accepts_any.add(_nk + '.' + sub.name)
 					local_class_method_params[_nk + '.' + sub.name] = _mp
-					_sfp = sub.args.args[0].arg if sub.args.args else None
+					_sfp = sub.args.args[0].arg if (sub.args.args and _mimp) else None
 					if _sfp:
 						for _astmt in ast.walk(sub):
 							if not isinstance(_astmt, ast.Assign):
@@ -2820,12 +2837,12 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 	for _asc, _aln, _aname, _asrc in builder.alias_assigns:
 		_srckind = _resolve_name_kind_scope(_asc, _asrc, _aln)
 		if _srckind is None and _asrc in _PYTHON_BUILTIN_MEMBERS:
-			_srckind = 'class'
-		elif _srckind is None and _asrc in _PYTHON_BUILTIN_CALLABLE_NAMES:
-			_srckind = 'func'
+			_srckind = 'builtin'
+		elif _srckind is None and _asrc in _PYTHON_BUILTIN_NAMES:
+			_srckind = 'builtin'
 			if _aname not in builder.func_params and _asrc in _PYTHON_BUILTIN_CALLABLE_PARAMS:
 				builder.func_params[_aname] = _PYTHON_BUILTIN_CALLABLE_PARAMS[_asrc]
-		if _srckind in ('class', 'func'):
+		if _srckind in ('class', 'func', 'builtin'):
 			_absc = _binding_scope_for(_aname, _asc)
 			_anames = builder.scopes[_absc]['names'].setdefault(_aname, [])
 			_anames[:] = [(_l, _k) for _l, _k in _anames if not (_l == _aln and _k == 'var')]
@@ -2834,7 +2851,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				builder.func_params[_aname] = builder.func_params[_asrc]
 				if _asrc in builder.func_accepts_any:
 					builder.func_accepts_any.add(_aname)
-			if _srckind == 'class' and _asrc in local_classes and _aname not in local_classes:
+			if _srckind in ('class', 'builtin') and _asrc in local_classes and _aname not in local_classes:
 				local_classes[_aname] = local_classes[_asrc]
 				class_type_maps[_aname] = class_type_maps.setdefault(_asrc, {})
 				_sorig = _class_origin_at(_asrc, _aln)
@@ -3062,7 +3079,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		for meth in cls_node.body:
 			if not isinstance(meth, (ast.FunctionDef, ast.AsyncFunctionDef)):
 				continue
-			_fp = meth.args.args[0].arg if meth.args.args else None
+			_fp = meth.args.args[0].arg if (meth.args.args and _python_method_has_implicit_first_param(meth)) else None
 			if not _fp:
 				continue
 			for stmt in ast.walk(meth):
@@ -3143,7 +3160,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if _cnode.name in local_classes:
 			_cnk = _node_class_key(_cnode)
 			for _meth in _cnode.body:
-				if isinstance(_meth, (ast.FunctionDef, ast.AsyncFunctionDef)) and _meth.args.args:
+				if isinstance(_meth, (ast.FunctionDef, ast.AsyncFunctionDef)) and _meth.args.args and _python_method_has_implicit_first_param(_meth):
 					method_fp_ranges.append((_meth.lineno, getattr(_meth, 'end_lineno', _meth.lineno), _meth.args.args[0].arg, _cnk))
 	def _fp_class_at(name, lineno):
 		best = None
@@ -3306,7 +3323,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if _ucnode.name not in local_classes:
 			continue
 		for _umeth in _ucnode.body:
-			if not isinstance(_umeth, (ast.FunctionDef, ast.AsyncFunctionDef)) or not _umeth.args.args:
+			if not isinstance(_umeth, (ast.FunctionDef, ast.AsyncFunctionDef)) or not _umeth.args.args or not _python_method_has_implicit_first_param(_umeth):
 				continue
 			_ufp = _umeth.args.args[0].arg
 			for _ustmt in ast.walk(_umeth):
@@ -3757,8 +3774,6 @@ def ha(ft):
 			if ft == 'python':
 				for m in _PYTHON_KW_PAT.finditer(text):
 					ops.append(('add', 'hpa', f'{top}+{m.start()}c', f'{top}+{m.end()}c'))
-				for m in _PYTHON_BI_PAT.finditer(text):
-					ops.append(('add', 'hpb', f'{top}+{m.start()}c', f'{top}+{m.end()}c'))
 				top_line = int(top.split('.')[0])
 				line_scopes = {}
 				for line in range(top_line, top_line + len(text.split('\n'))):
@@ -3781,7 +3796,7 @@ def ha(ft):
 				def_names_by_line = {}
 				for _dl, _dcol, _dname, _dkind in python_def_names:
 					def_names_by_line.setdefault(_dl, []).append((_dcol, _dname, _dkind))
-				python_kind_tags = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}
+				python_kind_tags = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx', 'builtin': 'hpb'}
 				python_literal_attrs = _python_literal_attrs
 				literal_attr_by_line = {}
 				for _ln, _col, _attr, _tname in python_literal_attrs:
@@ -3849,8 +3864,10 @@ def ha(ft):
 					for _ncol, _nname, _nstore in name_pos_by_line.get(abs_line, []):
 						_nkind = active.get(_nname)
 						if _nkind is None:
-							continue
-						if not _nstore and _nname in prior_kinds:
+							if _nname not in _PYTHON_BUILTIN_NAMES:
+								continue
+							_nkind = 'builtin'
+						elif not _nstore and _nname in prior_kinds:
 							_nkind = prior_kinds[_nname]
 						_ntag = python_kind_tags.get(_nkind)
 						if _ntag is None:
@@ -8167,8 +8184,6 @@ def hapyshell():
 				shellcmd.tag_remove(tag, shell_top, shell_bottom)
 		for m in _PYTHON_KW_PAT.finditer(visible_code):
 			add_span('hpa', m.start(), m.end())
-		for m in _PYTHON_BI_PAT.finditer(visible_code):
-			add_span('hpb', m.start(), m.end())
 		line_scopes = {}
 		for line in vis_abs:
 			for k, sc in enumerate(shell_scopes):
@@ -8197,7 +8212,7 @@ def hapyshell():
 		shell_def_names_by_line = {}
 		for _dl, _dcol, _dname, _dkind in shell_def_names:
 			shell_def_names_by_line.setdefault(_dl, []).append((_dcol, _dname, _dkind))
-		shell_kind_tags = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}
+		shell_kind_tags = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx', 'builtin': 'hpb'}
 		shell_literal_attr_by_line = {}
 		for _ln, _col, _attr, _tname in shell_literal_attrs:
 			shell_literal_attr_by_line.setdefault(_ln, []).append((_col, _attr, _tname))
@@ -8263,8 +8278,10 @@ def hapyshell():
 			for _ncol, _nname, _nstore in shell_name_pos_by_line.get(abs_line, []):
 				_nkind = active.get(_nname)
 				if _nkind is None:
-					continue
-				if not _nstore and _nname in prior_kinds:
+					if _nname not in _PYTHON_BUILTIN_NAMES:
+						continue
+					_nkind = 'builtin'
+				elif not _nstore and _nname in prior_kinds:
 					_nkind = prior_kinds[_nname]
 				_ntag = shell_kind_tags.get(_nkind)
 				if _ntag is None:
