@@ -3,7 +3,8 @@ import time
 import shutil
 from tkinter import messagebox as mb
 import getpass
-import requests
+import urllib.request
+import urllib.error
 import os
 import tkinter as tk
 try:
@@ -24,11 +25,8 @@ if platform.system() == 'Linux':
 	homedir = f'/home/{getpass.getuser()}'
 else:
 	homedir = f'C:/Users/{getpass.getuser()}'
-def download(url):
-	if platform.system() == 'Linux':
-		os.system(f'wget "{url}"')
-	else:
-		os.system(f'curl -O --ssl-no-revoke {url}')
+def download(url, filename):
+	urllib.request.urlretrieve(url, filename)
 root.geometry('400x400')
 root.title('PyNotes Plugin Installer')
 infotext = ttk.Label(root, text = 'Downloading list of plugins', font = ('TkDefaultFont', 15))
@@ -39,23 +37,21 @@ pb = ttk.Progressbar()
 root.update()
 listurl = 'https://raw.githubusercontent.com/rafugafu/PyNotes/main/Plugins/list'
 try:
-	requested = requests.get(listurl)
-	requested.raise_for_status()
+	with urllib.request.urlopen(listurl) as requested:
+		listplugins = requested.read().decode()
 except Exception as e:
 	mb.showerror('Error', f'There was an error in downloading the list of plugins:\n{e}')
 	root.destroy()
 	exit()
-else:
-	listplugins = requested.text
 def done():
-	donebutton.config(state = 'disabled')
-	installing = []
-	for plugincheck in pluginchecks:
-		plugincheck[2].config(state = 'disabled')
-		if plugincheck[1].get():
-			installing.append(plugincheck[0])
+	installing = [plugincheck[0] for plugincheck in pluginchecks if plugincheck[1].get()]
+	if not installing:
+		mb.showinfo('Info', 'Select plugins to install')
+		return
 	if not mb.askokcancel('Installing', f'These plugins will be installed:\n\n{"\n".join(f'"{x}"' for x in installing)}\n\nContinue?'):
 		return
+	donebutton.config(state = 'disabled')
+	[plugincheck[2].config(state = 'disabled') for plugincheck in pluginchecks]
 	pb.pack(anchor = 'nw', padx = 10, pady = 10)
 	increment = 100 / len(installing)
 	for plugin in installing:
@@ -63,9 +59,8 @@ def done():
 		root.update()
 		try:
 			url = f'https://raw.githubusercontent.com/rafugafu/PyNotes/main/Plugins/{plugin.replace(" ", "%20")}.zip'
-			download(url)
-			filename = plugin if platform.system() == 'Linux' else plugin.replace(' ', '%20')
-			filename += '.zip'
+			filename = f'{plugin}.zip'
+			download(url, filename)
 			os.makedirs(f'{homedir}/.local/share/PyNotes/add-ons', exist_ok = True)
 			shutil.unpack_archive(filename, f'{homedir}/.local/share/PyNotes/add-ons')
 			os.remove(filename)
