@@ -1766,11 +1766,14 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		self.visit(node.value)
 	def _dynamic_import_module(self, call):
 		fn = call.func
-		is_import = (isinstance(fn, ast.Name) and fn.id == '__import__') or (isinstance(fn, ast.Attribute) and fn.attr == 'import_module')
-		if not is_import or not call.args:
+		is_builtin_import = isinstance(fn, ast.Name) and fn.id == '__import__'
+		is_importlib = isinstance(fn, ast.Attribute) and fn.attr == 'import_module'
+		if not (is_builtin_import or is_importlib) or not call.args:
 			return None
 		arg = call.args[0]
 		if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+			if is_builtin_import and not _python_import_fromlist_is_nonempty(call):
+				return arg.value.split('.')[0]
 			return arg.value
 		return None
 	def visit_AnnAssign(self, node):
@@ -1883,6 +1886,22 @@ def _python_method_has_implicit_first_param(node):
 				_dn = _df.attr
 		if _dn == 'staticmethod':
 			return False
+	return True
+def _python_import_fromlist_is_nonempty(call):
+	_fl = None
+	if len(call.args) >= 4:
+		_fl = call.args[3]
+	else:
+		for _kw in call.keywords:
+			if _kw.arg == 'fromlist':
+				_fl = _kw.value
+				break
+	if _fl is None:
+		return False
+	if isinstance(_fl, (ast.List, ast.Tuple, ast.Set)):
+		return len(_fl.elts) > 0
+	if isinstance(_fl, ast.Constant) and _fl.value is None:
+		return False
 	return True
 def _python_static_value_kind(val, members, prefix):
 	if isinstance(val, ast.Lambda):
@@ -3452,7 +3471,9 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if isinstance(node, ast.Call):
 			if isinstance(node.func, ast.Name) and node.func.id == '__import__' and _call_name_kind('__import__', node.lineno) is None and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
 				if node.args[0].value in valid_modules or _python_find_spec_cached(node.args[0].value) is not None:
-					return ('module', node.args[0].value)
+					if _python_import_fromlist_is_nonempty(node):
+						return ('module', node.args[0].value)
+					return ('module', node.args[0].value.split('.')[0])
 			if isinstance(node.func, ast.Attribute) and node.func.attr == 'import_module' and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
 				if node.args[0].value in valid_modules or _python_find_spec_cached(node.args[0].value) is not None:
 					return ('module', node.args[0].value)
