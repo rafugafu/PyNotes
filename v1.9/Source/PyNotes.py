@@ -2459,6 +2459,8 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 						continue
 					if best is None or dl > best[0]:
 						best = (dl, kind)
+				if best is None and latest is not None and name in _PYTHON_BUILTIN_NAMES:
+					return None
 				if best is None and latest is not None and _same_block(latest[0], lineno):
 					best = latest
 				return best[1] if best is not None else '_local'
@@ -4100,7 +4102,7 @@ def ha(ft):
 									best = (dl, kind)
 								elif second_best is None or dl > second_best[0]:
 									second_best = (dl, kind)
-							if best is None:
+							if best is None and name not in _PYTHON_BUILTIN_NAMES:
 								best = latest
 							bound.add(name)
 							if best is not None:
@@ -8531,7 +8533,7 @@ def hapyshell():
 							best = (dl, kind)
 						elif second_best is None or dl > second_best[0]:
 							second_best = (dl, kind)
-					if best is None and latest is not None and _shell_same_block(latest[0], abs_line):
+					if best is None and latest is not None and _shell_same_block(latest[0], abs_line) and name not in _PYTHON_BUILTIN_NAMES:
 						best = latest
 					bound.add(name)
 					if best is not None:
