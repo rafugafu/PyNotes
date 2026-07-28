@@ -313,7 +313,7 @@ try:
 except Exception:
 	pass
 defaultpythonexec = '/usr/bin/python3' if platform.system() == 'Linux' else 'python'
-defaultdefs = f"{v}\nFalse\n{monospace}\npulse\n{rootdir}/english.txt\nFalse\nFalse\n{defaultpythonexec}\n'pynotes:found': \"foreground = '#FFFFFF', background = '#16A34A'\", 'pynotes:foundhighlight': \"foreground = '#FFFFFF', background = '#1F2937'\", 'pynotes:marked': \"background = '#E5E7EB'\", 'python:keywords': \"foreground = '#7C3AED', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold')\", 'python:inbuilt': \"foreground = '#D97706'\", 'python:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'python:strings': \"foreground = '#15803D'\", 'python:variable_names': \"foreground = '#DC2626'\", 'python:function_names': \"foreground = '#2563EB'\", 'python:class_names': \"foreground = '#0891B2'\", 'python:function_arguments': \"foreground = '#0F766E'\", 'python:operators': \"foreground = 'white', background = 'light grey'\", 'python:module_names': \"foreground = '#0369A1'\", 'latex:inlinemath': \"foreground = '#15803D'\", 'latex:environment': \"background = '#DCFCE7'\", 'latex:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'latex:commands': \"foreground = '#C026D3'\", 'latex:arguments': \"foreground = '#2563EB'\", 'latex:operators': \"foreground = 'white', background = 'light grey'\", 'latex:square_brackets': \"foreground = '#92400E'\", 'html:attributes': \"foreground = '#DC2626'\", 'html:tags': \"foreground = '#047857'\", 'html:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'html:quotes': \"foreground = '#2563EB'\", 'markdown:headers1': \"foreground = '#111827', font = (type_.cget('font')[:-3].strip('{{}}'), 29, 'bold')\", 'markdown:headers2': \"foreground = '#1F2937', font = (type_.cget('font')[:-3].strip('{{}}'), 26, 'bold')\", 'markdown:headers3': \"foreground = '#374151', font = (type_.cget('font')[:-3].strip('{{}}'), 23, 'bold')\", 'markdown:headers4': \"foreground = '#4B5563', font = (type_.cget('font')[:-3].strip('{{}}'), 20, 'bold')\", 'markdown:headers5': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 17, 'bold')\", 'markdown:headers6': \"foreground = '#9CA3AF', font = (type_.cget('font')[:-3].strip('{{}}'), 14, 'bold')\", 'markdown:bold': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold')\", 'markdown:italic': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'markdown:bold_italic': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold italic')\", 'markdown:strike': 'overstrike = True', 'markdown:inlinecode': \"foreground = '#BE123C', background = '#F3F4F6'\", 'markdown:links': \"foreground = '#2563EB', underline = True, underlinefg = '#2563EB'\", 'markdown:blockquotes': \"foreground = '#374151', background = '#F3F4F6'\", 'markdown:codeblocks': \"background = '#F3F4F6'\""
+defaultdefs = f"{v}\nFalse\n{monospace}\npulse\n{rootdir}/english.txt\nFalse\nFalse\n{defaultpythonexec}\n'pynotes:found': \"foreground = '#FFFFFF', background = '#16A34A'\", 'pynotes:foundhighlight': \"foreground = '#FFFFFF', background = '#1F2937'\", 'pynotes:marked': \"background = '#E5E7EB'\", 'python:keywords': \"foreground = '#7C3AED', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold')\", 'python:inbuilt': \"foreground = '#D97706'\", 'python:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'python:strings': \"foreground = '#15803D'\", 'python:variable_names': \"foreground = '#DC2626'\", 'python:function_names': \"foreground = '#2563EB'\", 'python:class_names': \"foreground = '#0891B2'\", 'python:class_instances': \"foreground = '#155E75'\", 'python:function_arguments': \"foreground = '#0F766E'\", 'python:operators': \"foreground = 'white', background = 'light grey'\", 'python:module_names': \"foreground = '#0369A1'\", 'latex:inlinemath': \"foreground = '#15803D'\", 'latex:environment': \"background = '#DCFCE7'\", 'latex:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'latex:commands': \"foreground = '#C026D3'\", 'latex:arguments': \"foreground = '#2563EB'\", 'latex:operators': \"foreground = 'white', background = 'light grey'\", 'latex:square_brackets': \"foreground = '#92400E'\", 'html:attributes': \"foreground = '#DC2626'\", 'html:tags': \"foreground = '#047857'\", 'html:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'html:quotes': \"foreground = '#2563EB'\", 'markdown:headers1': \"foreground = '#111827', font = (type_.cget('font')[:-3].strip('{{}}'), 29, 'bold')\", 'markdown:headers2': \"foreground = '#1F2937', font = (type_.cget('font')[:-3].strip('{{}}'), 26, 'bold')\", 'markdown:headers3': \"foreground = '#374151', font = (type_.cget('font')[:-3].strip('{{}}'), 23, 'bold')\", 'markdown:headers4': \"foreground = '#4B5563', font = (type_.cget('font')[:-3].strip('{{}}'), 20, 'bold')\", 'markdown:headers5': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 17, 'bold')\", 'markdown:headers6': \"foreground = '#9CA3AF', font = (type_.cget('font')[:-3].strip('{{}}'), 14, 'bold')\", 'markdown:bold': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold')\", 'markdown:italic': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'markdown:bold_italic': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold italic')\", 'markdown:strike': 'overstrike = True', 'markdown:inlinecode': \"foreground = '#BE123C', background = '#F3F4F6'\", 'markdown:links': \"foreground = '#2563EB', underline = True, underlinefg = '#2563EB'\", 'markdown:blockquotes': \"foreground = '#374151', background = '#F3F4F6'\", 'markdown:codeblocks': \"background = '#F3F4F6'\""
 try:
 	file = open(f'{homedir}/.local/share/PyNotes/defs', 'r', encoding = 'utf-8')
 except Exception:
@@ -477,6 +477,7 @@ try:
 	theme['python:variable_names']
 	theme['python:function_names']
 	theme['python:class_names']
+	theme['python:class_instances']
 	theme['python:function_arguments']
 	theme['python:operators']
 	theme['python:module_names']
@@ -560,10 +561,11 @@ title = ''
 type_top = '1.0'
 type_bottom = 'end'
 def _init_hl_tags():
-	[type_.tag_delete(tag) for tag in ('hpa', 'hpb', 'hpv', 'hpf', 'hpx', 'hpfa', 'hpm', 'hpo', 'hpd', 'hpc', 'hla', 'hlb', 'hld', 'hle', 'hlf', 'hlg', 'hlh', 'hstuff', 'hattr', 'hstr', 'hcmt', 'hmh1', 'hmh2', 'hmh3', 'hmh4', 'hmh5', 'hmh6', 'hmb', 'hmi', 'hmbi')]
+	[type_.tag_delete(tag) for tag in ('hpa', 'hpb', 'hpv', 'hpi', 'hpf', 'hpx', 'hpfa', 'hpm', 'hpo', 'hpd', 'hpc', 'hla', 'hlb', 'hld', 'hle', 'hlf', 'hlg', 'hlh', 'hstuff', 'hattr', 'hstr', 'hcmt', 'hmh1', 'hmh2', 'hmh3', 'hmh4', 'hmh5', 'hmh6', 'hmb', 'hmi', 'hmbi')]
 	exec("type_.tag_config('hpa'," + theme['python:keywords'] + ')')
 	exec("type_.tag_config('hpb'," + theme['python:inbuilt'] + ')')
 	exec("type_.tag_config('hpv'," + theme['python:variable_names'] + ')')
+	exec("type_.tag_config('hpi'," + theme['python:class_instances'] + ')')
 	exec("type_.tag_config('hpf'," + theme['python:function_names'] + ')')
 	exec("type_.tag_config('hpx'," + theme['python:class_names'] + ')')
 	exec("type_.tag_config('hpfa'," + theme['python:function_arguments'] + ')')
@@ -601,6 +603,7 @@ def _init_pythonshell_hl_tags():
 	exec("shellcmd.tag_config('hpa'," + theme['python:keywords'].replace('type_', 'shellcmd') + ')')
 	exec("shellcmd.tag_config('hpb'," + theme['python:inbuilt'].replace('type_', 'shellcmd') + ')')
 	exec("shellcmd.tag_config('hpv'," + theme['python:variable_names'].replace('type_', 'shellcmd') + ')')
+	exec("shellcmd.tag_config('hpi'," + theme['python:class_instances'].replace('type_', 'shellcmd') + ')')
 	exec("shellcmd.tag_config('hpf'," + theme['python:function_names'].replace('type_', 'shellcmd') + ')')
 	exec("shellcmd.tag_config('hpx'," + theme['python:class_names'].replace('type_', 'shellcmd') + ')')
 	exec("shellcmd.tag_config('hpfa'," + theme['python:function_arguments'].replace('type_', 'shellcmd') + ')')
@@ -656,7 +659,7 @@ def changes():
 	show('show pynotes changes')
 	cw = root.subwin()
 	cw.title(f'Changes in v{v}')
-	changelist = ['Changed easytk and PyNotes to use ttkbootstrap!\nYou can now also easily make your own themes using TTK Creator in the Preferences and use them in PyNotes!', 'Added a Markdown HMode and Markdown formatting / syntax highlighting to PyNotes!', 'Made the Python syntax highlighting much better!', 'Made the syntax highlighting of Python variables and functions scope aware!', 'Python function arguments, class names, and module names and methods are now also syntax highlighted, separate from the variables!', 'Added full 256-color/truecolor support in the PyNotes terminal!', 'Completely fixed syntax highlighting lag in large files and added debouncing to all syntax highlighting.', 'Plugins can now make their own HModes and syntax highlighting!', 'Made the HTML syntax highlighting much better.', 'Plugin and PyCode defined Alt-X commands can now take any inputs, not just predefined ones!', 'PyCode functions can now take inputs and return values!', 'Plugins can now directly define PyCode commands (with inputs)!', 'Made more space in the main window by hiding widgets instead of disabling them when they are not needed.', 'Made the Python variable definition detection much smarter.', 'Plugins can now make their own preferences with the main PyNotes preferences.', 'Fixed a bug where some nested PyCode code would not get translated.', 'Made the PyCode error messages better.', 'Fixed an important bug in MathGod in the last version of PyNotes where builtins and functions like I, E, N() were not defined.', 'Made MathGod automatically create all undefined variables as symbols, not just everything from sympy.abc.', 'Made the superscripting and subscripting in MathGod a little better by handling nested brackets.', 'Completely changed and improved the default PyNotes syntax highlighting theme.', 'Completed the Python builtins list for syntax higlighting.', 'Added all the other Python operators to syntax highlighting.', 'Fixed a bug in opening multiple files with spaces in them with a single terminal command.', 'Fixed a small bug in the Windows terminal and made it a little better.', 'Made the MathGod syntax highlighting better by including all Sympy functions.', 'Fixed a bug in the PyCode parser where it stopped at the first closing bracket instead of the matching closing bracket because of using regex.', 'Fixed a small bug in MathGod where the Linux save file dialogue would not show files without extensions.', 'Made the scope-aware AST part of the Python syntax highlighting not give up completely and still highlight the valid parts in a gibberish file.', 'Corrupted saved email details are now handled.', 'Made the PyNotes changes show in a scrollable textbox.', 'Fixed a bug where PyNotes would sometimes not show in the Open With menu on Linux.']
+	changelist = ['Changed easytk and PyNotes to use ttkbootstrap!\nYou can now also easily make your own themes using TTK Creator in the Preferences and use them in PyNotes!', 'Added a Markdown HMode and Markdown formatting / syntax highlighting to PyNotes!', 'Made the Python syntax highlighting much better!', 'Made the syntax highlighting of Python variables and functions scope aware!', 'Python function arguments, class names, class instances, and module names are now also syntax highlighted, separate from the variables!', 'Added full 256-color/truecolor support in the PyNotes terminal!', 'Completely fixed syntax highlighting lag in large files and added debouncing to all syntax highlighting.', 'Plugins can now make their own HModes and syntax highlighting!', 'Made the HTML syntax highlighting much better.', 'Plugin and PyCode defined Alt-X commands can now take any inputs, not just predefined ones!', 'PyCode functions can now take inputs and return values!', 'Plugins can now directly define PyCode commands (with inputs)!', 'Made more space in the main window by hiding widgets instead of disabling them when they are not needed.', 'Made the Python variable definition detection much smarter.', 'Plugins can now make their own preferences with the main PyNotes preferences.', 'Fixed a bug where some nested PyCode code would not get translated.', 'Made the PyCode error messages better.', 'Fixed an important bug in MathGod in the last version of PyNotes where builtins and functions like I, E, N() were not defined.', 'Made MathGod automatically create all undefined variables as symbols, not just everything from sympy.abc.', 'Made the superscripting and subscripting in MathGod a little better by handling nested brackets.', 'Completely changed and improved the default PyNotes syntax highlighting theme.', 'Completed the Python builtins list for syntax higlighting.', 'Added all the other Python operators to syntax highlighting.', 'Fixed a bug in opening multiple files with spaces in them with a single terminal command.', 'Fixed a small bug in the Windows terminal and made it a little better.', 'Made the MathGod syntax highlighting better by including all Sympy functions.', 'Fixed a bug in the PyCode parser where it stopped at the first closing bracket instead of the matching closing bracket because of using regex.', 'Fixed a small bug in MathGod where the Linux save file dialogue would not show files without extensions.', 'Made the scope-aware AST part of the Python syntax highlighting not give up completely and still highlight the valid parts in a gibberish file.', 'Corrupted saved email details are now handled.', 'Made the PyNotes changes show in a scrollable textbox.', 'Fixed a bug where PyNotes would sometimes not show in the Open With menu on Linux.']
 	chtextbox = cw.textbox(scrolled = True, font = ('TkDefaultFont', 13), wrap = 'word')
 	for i in range(len(changelist) - 1):
 		chtextbox.insert('end', f'{i + 1}. {changelist[i]}\n\n')
@@ -1528,6 +1531,7 @@ _python_param_default_tags = []
 _python_kwarg_positions = []
 _python_import_dotted_lines = []
 _python_import_orig_name_tags = []
+_python_instance_name_positions = set()
 _python_names_scan_thread = None
 _python_scan_after_id = None
 _ha_after_id = None
@@ -1536,7 +1540,7 @@ _unsaved_after_id = None
 _prev_visible_region = None
 _python_edit_generation = [0]
 def _python_reset_scan_state():
-	global _python_scopes, _python_call_kwargs, _python_module_literals, _python_literal_attrs, _python_name_positions, _python_def_names, _python_typed_attrs, _python_param_default_tags, _python_kwarg_positions, _python_import_dotted_lines, _python_import_orig_name_tags
+	global _python_scopes, _python_call_kwargs, _python_module_literals, _python_literal_attrs, _python_name_positions, _python_def_names, _python_typed_attrs, _python_param_default_tags, _python_kwarg_positions, _python_import_dotted_lines, _python_import_orig_name_tags, _python_instance_name_positions
 	_python_edit_generation[0] += 1
 	_python_scopes = [{'start': 1, 'end': 1, 'parent': None, 'names': {}}]
 	_python_call_kwargs = {}
@@ -1549,6 +1553,7 @@ def _python_reset_scan_state():
 	_python_kwarg_positions = []
 	_python_import_dotted_lines = []
 	_python_import_orig_name_tags = []
+	_python_instance_name_positions = set()
 	if hmode == 'python':
 		python_trigger_name_scan()
 class _PythonScanCancelled(BaseException):
@@ -1558,7 +1563,7 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		self.scopes = [{'start': 1, 'end': 1, 'parent': None, 'kind': 'module', 'names': {}, 'globals': {}, 'nonlocals': {}}]
 		self.scope_stack = [0]
 		self.func_params = {}
-		self.func_accepts_any = set()
+		self.func_accepts_any = {}
 		self.pending_calls = []
 		self.module_aliases = {}
 		self.module_alias_lines = {}
@@ -1571,9 +1576,9 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		self.def_names = []
 		self.kwarg_positions = []
 		self.alias_assigns = []
-		self.attr_alias_assigns = []
 		self.dotted_alias_assigns = []
 		self.dynamic_imports = []
+		self.class_def_kwargs = []
 		self.global_seed_names = set()
 		self.nonlocal_seeds = []
 		self._in_class_body = False
@@ -1625,11 +1630,10 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		self.add_name(node.name, node.lineno, 'func')
 		self.def_names.append((node.lineno, node.name, 'func'))
 		params = set()
-		for a in list(node.args.posonlyargs) + list(node.args.args) + list(node.args.kwonlyargs):
+		for a in list(node.args.args) + list(node.args.kwonlyargs):
 			params.add(a.arg)
-		self.func_params.setdefault(node.name, set()).update(params)
-		if node.args.kwarg:
-			self.func_accepts_any.add(node.name)
+		self.func_params.setdefault(node.name, []).append((node.lineno, params, self.scope_stack[-1]))
+		self.func_accepts_any.setdefault(node.name, []).append((node.lineno, bool(node.args.kwarg), self.scope_stack[-1]))
 		for dec in node.decorator_list:
 			self.visit(dec)
 		for d in list(node.args.defaults) + [kd for kd in node.args.kw_defaults if kd is not None]:
@@ -1674,6 +1678,14 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 	def visit_ClassDef(self, node):
 		self.add_name(node.name, node.lineno, 'class')
 		self.def_names.append((node.lineno, node.name, 'class'))
+		for _ckw in node.keywords:
+			if _ckw.arg is None:
+				continue
+			_ckwl = getattr(_ckw, 'lineno', node.lineno)
+			_ckwc = getattr(_ckw, 'col_offset', None)
+			if _ckwc is not None:
+				self.kwarg_positions.append((_ckwl, _ckwc, _ckw.arg))
+			self.class_def_kwargs.append((_ckwl, node.name, node.lineno, _ckw.arg))
 		for dec in node.decorator_list:
 			self.visit(dec)
 		end = getattr(node, 'end_lineno', node.lineno)
@@ -1686,13 +1698,14 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		self.scope_stack.pop()
 		for stmt in node.body:
 			if isinstance(stmt, ast.FunctionDef) and stmt.name == '__init__':
-				params = set(a.arg for a in list(stmt.args.posonlyargs) + list(stmt.args.args) + list(stmt.args.kwonlyargs))
+				_iargs = list(stmt.args.posonlyargs) + list(stmt.args.args) + list(stmt.args.kwonlyargs)
+				params = set(a.arg for a in _iargs[1:]) - set(a.arg for a in stmt.args.posonlyargs)
 				if stmt.args.vararg:
 					params.add(stmt.args.vararg.arg)
 				if stmt.args.kwarg:
 					params.add(stmt.args.kwarg.arg)
-					self.func_accepts_any.add(node.name)
-				self.func_params.setdefault(node.name, set()).update(params)
+				self.func_accepts_any.setdefault(node.name, []).append((node.lineno, bool(stmt.args.kwarg), self.scope_stack[-1]))
+				self.func_params.setdefault(node.name, []).append((node.lineno, params, self.scope_stack[-1]))
 				break
 	def visit_Lambda(self, node):
 		end = getattr(node, 'end_lineno', node.lineno)
@@ -1724,45 +1737,51 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		self.visit_comp(node)
 	def visit_GeneratorExp(self, node):
 		self.visit_comp(node)
-	def _register_lambda(self, name, lam):
+	def _register_lambda(self, name, lineno, lam):
 		_largs = lam.args
-		_lparams = set(a.arg for a in list(_largs.posonlyargs) + list(_largs.args) + list(_largs.kwonlyargs))
-		self.func_params.setdefault(name, set()).update(_lparams)
-		if _largs.kwarg:
-			self.func_accepts_any.add(name)
+		_lparams = set(a.arg for a in list(_largs.args) + list(_largs.kwonlyargs))
+		self.func_params.setdefault(name, []).append((lineno, _lparams, self.scope_stack[-1]))
+		self.func_accepts_any.setdefault(name, []).append((lineno, bool(_largs.kwarg), self.scope_stack[-1]))
 	def visit_Assign(self, node):
 		_is_lambda = isinstance(node.value, ast.Lambda)
 		for t in node.targets:
 			if _is_lambda and isinstance(t, ast.Name):
 				self.add_name(t.id, node.lineno, 'func')
-				self._register_lambda(t.id, node.value)
+				self._register_lambda(t.id, node.lineno, node.value)
 				continue
 			for nm in self.targets(t):
 				if not isinstance(nm, ast.Attribute):
 					self.add_name(nm.id, node.lineno, 'var')
-		if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
-			tgt_name = node.targets[0].id
+		for _ntgt in node.targets:
+			if not isinstance(_ntgt, ast.Name):
+				continue
+			tgt_name = _ntgt.id
 			val = node.value
 			if isinstance(val, ast.Name):
 				self.alias_assigns.append((self.scope_stack[-1], node.lineno, tgt_name, val.id))
-			elif isinstance(val, ast.Attribute) and isinstance(val.value, ast.Name):
-				self.attr_alias_assigns.append((self.scope_stack[-1], node.lineno, tgt_name, val.value.id, val.attr))
-			elif isinstance(val, ast.Attribute) and isinstance(val.value, ast.Attribute):
+			elif isinstance(val, ast.Attribute):
 				self.dotted_alias_assigns.append((self.scope_stack[-1], node.lineno, tgt_name, val))
 			elif isinstance(val, ast.Call):
-				dmod = self._dynamic_import_module(val)
-				if dmod is not None:
-					self.dynamic_imports.append((self.scope_stack[-1], node.lineno, tgt_name, dmod))
-		if len(node.targets) == 1 and isinstance(node.targets[0], (ast.Tuple, ast.List)) and isinstance(node.value, (ast.Tuple, ast.List)) and len(node.targets[0].elts) == len(node.value.elts):
-			for _tgt_el, _val_el in zip(node.targets[0].elts, node.value.elts):
+				_dr = self._dynamic_import_module(val)
+				if _dr is not None:
+					self.dynamic_imports.append((self.scope_stack[-1], node.lineno, tgt_name, _dr[0], _dr[1]))
+				_pt = _python_partial_target(val)
+				if _pt is not None:
+					self.alias_assigns.append((self.scope_stack[-1], node.lineno, tgt_name, _pt))
+		for _ttgt in node.targets:
+			if not (isinstance(_ttgt, (ast.Tuple, ast.List)) and isinstance(node.value, (ast.Tuple, ast.List)) and len(_ttgt.elts) == len(node.value.elts)):
+				continue
+			for _tgt_el, _val_el in zip(_ttgt.elts, node.value.elts):
 				if not isinstance(_tgt_el, ast.Name):
 					continue
 				if isinstance(_val_el, ast.Name):
 					self.alias_assigns.append((self.scope_stack[-1], node.lineno, _tgt_el.id, _val_el.id))
-				elif isinstance(_val_el, ast.Attribute) and isinstance(_val_el.value, ast.Name):
-					self.attr_alias_assigns.append((self.scope_stack[-1], node.lineno, _tgt_el.id, _val_el.value.id, _val_el.attr))
-				elif isinstance(_val_el, ast.Attribute) and isinstance(_val_el.value, ast.Attribute):
+				elif isinstance(_val_el, ast.Attribute):
 					self.dotted_alias_assigns.append((self.scope_stack[-1], node.lineno, _tgt_el.id, _val_el))
+				elif isinstance(_val_el, ast.Call):
+					_dr = self._dynamic_import_module(_val_el)
+					if _dr is not None:
+						self.dynamic_imports.append((self.scope_stack[-1], node.lineno, _tgt_el.id, _dr[0], _dr[1]))
 		self.visit(node.value)
 	def _dynamic_import_module(self, call):
 		fn = call.func
@@ -1773,13 +1792,13 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 		arg = call.args[0]
 		if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
 			if is_builtin_import and not _python_import_fromlist_is_nonempty(call):
-				return arg.value.split('.')[0]
-			return arg.value
+				return arg.value.split('.')[0], is_builtin_import
+			return arg.value, is_builtin_import
 		return None
 	def visit_AnnAssign(self, node):
 		if isinstance(node.value, ast.Lambda) and isinstance(node.target, ast.Name):
 			self.add_name(node.target.id, node.lineno, 'func')
-			self._register_lambda(node.target.id, node.value)
+			self._register_lambda(node.target.id, node.lineno, node.value)
 			self.visit(node.value)
 			return
 		for nm in self.targets(node.target):
@@ -1887,6 +1906,69 @@ def _python_method_has_implicit_first_param(node):
 		if _dn == 'staticmethod':
 			return False
 	return True
+_PYTHON_DESCRIPTOR_WRAPPERS = {'staticmethod', 'classmethod'}
+def _python_resolve_dotted_module(dotted):
+	parts = dotted.split('.')
+	cur = parts[0]
+	if _python_find_spec_cached(cur) is None:
+		return None
+	for _p in parts[1:]:
+		_mm = _python_resolve_module_members(cur)
+		_tgt = _mm.get('@modtarget:' + _p)
+		if _tgt is not None:
+			cur = _tgt
+			continue
+		_sub = cur + '.' + _p
+		if _mm.get(_p) == 'module' or _python_find_spec_cached(_sub) is not None:
+			cur = _sub
+			continue
+		return None
+	return cur
+def _python_c3_linearize(cls, bases_map, seen, depth = 0):
+	if cls in seen or depth > 40:
+		return [cls]
+	_seen2 = seen | {cls}
+	_seqs = []
+	for _b in bases_map.get(cls, []):
+		_bl = _python_c3_linearize(_b, bases_map, _seen2, depth + 1)
+		if _bl:
+			_seqs.append(list(_bl))
+	_direct = list(bases_map.get(cls, []))
+	if _direct:
+		_seqs.append(_direct)
+	out = [cls]
+	while _seqs:
+		cand = None
+		for _s in _seqs:
+			_h = _s[0]
+			if not any(_h in _o[1:] for _o in _seqs):
+				cand = _h
+				break
+		if cand is None:
+			cand = _seqs[0][0]
+		if cand not in out:
+			out.append(cand)
+		_next = []
+		for _s in _seqs:
+			_s = [_x for _x in _s if _x != cand]
+			if _s:
+				_next.append(_s)
+		_seqs = _next
+	return out
+def _python_partial_target(call):
+	if not isinstance(call, ast.Call) or not call.args:
+		return None
+	_fn = call.func
+	_isp = (isinstance(_fn, ast.Name) and _fn.id == 'partial') or (isinstance(_fn, ast.Attribute) and _fn.attr == 'partial')
+	if not _isp:
+		return None
+	if isinstance(call.args[0], ast.Name):
+		return call.args[0].id
+	return None
+def _python_unwrap_descriptor(val):
+	while isinstance(val, ast.Call) and isinstance(val.func, ast.Name) and val.func.id in _PYTHON_DESCRIPTOR_WRAPPERS and len(val.args) == 1 and not val.keywords:
+		val = val.args[0]
+	return val
 def _python_import_fromlist_is_nonempty(call):
 	_fl = None
 	if len(call.args) >= 4:
@@ -1904,6 +1986,7 @@ def _python_import_fromlist_is_nonempty(call):
 		return False
 	return True
 def _python_static_value_kind(val, members, prefix):
+	val = _python_unwrap_descriptor(val)
 	if isinstance(val, ast.Lambda):
 		return 'func'
 	if isinstance(val, ast.Name):
@@ -1966,6 +2049,20 @@ def _python_inspect_ast_members(node_list, prefix = ''):
 			if isinstance(node.target, ast.Name):
 				key = f'{prefix}.{node.target.id}' if prefix else node.target.id
 				members[key] = _python_static_value_kind(node.value, members, prefix) or 'var'
+		elif isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+			members.update(_python_inspect_ast_members(node.body, prefix))
+			members.update(_python_inspect_ast_members(node.orelse, prefix))
+		elif isinstance(node, ast.If):
+			members.update(_python_inspect_ast_members(node.body, prefix))
+			members.update(_python_inspect_ast_members(node.orelse, prefix))
+		elif isinstance(node, (ast.With, ast.AsyncWith)):
+			members.update(_python_inspect_ast_members(node.body, prefix))
+		elif isinstance(node, ast.Try):
+			members.update(_python_inspect_ast_members(node.body, prefix))
+			for _th in node.handlers:
+				members.update(_python_inspect_ast_members(_th.body, prefix))
+			members.update(_python_inspect_ast_members(node.orelse, prefix))
+			members.update(_python_inspect_ast_members(node.finalbody, prefix))
 	return members
 import importlib.machinery as _python_importlib_machinery
 _PYTHON_EXTENSION_SUFFIXES = tuple(_python_importlib_machinery.EXTENSION_SUFFIXES)
@@ -2169,6 +2266,7 @@ def _python_resolve_module_func_params(name):
 		return {}
 	out = {}
 	_imp = {}
+	_stars = []
 	for node in mod_ast.body:
 		if isinstance(node, ast.ImportFrom):
 			_imod = _python_relative_import_target(name, node.level, node.module, bool(getattr(spec, 'submodule_search_locations', None))) if (node.module or node.level) else name
@@ -2176,13 +2274,15 @@ def _python_resolve_module_func_params(name):
 				for alias in node.names:
 					if alias.name != '*':
 						_imp[alias.asname or alias.name] = (_imod, alias.name)
+					elif _imod != name:
+						_stars.append(_imod)
 			continue
 		if isinstance(node, ast.Import):
 			for alias in node.names:
 				_imp[alias.asname or alias.name.split('.')[0]] = (alias.name, None)
 			continue
 		if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-			params = set(a.arg for a in list(node.args.posonlyargs) + list(node.args.args) + list(node.args.kwonlyargs))
+			params = set(a.arg for a in list(node.args.args) + list(node.args.kwonlyargs))
 			if node.args.kwarg:
 				params = None
 			out[node.name] = params
@@ -2205,7 +2305,7 @@ def _python_resolve_module_func_params(name):
 			for sub in node.body:
 				if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
 					margs = list(sub.args.posonlyargs) + list(sub.args.args) + list(sub.args.kwonlyargs)
-					mparams = set(a.arg for a in margs[1:]) | set(a.arg for a in sub.args.kwonlyargs)
+					mparams = (set(a.arg for a in margs[1:]) - set(a.arg for a in sub.args.posonlyargs)) | set(a.arg for a in sub.args.kwonlyargs)
 					if sub.args.kwarg:
 						mparams = None
 					out[node.name + '.' + sub.name] = mparams
@@ -2220,6 +2320,10 @@ def _python_resolve_module_func_params(name):
 								out[node.name + '.' + _at.id] = out[_src_key]
 	out['@imports'] = _imp
 	_python_module_func_params_cache[name] = out
+	for _smod in _stars:
+		for _sk, _sv in _python_resolve_module_func_params(_smod).items():
+			if _sk != '@imports' and _sk not in out:
+				out[_sk] = _sv
 	return out
 def _python_resolve_module_member_kind(mod, class_name, member, seen = None):
 	if seen is None:
@@ -2334,7 +2438,7 @@ def _python_resolve_module_class_members(mod, class_name, seen = None):
 	if _top_call:
 		_python_module_class_members_cache[(mod, class_name)] = out
 	return out
-def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None, seed_types = None, seed_classes = None, seed_aliases = None, seed_origins = None, seed_method_params = None, seed_accepts_any = None, seed_module_bases = None, seed_func_origins = None, seed_attr_types = None):
+def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None, seed_types = None, seed_classes = None, seed_aliases = None, seed_origins = None, seed_method_params = None, seed_accepts_any = None, seed_module_bases = None, seed_func_origins = None, seed_attr_types = None, seed_class_attr_types = None, seed_func_params = None, seed_func_accepts_any = None, seed_class_bases = None, seed_inherited = None, seed_instance_only = None):
 	def _ck():
 		if gen is not None and _python_edit_generation[0] != gen:
 			raise _PythonScanCancelled()
@@ -2397,7 +2501,10 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 	_ck()
 	builder = _PythonScopeBuilder()
 	builder.scopes[0]['end'] = len(lines)
-	builder.visit(tree)
+	try:
+		builder.visit(tree)
+	except RecursionError:
+		return None
 	if seed_names:
 		for _sn, _sk in seed_names.items():
 			builder.scopes[0]['names'].setdefault(_sn, []).append((0, _sk))
@@ -2410,6 +2517,12 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			if _sk == 'module':
 				builder.module_aliases.setdefault(_sn, _sn)
 				builder.module_alias_defs.setdefault(_sn, []).append((0, _sn))
+	if seed_func_params:
+		for _sfp_n, _sfp_v in seed_func_params.items():
+			builder.func_params.setdefault(_sfp_n, []).insert(0, (0, set(_sfp_v), 0))
+	if seed_func_accepts_any:
+		for _sfa_n, _sfa_v in seed_func_accepts_any.items():
+			builder.func_accepts_any.setdefault(_sfa_n, []).insert(0, (0, _sfa_v, 0))
 	_ck()
 	line_to_scope = [None] * (len(lines) + 2)
 	for ln in range(1, len(lines) + 1):
@@ -2425,6 +2538,29 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if 0 <= ln < len(line_to_scope):
 			return line_to_scope[ln]
 		return None
+	def _def_scope_chain(lineno):
+		chain = []
+		_si = _scope_for_line(lineno)
+		_inner = _si
+		while _si is not None:
+			_sc = builder.scopes[_si]
+			if _sc.get('kind') != 'class' or _si == _inner:
+				chain.append(_si)
+			_si = _sc['parent']
+		if 0 not in chain:
+			chain.append(0)
+		return chain
+	def _rebind_def_scopes(store):
+		for _rn, _rdefs in store.items():
+			for _ri, _rd in enumerate(_rdefs):
+				if len(_rd) > 2:
+					_rdefs[_ri] = (_rd[0], _rd[1], _binding_scope_for(_rn, _rd[2]))
+	def _binding_scope_of_def(lineno):
+		_si = _scope_for_line(lineno)
+		if _si is None:
+			return 0
+		_par = builder.scopes[_si]['parent']
+		return _par if _par is not None else 0
 	def _binding_scope_for(name, sc_idx):
 		if sc_idx is None:
 			return sc_idx
@@ -2440,6 +2576,8 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				_p = _ps['parent']
 			return sc_idx
 		return sc_idx
+	_rebind_def_scopes(builder.func_params)
+	_rebind_def_scopes(builder.func_accepts_any)
 	_ck()
 	def _call_name_kind(name, lineno):
 		sidx = _scope_for_line(lineno)
@@ -2573,11 +2711,34 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 	for _tn in tree_class_defs:
 		if _tn.name not in _class_def_by_name:
 			_class_def_by_name[_tn.name] = _tn
+	def _flatten_class_body(body):
+		out = []
+		for _s in body:
+			if isinstance(_s, (ast.Assign, ast.AnnAssign)):
+				out.append(_s)
+			elif isinstance(_s, (ast.For, ast.AsyncFor, ast.While)):
+				out.extend(_flatten_class_body(_s.body))
+				out.extend(_flatten_class_body(_s.orelse))
+			elif isinstance(_s, ast.If):
+				out.extend(_flatten_class_body(_s.body))
+				out.extend(_flatten_class_body(_s.orelse))
+			elif isinstance(_s, (ast.With, ast.AsyncWith)):
+				out.extend(_flatten_class_body(_s.body))
+			elif isinstance(_s, ast.Try):
+				out.extend(_flatten_class_body(_s.body))
+				for _h in _s.handlers:
+					out.extend(_flatten_class_body(_h.body))
+				out.extend(_flatten_class_body(_s.orelse))
+				out.extend(_flatten_class_body(_s.finalbody))
+		return out
 	def _compute_class_members(node):
 		members = _python_inspect_ast_members(node.body)
-		for _bstmt in node.body:
+		for _bstmt in _flatten_class_body(node.body):
 			_btgts = _bstmt.targets if isinstance(_bstmt, ast.Assign) else ([_bstmt.target] if isinstance(_bstmt, ast.AnnAssign) else [])
 			_bval = _bstmt.value if isinstance(_bstmt, (ast.Assign, ast.AnnAssign)) else None
+			if isinstance(_bval, ast.NamedExpr):
+				_bval = _bval.value
+			_bval = _python_unwrap_descriptor(_bval)
 			if not isinstance(_bval, ast.Name):
 				continue
 			for _btgt in _btgts:
@@ -2603,16 +2764,37 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 								_nvk = _call_name_kind(_tval.id, stmt.lineno)
 								if _nvk in ('func', 'class', 'module'):
 									_mvk = _nvk
-							members.setdefault(tgt.attr, _mvk)
+							if _mvk == 'var' and members.get(tgt.attr) in ('func', 'class', 'module'):
+								members[tgt.attr] = 'var'
+							else:
+								members.setdefault(tgt.attr, _mvk)
 		return members
 	class_def_lines = {}
+	class_def_scopes = {}
 	local_class_defs = {}
+	_class_nested_lines = set()
 	for _tn in tree_class_defs:
+		for _tsub in _tn.body:
+			if isinstance(_tsub, ast.ClassDef):
+				_class_nested_lines.add((_tsub.name, _tsub.lineno))
+	for _tn in tree_class_defs:
+		if (_tn.name, _tn.lineno) in _class_nested_lines:
+			continue
 		class_def_lines.setdefault(_tn.name, []).append(_tn.lineno)
+		class_def_scopes[(_tn.name, _tn.lineno)] = _binding_scope_for(_tn.name, _binding_scope_of_def(_tn.lineno))
 	def _class_def_line_at(name, lineno):
 		_lns = class_def_lines.get(name)
 		if not _lns:
 			return None
+		for _sidx in _def_scope_chain(lineno):
+			_cands = [_cl for _cl in _lns if class_def_scopes.get((name, _cl), 0) == _sidx]
+			if not _cands:
+				continue
+			_best = None
+			for _cl in _cands:
+				if _cl <= lineno and (_best is None or _cl > _best):
+					_best = _cl
+			return _best if _best is not None else max(_cands)
 		_best = None
 		for _cl in _lns:
 			if _cl <= lineno and (_best is None or _cl > _best):
@@ -2655,6 +2837,13 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			return node.name + '\x00' + str(node.lineno)
 		return node.name
 	class_bases = {}
+	module_scope_class_keys = set()
+	_nonmodule_scope_class_keys = set()
+	_class_body_members = {}
+	_self_assigned_attrs = {}
+	if seed_instance_only:
+		for _sio_c, _sio_v in seed_instance_only.items():
+			_self_assigned_attrs.setdefault(_sio_c, set()).update(_sio_v)
 	_module_class_bases = []
 	for node in tree_class_defs:
 		if node.name in local_classes:
@@ -2666,6 +2855,26 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					bases.append(base.attr)
 					_module_class_bases.append((_node_class_key(node), base))
 			class_bases[_node_class_key(node)] = bases
+			_class_body_members[_node_class_key(node)] = set(_bm for _bm in _python_inspect_ast_members(node.body) if '.' not in _bm)
+			if _binding_scope_for(node.name, _binding_scope_of_def(node.lineno)) == 0:
+				module_scope_class_keys.add(_node_class_key(node))
+			else:
+				_nonmodule_scope_class_keys.add(_node_class_key(node))
+	if seed_class_bases:
+		for _scb_c, _scb_b in seed_class_bases.items():
+			module_scope_class_keys.add(_scb_c)
+			if _scb_c not in class_bases:
+				class_bases[_scb_c] = list(_scb_b)
+	if seed_classes:
+		module_scope_class_keys.update(seed_classes)
+	module_scope_class_keys -= _nonmodule_scope_class_keys
+	def _instance_only_attr(clskey, attr):
+		for _ioc in _python_c3_linearize(clskey, class_bases, frozenset()):
+			if attr in _class_body_members.get(_ioc, ()):
+				return False
+			if attr in _self_assigned_attrs.get(_ioc, ()):
+				return True
+		return False
 	local_class_method_params = {}
 	local_class_accepts_any = set()
 	_class_attr_lambda_params = {}
@@ -2676,7 +2885,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
 					_mimp = _python_method_has_implicit_first_param(sub)
 					_margs = list(sub.args.posonlyargs) + list(sub.args.args) + list(sub.args.kwonlyargs)
-					_mp = set(a.arg for a in (_margs[1:] if _mimp else _margs)) | set(a.arg for a in sub.args.kwonlyargs)
+					_mp = (set(a.arg for a in (_margs[1:] if _mimp else _margs)) - set(a.arg for a in sub.args.posonlyargs)) | set(a.arg for a in sub.args.kwonlyargs)
 					if sub.args.kwarg:
 						local_class_accepts_any.add(_nk + '.' + sub.name)
 					local_class_method_params[_nk + '.' + sub.name] = _mp
@@ -2689,38 +2898,124 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 								if isinstance(_atg, ast.Attribute) and isinstance(_atg.value, ast.Name) and _atg.value.id == _sfp:
 									_av = _astmt.value
 									if isinstance(_av, ast.Lambda):
-										_lp = set(a.arg for a in list(_av.args.posonlyargs) + list(_av.args.args) + list(_av.args.kwonlyargs))
+										_lp = set(a.arg for a in list(_av.args.args) + list(_av.args.kwonlyargs))
 										local_class_method_params[_nk + '.' + _atg.attr] = _lp
 										if _av.args.kwarg:
 											local_class_accepts_any.add(_nk + '.' + _atg.attr)
 									elif isinstance(_av, ast.Attribute) and isinstance(_av.value, ast.Name) and _av.value.id == _sfp:
 										_class_attr_lambda_params.setdefault(_nk, []).append((_atg.attr, _av.attr))
+				for _clstmt in _flatten_class_body(node.body):
+					_clval = _clstmt.value if isinstance(_clstmt, (ast.Assign, ast.AnnAssign)) else None
+					if isinstance(_clval, ast.NamedExpr):
+						_clval = _clval.value
+					_clval = _python_unwrap_descriptor(_clval)
+					if not isinstance(_clval, ast.Lambda):
+						continue
+					_cltgts = _clstmt.targets if isinstance(_clstmt, ast.Assign) else [_clstmt.target]
+					_clargs = list(_clval.args.posonlyargs) + list(_clval.args.args) + list(_clval.args.kwonlyargs)
+					_clp = (set(a.arg for a in (_clargs[1:] if _clargs else _clargs)) - set(a.arg for a in _clval.args.posonlyargs)) | set(a.arg for a in _clval.args.kwonlyargs)
+					for _cltgt in _cltgts:
+						if not isinstance(_cltgt, ast.Name):
+							continue
+						local_class_method_params[_nk + '.' + _cltgt.id] = _clp
+						if _clval.args.kwarg:
+							local_class_accepts_any.add(_nk + '.' + _cltgt.id)
+				for _cmstmt in _flatten_class_body(node.body):
+					_cmval = _cmstmt.value if isinstance(_cmstmt, (ast.Assign, ast.AnnAssign)) else None
+					if isinstance(_cmval, ast.NamedExpr):
+						_cmval = _cmval.value
+					_cmval = _python_unwrap_descriptor(_cmval)
+					if not isinstance(_cmval, ast.Name):
+						continue
+					_cmsrc = _nk + '.' + _cmval.id
+					if _cmsrc not in local_class_method_params:
+						continue
+					_cmtgts = _cmstmt.targets if isinstance(_cmstmt, ast.Assign) else [_cmstmt.target]
+					for _cmtgt in _cmtgts:
+						if not isinstance(_cmtgt, ast.Name):
+							continue
+						local_class_method_params[_nk + '.' + _cmtgt.id] = local_class_method_params[_cmsrc]
+						if _cmsrc in local_class_accepts_any:
+							local_class_accepts_any.add(_nk + '.' + _cmtgt.id)
+				for _cmstmt in _flatten_class_body(node.body):
+					_cmval = _cmstmt.value if isinstance(_cmstmt, (ast.Assign, ast.AnnAssign)) else None
+					if isinstance(_cmval, ast.NamedExpr):
+						_cmval = _cmval.value
+					_cmval = _python_unwrap_descriptor(_cmval)
+					if not (isinstance(_cmval, ast.Attribute) and isinstance(_cmval.value, ast.Name)):
+						continue
+					_cmbase = _class_key_at(_cmval.value.id, _cmstmt.lineno)
+					_cmsrc = _cmbase + '.' + _cmval.attr
+					if _cmbase not in local_classes or _cmsrc not in local_class_method_params:
+						continue
+					_cmtgts = _cmstmt.targets if isinstance(_cmstmt, ast.Assign) else [_cmstmt.target]
+					for _cmtgt in _cmtgts:
+						if not isinstance(_cmtgt, ast.Name):
+							continue
+						local_class_method_params[_nk + '.' + _cmtgt.id] = local_class_method_params[_cmsrc]
+						local_classes[_nk][_cmtgt.id] = 'func'
+						if _cmsrc in local_class_accepts_any:
+							local_class_accepts_any.add(_nk + '.' + _cmtgt.id)
 	if seed_method_params:
 		for _smk, _smv in seed_method_params.items():
 			local_class_method_params.setdefault(_smk, _smv)
 	if seed_accepts_any:
 		local_class_accepts_any.update(seed_accepts_any)
+	class_attr_types = {}
+	if seed_class_attr_types:
+		for _scat_c, _scat_m in seed_class_attr_types.items():
+			class_attr_types.setdefault(_scat_c, {}).update(_scat_m)
+	for _ncnode in tree_class_defs:
+		if _ncnode.name not in local_classes:
+			continue
+		_nckey = _node_class_key(_ncnode)
+		for _ncsub in _ncnode.body:
+			if isinstance(_ncsub, ast.ClassDef) and _ncsub.name in local_classes:
+				class_attr_types.setdefault(_nckey, {})[_ncsub.name] = ('class', _node_class_key(_ncsub))
+	_inherited_members = set()
+	_inherited_attr_types = set()
+	_inherited_method_params = set()
+	if seed_inherited:
+		_inherited_members.update(seed_inherited.get('members', ()))
+		_inherited_attr_types.update(seed_inherited.get('attr_types', ()))
+		_inherited_method_params.update(seed_inherited.get('method_params', ()))
 	def _python_merge_class_bases():
-		for _ in range(10):
-			changed = False
-			for cls, bases in class_bases.items():
-				for base in bases:
-					if base in local_classes:
-						for k, v in local_classes[base].items():
-							if k not in local_classes[cls]:
-								local_classes[cls][k] = v
-								changed = True
-						for _mk in list(local_class_method_params):
-							if _mk.startswith(base + '.'):
-								_meth = _mk[len(base) + 1:]
-								_ck2 = cls + '.' + _meth
-								if _ck2 not in local_class_method_params:
-									local_class_method_params[_ck2] = local_class_method_params[_mk]
-									if _mk in local_class_accepts_any:
-										local_class_accepts_any.add(_ck2)
-									changed = True
-			if not changed:
-				break
+		for cls in list(class_bases):
+			if cls not in local_classes:
+				continue
+			_filled = set()
+			_filled_attrs = set()
+			_filled_params = set()
+			for base in _python_c3_linearize(cls, class_bases, frozenset())[1:]:
+				if base not in local_classes:
+					continue
+				for k, v in local_classes[base].items():
+					if (base, k) in _inherited_members or k in _filled:
+						continue
+					if k not in local_classes[cls] or (local_classes[cls][k] == 'var' and v != 'var'):
+						local_classes[cls][k] = v
+						_inherited_members.add((cls, k))
+						_filled.add(k)
+				for _ak, _av in class_attr_types.get(base, {}).items():
+					if (base, _ak) in _inherited_attr_types or _ak in _filled_attrs:
+						continue
+					if _ak not in class_attr_types.setdefault(cls, {}):
+						class_attr_types[cls][_ak] = _av
+						_inherited_attr_types.add((cls, _ak))
+						_filled_attrs.add(_ak)
+				for _mk in list(local_class_method_params):
+					if not _mk.startswith(base + '.') or _mk in _inherited_method_params:
+						continue
+					_meth = _mk[len(base) + 1:]
+					if _meth in _filled_params:
+						continue
+					_ck2 = cls + '.' + _meth
+					if _ck2 not in local_class_method_params:
+						local_class_method_params[_ck2] = local_class_method_params[_mk]
+						if _mk in local_class_accepts_any:
+							local_class_accepts_any.add(_ck2)
+						_inherited_method_params.add(_ck2)
+						_filled_params.add(_meth)
 	_python_merge_class_bases()
 	for _calp_nk, _calp_pairs in _class_attr_lambda_params.items():
 		for _attr_name, _src_meth in _calp_pairs:
@@ -2738,7 +3033,6 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		_k = _call_name_kind(name, lineno)
 		return _k == 'class' or _k is None
 	class_type_maps = {}
-	class_attr_types = {}
 	if seed_attr_types:
 		for _sat_c, _sat_m in seed_attr_types.items():
 			class_type_maps.setdefault(_sat_c, {}).update(_sat_m)
@@ -2772,12 +3066,28 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			members = _python_resolve_module_members(name)
 			if members:
 				module_contents[name] = members
+	_dotted_module_targets = {}
+	for name in candidate_modules:
+		if name in valid_modules or '.' not in name:
+			continue
+		_dmt = _python_resolve_dotted_module(name)
+		if _dmt is None:
+			continue
+		_dotted_module_targets[name] = _dmt
+		if _dmt not in valid_modules:
+			valid_modules.add(_dmt)
+			imported_modules.add(_dmt)
+			_dmems = _python_resolve_module_members(_dmt)
+			if _dmems:
+				module_contents[_dmt] = _dmems
+	def _real_module_name(name):
+		return _dotted_module_targets.get(name, name)
 	_ck()
 	for scope_idx, imported_name, top_name, used_name, lineno in builder.import_names:
 		if used_name == top_name:
 			if top_name in valid_modules:
 				builder.scopes[scope_idx]['names'].setdefault(used_name, []).append((lineno, 'module'))
-		elif imported_name in valid_modules:
+		elif imported_name in valid_modules or imported_name in _dotted_module_targets:
 			builder.scopes[scope_idx]['names'].setdefault(used_name, []).append((lineno, 'module'))
 	for _gsn in builder.global_seed_names:
 		if not builder.scopes[0]['names'].get(_gsn):
@@ -2793,6 +3103,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if not _nlbound:
 			builder.scopes[_nlp]['names'].setdefault(_nln, []).append((builder.scopes[_nlp]['start'], 'var'))
 	for scope_idx, module_name, imported_name, _orig_name, lineno in builder.from_imports:
+		module_name = _real_module_name(module_name)
 		if not module_name or module_name not in valid_modules:
 			continue
 		contents = module_contents.get(module_name, {})
@@ -2803,6 +3114,19 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		else:
 			if _orig_name in contents:
 				kind = contents[_orig_name]
+				if kind == 'module':
+					_fmtgt = contents.get('@modtarget:' + _orig_name)
+					if _fmtgt is None:
+						_fmtgt = f'{module_name}.{_orig_name}'
+					if _fmtgt not in valid_modules and _python_find_spec_cached(_fmtgt) is not None:
+						valid_modules.add(_fmtgt)
+						_fmmems = _python_resolve_module_members(_fmtgt)
+						if _fmmems:
+							module_contents[_fmtgt] = _fmmems
+					builder.module_alias_defs.setdefault(imported_name, []).append((lineno, _fmtgt))
+					if lineno >= builder.module_alias_lines.get(imported_name, 0):
+						builder.module_aliases[imported_name] = _fmtgt
+						builder.module_alias_lines[imported_name] = lineno
 			elif f'{module_name}.{_orig_name}' in valid_modules or _python_find_spec_cached(f'{module_name}.{_orig_name}') is not None:
 				kind = 'module'
 				builder.module_alias_defs.setdefault(imported_name, []).append((lineno, f'{module_name}.{_orig_name}'))
@@ -2813,37 +3137,44 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				continue
 			builder.scopes[scope_idx]['names'].setdefault(imported_name, []).append((lineno, kind))
 	for _, module_name, imported_name, _orig_name, _fln0 in builder.from_imports:
+		module_name = _real_module_name(module_name)
 		if not module_name:
 			continue
 		mc = module_contents.get(module_name, {})
 		if imported_name == '*':
 			for _wname, _wkind in mc.items():
-				if '.' not in _wname and _wkind == 'class' and _wname not in local_classes:
-					_wmems = _python_resolve_module_class_members(module_name, _wname)
-					if _wmems:
-						local_classes[_wname] = _wmems
+				if '.' not in _wname and _wkind == 'class':
+					if _wname not in local_classes:
+						_wmems = _python_resolve_module_class_members(module_name, _wname)
+						if _wmems:
+							local_classes[_wname] = _wmems
+					if _wname in local_classes:
 						class_module_origin.setdefault(_wname, []).append((_fln0, (module_name, _wname)))
-		elif mc.get(_orig_name) == 'class' and imported_name not in local_classes:
-			_imp_mems = _python_resolve_module_class_members(module_name, _orig_name)
-			if _imp_mems:
-				local_classes[imported_name] = _imp_mems
+		elif mc.get(_orig_name) == 'class':
+			if imported_name not in local_classes:
+				_imp_mems = _python_resolve_module_class_members(module_name, _orig_name)
+				if _imp_mems:
+					local_classes[imported_name] = _imp_mems
+			if imported_name in local_classes:
 				class_module_origin.setdefault(imported_name, []).append((_fln0, (module_name, _orig_name)))
 	base_to_module = {}
 	for _, imported_name, top_name, used_name, _iln in builder.import_names:
 		if used_name == top_name:
 			if top_name in valid_modules:
 				base_to_module.setdefault(used_name, []).append((_iln, top_name))
-		elif imported_name in valid_modules:
-			base_to_module.setdefault(used_name, []).append((_iln, imported_name))
+		elif imported_name in valid_modules or imported_name in _dotted_module_targets:
+			base_to_module.setdefault(used_name, []).append((_iln, _real_module_name(imported_name)))
 		elif top_name in valid_modules:
 			base_to_module.setdefault(used_name, []).append((_iln, top_name))
 	for _alias, _adefs in builder.module_alias_defs.items():
 		for _al, _afull in _adefs:
-			if _afull in valid_modules:
-				base_to_module.setdefault(_alias, []).append((_al, _afull))
+			if _afull in valid_modules or _afull in _dotted_module_targets:
+				base_to_module.setdefault(_alias, []).append((_al, _real_module_name(_afull)))
 	def _base_module_at(name, lineno):
 		return _line_def_at(base_to_module.get(name), lineno)
-	for _dsc, _dln, _dname, _dmod in builder.dynamic_imports:
+	for _dsc, _dln, _dname, _dmod, _dbuiltin in builder.dynamic_imports:
+		if _dbuiltin and _call_name_kind('__import__', _dln) is not None:
+			continue
 		if _python_find_spec_cached(_dmod) is not None:
 			valid_modules.add(_dmod)
 			base_to_module.setdefault(_dname, []).append((_dln, _dmod))
@@ -2876,19 +3207,49 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 						continue
 					if best is None or _dl > best[0]:
 						best = (_dl, _k)
+				if best is None and latest is not None and name in _PYTHON_BUILTIN_NAMES:
+					return None
 				if best is None and latest is not None and _same_block(latest[0], lineno):
 					best = latest
 				return best[1] if best is not None else None
 			sidx = sc['parent']
 		return None
+	def _pick_scoped_def(defs, lineno, default):
+		for _sidx in _def_scope_chain(lineno):
+			best = None
+			latest = None
+			for _d in defs:
+				if (_d[2] if len(_d) > 2 else 0) != _sidx:
+					continue
+				if latest is None or _d[0] > latest[0]:
+					latest = _d
+				if _d[0] > lineno:
+					continue
+				if best is None or _d[0] > best[0]:
+					best = _d
+			if best is None and latest is not None and _same_block(latest[0], lineno):
+				best = latest
+			if best is not None:
+				return best[1]
+		return default
+	def _func_params_at(name, lineno):
+		defs = builder.func_params.get(name)
+		if not defs:
+			return None
+		return _pick_scoped_def(defs, lineno, None)
+	def _func_accepts_any_at(name, lineno):
+		defs = builder.func_accepts_any.get(name)
+		if not defs:
+			return False
+		return _pick_scoped_def(defs, lineno, False)
 	for _asc, _aln, _aname, _asrc in builder.alias_assigns:
 		_srckind = _resolve_name_kind_scope(_asc, _asrc, _aln)
 		if _srckind is None and _asrc in _PYTHON_BUILTIN_MEMBERS:
 			_srckind = 'builtin'
 		elif _srckind is None and _asrc in _PYTHON_BUILTIN_NAMES:
 			_srckind = 'builtin'
-			if _aname not in builder.func_params and _asrc in _PYTHON_BUILTIN_CALLABLE_PARAMS:
-				builder.func_params[_aname] = _PYTHON_BUILTIN_CALLABLE_PARAMS[_asrc]
+			if _asrc in _PYTHON_BUILTIN_CALLABLE_PARAMS:
+				builder.func_params.setdefault(_aname, []).append((_aln, _PYTHON_BUILTIN_CALLABLE_PARAMS[_asrc], _binding_scope_for(_aname, _asc)))
 		if _srckind == 'module':
 			_asrc_mod = _base_module_at(_asrc, _aln)
 			if _asrc_mod is not None:
@@ -2903,56 +3264,174 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			_anames = builder.scopes[_absc]['names'].setdefault(_aname, [])
 			_anames[:] = [(_l, _k) for _l, _k in _anames if not (_l == _aln and _k == 'var')]
 			_anames.append((_aln, _srckind))
-			if _srckind == 'func' and _asrc in builder.func_params and _aname not in builder.func_params:
-				builder.func_params[_aname] = builder.func_params[_asrc]
-				if _asrc in builder.func_accepts_any:
-					builder.func_accepts_any.add(_aname)
-			if _srckind in ('class', 'builtin') and _asrc in local_classes and _aname not in local_classes:
-				local_classes[_aname] = local_classes[_asrc]
-				class_type_maps[_aname] = class_type_maps.setdefault(_asrc, {})
-				_sorig = _class_origin_at(_asrc, _aln)
-				if _sorig is not None:
-					class_module_origin.setdefault(_aname, []).append((_aln, _sorig))
-				for _mk in list(local_class_method_params):
-					if _mk.startswith(_asrc + '.'):
-						_ameth = _mk[len(_asrc) + 1:]
-						local_class_method_params[_aname + '.' + _ameth] = local_class_method_params[_mk]
-						if _mk in local_class_accepts_any:
-							local_class_accepts_any.add(_aname + '.' + _ameth)
+			if _srckind in ('func', 'builtin'):
+				_src_params = _func_params_at(_asrc, _aln)
+				if _src_params is not None:
+					builder.func_params.setdefault(_aname, []).append((_aln, _src_params, _absc))
+					builder.func_accepts_any.setdefault(_aname, []).append((_aln, _func_accepts_any_at(_asrc, _aln), _absc))
+			if _srckind in ('class', 'builtin'):
+				_asrc_key = _class_key_at(_asrc, _aln)
+				if _asrc_key in local_classes:
+					class_def_lines.setdefault(_aname, [])
+					if _aln not in class_def_lines[_aname]:
+						class_def_lines[_aname].append(_aln)
+					class_def_scopes[(_aname, _aln)] = _absc
+					_class_first_line.setdefault(_aname, _aln)
+					_adst_key = _class_key_at(_aname, _aln)
+					if _adst_key not in local_classes:
+						local_classes[_adst_key] = local_classes[_asrc_key]
+					class_type_maps[_adst_key] = class_type_maps.setdefault(_asrc_key, {})
+					_sorig = _class_origin_at(_asrc, _aln)
+					if _sorig is not None:
+						class_module_origin.setdefault(_aname, []).append((_aln, _sorig))
+					for _mk in list(local_class_method_params):
+						if _mk.startswith(_asrc_key + '.'):
+							_ameth = _mk[len(_asrc_key) + 1:]
+							local_class_method_params[_adst_key + '.' + _ameth] = local_class_method_params[_mk]
+							if _mk in local_class_accepts_any:
+								local_class_accepts_any.add(_adst_key + '.' + _ameth)
 	name_module_class = {}
 	_attr_alias_func_origins = []
-	for _asc, _aln, _aname, _abase, _aattr in builder.attr_alias_assigns:
-		_amod = _base_module_at(_abase, _aln)
-		if _amod is None:
+	def _dotted_chain_parts(node):
+		attrs = []
+		cur = node
+		while isinstance(cur, ast.Attribute):
+			attrs.append(cur.attr)
+			cur = cur.value
+		if isinstance(cur, ast.Name):
+			attrs.reverse()
+			return cur.id, attrs
+		return None, None
+	def _resolve_local_class_dotted(base, attrs, lineno):
+		if not _name_is_class_at(base, lineno):
+			return None
+		_key = _class_key_at(base, lineno)
+		for _i, _attr in enumerate(attrs):
+			if local_classes.get(_key, {}).get(_attr) != 'class':
+				return None
+			_ct = class_attr_types.get(_key, {}).get(_attr)
+			if _ct is not None and _ct[0] == 'modclass':
+				if _i == len(attrs) - 1:
+					return ('class', _ct[1], _ct[2])
+				return None
+			if _ct is not None and _ct[0] == 'class' and _ct[1] in local_classes:
+				_key = _ct[1]
+			elif _attr in local_classes:
+				_key = _attr
+			else:
+				return None
+			if _i == len(attrs) - 1:
+				return ('localclass', _key)
+		return None
+	def _resolve_dotted_alias(base, attrs, lineno):
+		mod = _base_module_at(base, lineno)
+		if mod is None:
+			return _resolve_local_class_dotted(base, attrs, lineno)
+		for _i, _attr in enumerate(attrs):
+			_mm = _python_resolve_module_members(mod)
+			_kind = _mm.get(_attr)
+			_sub = f'{mod}.{_attr}'
+			if _kind is None and (_sub in valid_modules or _python_find_spec_cached(_sub) is not None):
+				_kind = 'module'
+			if _kind == 'module':
+				_tgt = _mm.get('@modtarget:' + _attr)
+				mod = _tgt if _tgt is not None else _sub
+				continue
+			if _i == len(attrs) - 1 and _kind in ('class', 'func'):
+				return (_kind, mod, _attr)
+			return None
+		return ('module', mod)
+	for _cbnode in tree_class_defs:
+		if _cbnode.name not in local_classes:
 			continue
-		_akind = _python_resolve_module_members(_amod).get(_aattr)
-		_asub = f'{_amod}.{_aattr}'
-		if _akind is None and (_asub in valid_modules or _python_find_spec_cached(_asub) is not None):
-			_akind = 'module'
-		if _akind not in ('class', 'func', 'module'):
+		_cbkey = _node_class_key(_cbnode)
+		for _cbstmt in _flatten_class_body(_cbnode.body):
+			_cbtgts = _cbstmt.targets if isinstance(_cbstmt, ast.Assign) else ([_cbstmt.target] if isinstance(_cbstmt, ast.AnnAssign) else [])
+			_cbval = _cbstmt.value if isinstance(_cbstmt, (ast.Assign, ast.AnnAssign)) else None
+			if isinstance(_cbval, ast.NamedExpr):
+				_cbval = _cbval.value
+			_cbval = _python_unwrap_descriptor(_cbval)
+			if not isinstance(_cbval, ast.Attribute):
+				continue
+			_cbbase, _cbattrs = _dotted_chain_parts(_cbval)
+			if _cbbase is None or not _cbattrs:
+				continue
+			_cbr = _resolve_dotted_alias(_cbbase, _cbattrs, _cbstmt.lineno)
+			if _cbr is None:
+				continue
+			for _cbtgt in _cbtgts:
+				if not isinstance(_cbtgt, ast.Name):
+					continue
+				if _cbr[0] == 'localclass':
+					local_classes[_cbkey][_cbtgt.id] = 'class'
+					class_attr_types.setdefault(_cbkey, {})[_cbtgt.id] = ('class', _cbr[1])
+				elif _cbr[0] == 'class':
+					local_classes[_cbkey][_cbtgt.id] = 'class'
+					class_attr_types.setdefault(_cbkey, {})[_cbtgt.id] = ('modclass', _cbr[1], _cbr[2])
+				elif _cbr[0] == 'func':
+					local_classes[_cbkey][_cbtgt.id] = 'func'
+				elif _cbr[0] == 'module':
+					local_classes[_cbkey][_cbtgt.id] = 'module'
+	for _daa_sc, _daa_ln, _daa_name, _daa_val in builder.dotted_alias_assigns:
+		_daa_base, _daa_attrs = _dotted_chain_parts(_daa_val)
+		if _daa_base is None or not _daa_attrs:
 			continue
-		_absc = _binding_scope_for(_aname, _asc)
-		_anames = builder.scopes[_absc]['names'].setdefault(_aname, [])
-		_anames[:] = [(_l, _k) for _l, _k in _anames if not (_l == _aln and _k == 'var')]
-		_anames.append((_aln, _akind))
-		if _akind == 'class':
-			name_module_class.setdefault(_aname, []).append((_aln, (_amod, _aattr)))
-			if _aname not in local_classes:
+		_dr = _resolve_dotted_alias(_daa_base, _daa_attrs, _daa_ln)
+		if _dr is None:
+			continue
+		_akind = _dr[0]
+		_absc = _binding_scope_for(_daa_name, _daa_sc)
+		_anames = builder.scopes[_absc]['names'].setdefault(_daa_name, [])
+		_anames[:] = [(_l, _k) for _l, _k in _anames if not (_l == _daa_ln and _k == 'var')]
+		_anames.append((_daa_ln, 'class' if _akind == 'localclass' else _akind))
+		if _akind == 'localclass':
+			_asrckey = _dr[1]
+			class_def_lines.setdefault(_daa_name, [])
+			if _daa_ln not in class_def_lines[_daa_name]:
+				class_def_lines[_daa_name].append(_daa_ln)
+			class_def_scopes[(_daa_name, _daa_ln)] = _absc
+			_class_first_line.setdefault(_daa_name, _daa_ln)
+			_akey = _class_key_at(_daa_name, _daa_ln)
+			if _akey not in local_classes:
+				local_classes[_akey] = local_classes[_asrckey]
+			for _mk in list(local_class_method_params):
+				if _mk.startswith(_asrckey + '.'):
+					_ameth = _mk[len(_asrckey) + 1:]
+					if _akey + '.' + _ameth not in local_class_method_params:
+						local_class_method_params[_akey + '.' + _ameth] = local_class_method_params[_mk]
+						if _mk in local_class_accepts_any:
+							local_class_accepts_any.add(_akey + '.' + _ameth)
+			_sorig2 = _class_origin_at(_asrckey, _daa_ln)
+			if _sorig2 is not None:
+				class_module_origin.setdefault(_daa_name, []).append((_daa_ln, _sorig2))
+		elif _akind == 'class':
+			_amod, _aattr = _dr[1], _dr[2]
+			name_module_class.setdefault(_daa_name, []).append((_daa_ln, (_amod, _aattr)))
+			class_def_lines.setdefault(_daa_name, [])
+			if _daa_ln not in class_def_lines[_daa_name]:
+				class_def_lines[_daa_name].append(_daa_ln)
+			class_def_scopes[(_daa_name, _daa_ln)] = _absc
+			_class_first_line.setdefault(_daa_name, _daa_ln)
+			_akey = _class_key_at(_daa_name, _daa_ln)
+			if _akey not in local_classes:
 				_amems = _python_resolve_module_class_members(_amod, _aattr)
 				if _amems:
-					local_classes[_aname] = _amems
-				class_module_origin.setdefault(_aname, []).append((_aln, (_amod, _aattr)))
+					local_classes[_akey] = _amems
+			class_module_origin.setdefault(_daa_name, []).append((_daa_ln, (_amod, _aattr)))
 		elif _akind == 'module':
+			_asub = _dr[1]
 			valid_modules.add(_asub)
-			base_to_module.setdefault(_aname, []).append((_aln, _asub))
-			builder.module_alias_defs.setdefault(_aname, []).append((_aln, _asub))
+			base_to_module.setdefault(_daa_name, []).append((_daa_ln, _asub))
+			builder.module_alias_defs.setdefault(_daa_name, []).append((_daa_ln, _asub))
 		elif _akind == 'func':
-			_attr_alias_func_origins.append((_aname, _aln, _amod, _aattr))
+			_amod, _aattr = _dr[1], _dr[2]
+			_attr_alias_func_origins.append((_daa_name, _daa_ln, _amod, _aattr))
 	from_func_module = {}
 	if seed_func_origins:
 		for _sfo_n, _sfo_v in seed_func_origins.items():
 			from_func_module.setdefault(_sfo_n, []).append((0, _sfo_v))
 	for _, module_name, imported_name, _orig_name, _fln in builder.from_imports:
+		module_name = _real_module_name(module_name)
 		if module_name and imported_name != '*' and module_name in valid_modules:
 			from_func_module.setdefault(imported_name, []).append((_fln, (module_name, _orig_name)))
 	for _afo_name, _afo_ln, _afo_mod, _afo_attr in _attr_alias_func_origins:
@@ -3038,6 +3517,11 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 						found, mp = _python_resolve_module_method(_lcmo_mod, _lcmo_cls, '__init__')
 						if found:
 							return True, mp
+					_corig = _class_origin_at(root, lineno)
+					if _corig is not None:
+						found, mp = _python_resolve_module_method(_corig[0], _corig[1], '__init__')
+						if found:
+							return True, mp
 					return True, set()
 				if kind == 'class' and root in local_classes:
 					_ckey = _class_key_at(root, lineno)
@@ -3049,17 +3533,22 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 						found, mp = _python_resolve_module_method(_lcmo_mod, _lcmo_cls, '__init__')
 						if found:
 							return True, mp
-				if root in builder.func_accepts_any:
+					_corig = _class_origin_at(root, lineno)
+					if _corig is not None:
+						found, mp = _python_resolve_module_method(_corig[0], _corig[1], '__init__')
+						if found:
+							return True, mp
+				if _func_accepts_any_at(root, lineno):
 					return True, None
-				return True, builder.func_params.get(root, set())
+				return True, _func_params_at(root, lineno) or set()
 			if _imp_line is not None and kind in ('func', 'class', 'module', None):
 				return _lookup_module_callable(_imp[0], _imp[1])
 			if kind is None and root in _PYTHON_BUILTIN_CALLABLE_NAMES:
 				return True, _PYTHON_BUILTIN_CALLABLE_PARAMS.get(root, set())
-			if kind == 'func' and root in builder.func_params:
-				if root in builder.func_accepts_any:
+			if kind in ('func', 'builtin') and root in builder.func_params:
+				if _func_accepts_any_at(root, lineno):
 					return True, None
-				return True, builder.func_params.get(root, set())
+				return True, _func_params_at(root, lineno) or set()
 			if kind == 'class' and root in local_classes:
 				_ckey = _class_key_at(root, lineno)
 				if _ckey + '.__init__' in local_class_accepts_any:
@@ -3070,10 +3559,41 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					found, mp = _python_resolve_module_method(_lcmo_mod, _lcmo_cls, '__init__')
 					if found:
 						return True, mp
+				_corig = _class_origin_at(root, lineno)
+				if _corig is not None:
+					found, mp = _python_resolve_module_method(_corig[0], _corig[1], '__init__')
+					if found:
+						return True, mp
 			return None, None
 		if len(rest) == 1 and _name_is_class_at(root, lineno):
 			_ckey = _class_key_at(root, lineno)
+			if local_classes.get(_ckey, {}).get(rest[0]) == 'class':
+				_cat = class_attr_types.get(_ckey, {}).get(rest[0])
+				if _cat is None and rest[0] in local_classes:
+					_cat = ('class', rest[0])
+				if _cat is not None and _cat[0] == 'class' and _cat[1] in local_classes:
+					_tkey = _cat[1]
+					if _tkey + '.__init__' in local_class_accepts_any:
+						return True, None
+					if _tkey + '.__init__' in local_class_method_params:
+						return True, local_class_method_params[_tkey + '.__init__']
+					for _lcmo_mod, _lcmo_cls in local_class_module_origins.get(_tkey, []):
+						found, mp = _python_resolve_module_method(_lcmo_mod, _lcmo_cls, '__init__')
+						if found:
+							return True, mp
+					_torig = _class_origin_at(_tkey, lineno)
+					if _torig is not None:
+						found, mp = _python_resolve_module_method(_torig[0], _torig[1], '__init__')
+						if found:
+							return True, mp
+					return True, set()
+				if _cat is not None and _cat[0] == 'modclass':
+					found, mp = _python_resolve_module_method(_cat[1], _cat[2], '__init__')
+					if found:
+						return True, mp
 			_mkey = _ckey + '.' + rest[0]
+			if _instance_only_attr(_ckey, rest[0]):
+				return None, None
 			if _mkey in local_class_accepts_any:
 				return True, None
 			if _mkey in local_class_method_params:
@@ -3096,10 +3616,11 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		for _ial in _imn.names:
 			if _ial.asname and '.' not in _ial.name and _ial.name in valid_modules:
 				module_literals.append((_ial.lineno, _ial.col_offset, _ial.name))
-	import_dotted_lines = [(lineno, col, dotted) for lineno, col, dotted in builder.import_dotted_lines if dotted in valid_modules or _python_find_spec_cached(dotted) is not None]
+	import_dotted_lines = [(lineno, col, dotted) for lineno, col, dotted in builder.import_dotted_lines if dotted in valid_modules or dotted in _dotted_module_targets or _python_find_spec_cached(dotted) is not None]
 	import_orig_name_tags = []
 	_kind_to_tag = {'func': 'hpf', 'class': 'hpx', 'var': 'hpv', 'module': 'hpm'}
 	for _oln, _ocol, _oname, _omod in builder.import_orig_names:
+		_omod = _real_module_name(_omod)
 		if not _omod or _omod not in valid_modules:
 			continue
 		_okind = None
@@ -3113,6 +3634,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			import_orig_name_tags.append((_oln, _ocol, _oname, _otag))
 	_from_import_map = {}
 	for _, module_name, imported_name, _orig_name, _fln in builder.from_imports:
+		module_name = _real_module_name(module_name)
 		if module_name and imported_name != '*':
 			_from_import_map.setdefault(imported_name, []).append((_fln, module_name))
 	_ck()
@@ -3122,6 +3644,20 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			if _stt in local_classes:
 				scope_var_types.setdefault(0, {}).setdefault(_stn, []).append((0, _stt))
 	_var_type_alias_assigns = []
+	container_elem_types = {}
+	def _elem_type_name(v, lineno):
+		if isinstance(v, ast.Call) and isinstance(v.func, ast.Name):
+			_en = v.func.id
+			if _en in local_classes and _name_is_class_at(_en, lineno):
+				return _class_key_at(_en, lineno)
+			if _class_origin_at(_en, lineno) is not None:
+				return _en
+		if isinstance(v, ast.Call) and isinstance(v.func, ast.Attribute) and isinstance(v.func.value, ast.Name):
+			_emod = _base_module_at(v.func.value.id, lineno)
+			if _emod is not None and _python_resolve_module_members(_emod).get(v.func.attr) == 'class':
+				class_module_origin.setdefault(v.func.attr, []).append((lineno, (_emod, v.func.attr)))
+				return v.func.attr
+		return None
 	for node in tree_assigns:
 		for tgt, val in _assign_pairs(node.targets, node.value):
 			if not isinstance(tgt, ast.Name) or val is None:
@@ -3161,6 +3697,53 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				sc_idx = _binding_scope_for(tgt.id, _scope_for_line(node.lineno))
 				if sc_idx is not None:
 					scope_var_types.setdefault(sc_idx, {}).setdefault(tgt.id, []).append((node.lineno, type_name))
+			_cet_elts = None
+			if isinstance(val, (ast.List, ast.Tuple, ast.Set)):
+				_cet_elts = val.elts
+			elif isinstance(val, ast.Dict):
+				_cet_elts = [_dv for _dv in val.values if _dv is not None]
+			if _cet_elts:
+				_cet_name = None
+				_cet_ok = True
+				for _cet_el in _cet_elts:
+					_cet_t = _elem_type_name(_cet_el, node.lineno)
+					if _cet_t is None or (_cet_name is not None and _cet_t != _cet_name):
+						_cet_ok = False
+						break
+					_cet_name = _cet_t
+				if _cet_ok and _cet_name is not None and (_cet_name in local_classes or _class_origin_at(_cet_name, node.lineno) is not None):
+					_cet_sc = _binding_scope_for(tgt.id, _scope_for_line(node.lineno))
+					if _cet_sc is not None:
+						container_elem_types.setdefault(_cet_sc, {}).setdefault(tgt.id, []).append((node.lineno, _cet_name))
+	for _fn in ast.walk(tree):
+		if not isinstance(_fn, (ast.For, ast.AsyncFor)) or not isinstance(_fn.target, ast.Name):
+			continue
+		_fit = None
+		if isinstance(_fn.iter, ast.Name):
+			_fsc0 = _binding_scope_for(_fn.iter.id, _scope_for_line(_fn.lineno))
+			_fcands = container_elem_types.get(_fsc0, {}).get(_fn.iter.id) if _fsc0 is not None else None
+			if _fcands:
+				_fb = None
+				for _fdl, _ftn in _fcands:
+					if _fdl <= _fn.lineno and (_fb is None or _fdl > _fb[0]):
+						_fb = (_fdl, _ftn)
+				if _fb is not None:
+					_fit = _fb[1]
+		elif isinstance(_fn.iter, (ast.List, ast.Tuple, ast.Set)):
+			_fname = None
+			_fok = True
+			for _fel in _fn.iter.elts:
+				_ft = _elem_type_name(_fel, _fn.lineno)
+				if _ft is None or (_fname is not None and _ft != _fname):
+					_fok = False
+					break
+				_fname = _ft
+			if _fok:
+				_fit = _fname
+		if _fit is not None and (_fit in local_classes or _class_origin_at(_fit, _fn.lineno) is not None):
+			_ftsc = _binding_scope_for(_fn.target.id, _scope_for_line(_fn.lineno))
+			if _ftsc is not None:
+				scope_var_types.setdefault(_ftsc, {}).setdefault(_fn.target.id, []).append((_fn.lineno, _fit))
 	for _valn, _vatgt, _vasrc in sorted(_var_type_alias_assigns):
 		_vsc = _scope_for_line(_valn)
 		_scur = _vsc
@@ -3194,6 +3777,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				for tgt, val in _assign_pairs(stmt.targets, stmt.value):
 					if not (isinstance(tgt, ast.Attribute) and isinstance(tgt.value, ast.Name) and tgt.value.id == _fp) or val is None:
 						continue
+					_self_assigned_attrs.setdefault(_node_class_key(cls_node), set()).add(tgt.attr)
 					type_name = None
 					if isinstance(val, ast.Call):
 						func = val.func
@@ -3257,8 +3841,15 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				if isinstance(val, ast.Call) and isinstance(val.func, ast.Name):
 					type_name = _class_key_at(type_name, stmt.lineno)
 				for tgt in stmt.targets:
-					if isinstance(tgt, ast.Name):
+					if isinstance(tgt, ast.Name) and tgt.id not in _self_assigned_attrs.get(_node_class_key(cls_node), ()):
 						class_type_maps.setdefault(_node_class_key(cls_node), {})[tgt.id] = type_name
+	for _saa_cls, _saa_names in _self_assigned_attrs.items():
+		for _saa_name in _saa_names:
+			if local_classes.get(_saa_cls, {}).get(_saa_name) != 'var':
+				continue
+			_saa_key = _saa_cls + '.' + _saa_name
+			local_class_method_params.pop(_saa_key, None)
+			local_class_accepts_any.discard(_saa_key)
 	_ck()
 	_ck()
 	method_fp_ranges = []
@@ -3351,8 +3942,11 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 	def _assign_value_kind(val, lineno):
 		if val is None:
 			return None
+		val = _python_unwrap_descriptor(val)
 		if isinstance(val, ast.Lambda):
 			return 'func'
+		if isinstance(val, ast.Call) and builder._dynamic_import_module(val) is not None:
+			return 'module'
 		if isinstance(val, ast.Name):
 			_vk = _call_name_kind(val.id, lineno)
 			if _vk in ('func', 'class', 'module'):
@@ -3368,6 +3962,11 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				_vfk = local_classes.get(_vfpc, {}).get(val.attr)
 				if _vfk in ('func', 'class', 'module'):
 					return _vfk
+			if _name_is_class_at(val.value.id, lineno):
+				_vck = _class_key_at(val.value.id, lineno)
+				_vckk = local_classes.get(_vck, {}).get(val.attr)
+				if _vckk in ('func', 'class', 'module'):
+					return _vckk
 			if _call_name_kind(val.value.id, lineno) in ('module', None):
 				_vmod = _base_module_at(val.value.id, lineno)
 				if _vmod is not None:
@@ -3376,7 +3975,11 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 						return _vak
 		return None
 	def _value_type(val, lineno):
+		val = _python_unwrap_descriptor(val)
 		if isinstance(val, ast.Call):
+			_dr = builder._dynamic_import_module(val)
+			if _dr is not None:
+				return ('module', _dr[0])
 			_ft = _value_type(val.func, lineno)
 			if _ft is not None:
 				if _ft[0] == 'class':
@@ -3386,7 +3989,7 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			return None
 		if isinstance(val, ast.Name):
 			_vo = _class_origin_at(val.id, lineno)
-			if _vo is not None and _call_name_kind(val.id, lineno) == 'class':
+			if _vo is not None and _call_name_kind(val.id, lineno) in (None, 'class'):
 				return ('modclass', _vo[0], _vo[1])
 			if val.id in local_classes and _call_name_kind(val.id, lineno) in (None, 'class'):
 				return ('class', _class_key_at(val.id, lineno))
@@ -3417,14 +4020,21 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 	for _ccnode in tree_class_defs:
 		if _ccnode.name not in local_classes:
 			continue
-		for _cstmt in _ccnode.body:
+		for _cstmt in _flatten_class_body(_ccnode.body):
 			_ctgts = _cstmt.targets if isinstance(_cstmt, ast.Assign) else ([_cstmt.target] if isinstance(_cstmt, ast.AnnAssign) else [])
 			for _ctgt, _cval in _assign_pairs(_ctgts, _cstmt.value if _ctgts else None):
+				if isinstance(_cval, ast.NamedExpr):
+					_cval = _cval.value
+				_cval = _python_unwrap_descriptor(_cval)
 				if not isinstance(_ctgt, ast.Name) or _cval is None:
+					continue
+				if _ctgt.id in _self_assigned_attrs.get(_node_class_key(_ccnode), ()):
 					continue
 				_cvt = _value_type(_cval, _cstmt.lineno)
 				if _cvt is not None:
 					class_attr_types.setdefault(_node_class_key(_ccnode), {})[_ctgt.id] = _cvt
+					if _cvt[0] in ('modclass', 'class'):
+						local_classes[_node_class_key(_ccnode)][_ctgt.id] = 'class'
 	for _ucnode in tree_class_defs:
 		if _ucnode.name not in local_classes:
 			continue
@@ -3444,9 +4054,36 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					_uvt = _value_type(_uval, _ustmt.lineno) if _uval is not None else None
 					if _uvt is not None:
 						class_attr_types.setdefault(_unk, {})[_utgt.attr] = _uvt
+	def _elem_type_at(name, lineno):
+		sidx = _scope_for_line(lineno)
+		inner = sidx
+		while sidx is not None:
+			sc = builder.scopes[sidx]
+			if sc.get('kind') == 'class' and sidx != inner:
+				sidx = sc['parent']
+				continue
+			_cet = container_elem_types.get(sidx, {}).get(name)
+			if _cet:
+				_cb = None
+				for _cdl, _ctn in _cet:
+					if sidx == inner and _cdl > lineno:
+						continue
+					if _cb is None or _cdl > _cb[0]:
+						_cb = (_cdl, _ctn)
+				if _cb is not None:
+					return _cb[1]
+			sidx = sc['parent']
+		return None
 	def _infer_type(node):
 		if isinstance(node, ast.NamedExpr):
 			return _infer_type(node.value)
+		if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
+			_st = _elem_type_at(node.value.id, node.lineno)
+			if _st is not None:
+				_sorig3 = _class_origin_at(_st, node.lineno)
+				if _sorig3 is not None and _st not in local_classes:
+					return ('minstance', _sorig3[0], _sorig3[1])
+				return ('instance', _st)
 		if isinstance(node, ast.Name):
 			vt = _var_type_at(node.id, node.lineno)
 			if vt is not None:
@@ -3528,6 +4165,8 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				if _dt is not None and _dt in local_classes:
 					return ('instance', _dt)
 				return None
+			if r[0] == 'class' and _instance_only_attr(r[1], node.attr):
+				return None
 			members = local_classes.get(r[1], {})
 			_cat = class_attr_types.get(r[1], {}).get(node.attr)
 			if _cat is not None:
@@ -3552,7 +4191,11 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			_atn = _assign_type_name(_aval, _an.lineno) if _aval is not None else None
 			_adkind = _assign_value_kind(_aval, _an.lineno) or 'var'
 			if isinstance(_atgt.value, ast.Name) and _call_name_kind(_atgt.value.id, _an.lineno) == 'class' and _atgt.value.id in local_classes and _class_origin_at(_atgt.value.id, _an.lineno) is None:
-				local_classes[_atgt.value.id].setdefault(_atgt.attr, _adkind)
+				local_classes[_atgt.value.id][_atgt.attr] = _adkind
+				if _adkind == 'class':
+					_avr = _infer_type(_aval) if _aval is not None else None
+					if _avr is not None and _avr[0] in ('class', 'modclass'):
+						class_attr_types.setdefault(_atgt.value.id, {})[_atgt.attr] = _avr
 				if _atn is not None and _atn in local_classes:
 					class_type_maps.setdefault(_atgt.value.id, {})[_atgt.attr] = _atn
 				continue
@@ -3602,45 +4245,23 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 			_ir = _infer_type(node.value)
 			if _ir is not None and _ir[0] == 'instance' and _ir[1] in local_classes:
 				scope_var_types.setdefault(_isc, {}).setdefault(tgt.id, []).append((node.lineno, _ir[1]))
-	_dotted_alias_func_origins = []
-	for _daa_sc, _daa_ln, _daa_name, _daa_val in builder.dotted_alias_assigns:
-		if _daa_name in local_classes:
-			continue
-		_daa_r = _infer_type(_daa_val)
-		if _daa_r is not None and _daa_r[0] == 'modclass':
-			_daa_mems = _python_resolve_module_class_members(_daa_r[1], _daa_r[2])
-			if _daa_mems:
-				local_classes[_daa_name] = _daa_mems
-			class_module_origin.setdefault(_daa_name, []).append((_daa_ln, (_daa_r[1], _daa_r[2])))
-			_daa_names = builder.scopes[_binding_scope_for(_daa_name, _daa_sc)]['names'].setdefault(_daa_name, [])
-			_daa_names[:] = [(_l, _k) for _l, _k in _daa_names if not (_l == _daa_ln and _k == 'var')]
-			_daa_names.append((_daa_ln, 'class'))
-			continue
-		if _daa_r is not None and _daa_r[0] == 'module':
-			valid_modules.add(_daa_r[1])
-			base_to_module.setdefault(_daa_name, []).append((_daa_ln, _daa_r[1]))
-			builder.module_alias_defs.setdefault(_daa_name, []).append((_daa_ln, _daa_r[1]))
-			_daa_names = builder.scopes[_binding_scope_for(_daa_name, _daa_sc)]['names'].setdefault(_daa_name, [])
-			_daa_names[:] = [(_l, _k) for _l, _k in _daa_names if not (_l == _daa_ln and _k == 'var')]
-			_daa_names.append((_daa_ln, 'module'))
-			continue
-		if isinstance(_daa_val.value, ast.Attribute):
-			_daa_br = _infer_type(_daa_val.value)
-			if _daa_br is not None and _daa_br[0] == 'module':
-				_daa_ak = _module_attr_kind(_daa_br[1], _daa_val.attr)
-				if _daa_ak == 'func':
-					_daa_names = builder.scopes[_binding_scope_for(_daa_name, _daa_sc)]['names'].setdefault(_daa_name, [])
-					_daa_names[:] = [(_l, _k) for _l, _k in _daa_names if not (_l == _daa_ln and _k == 'var')]
-					_daa_names.append((_daa_ln, 'func'))
-					_dotted_alias_func_origins.append((_daa_name, _daa_ln, _daa_br[1], _daa_val.attr))
-	for _dfo_name, _dfo_ln, _dfo_mod, _dfo_attr in _dotted_alias_func_origins:
-		from_func_module.setdefault(_dfo_name, []).append((_dfo_ln, (_dfo_mod, _dfo_attr)))
+	_class_alias_seen = set()
 	for _ in range(10):
 		_alias_changed = False
 		for _asc, _aln, _aname, _asrc in builder.alias_assigns:
-			if _aname in local_classes or _asrc not in local_classes:
+			if (_aname, _aln) in _class_alias_seen:
 				continue
-			local_classes[_aname] = local_classes[_asrc]
+			_asrc_key = _class_key_at(_asrc, _aln)
+			if _asrc_key not in local_classes:
+				continue
+			_class_alias_seen.add((_aname, _aln))
+			class_def_lines.setdefault(_aname, [])
+			if _aln not in class_def_lines[_aname]:
+				class_def_lines[_aname].append(_aln)
+			_class_first_line.setdefault(_aname, _aln)
+			_adst_key = _class_key_at(_aname, _aln)
+			if _adst_key not in local_classes:
+				local_classes[_adst_key] = local_classes[_asrc_key]
 			_asrc_orig = _class_origin_at(_asrc, _aln)
 			if _asrc_orig is not None:
 				class_module_origin.setdefault(_aname, []).append((_aln, _asrc_orig))
@@ -3652,6 +4273,12 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if not _alias_changed:
 			break
 	local_class_module_origins = {}
+	for _nmc_name, _nmc_defs in name_module_class.items():
+		for _nmc_ln, _nmc_origin in _nmc_defs:
+			_nmc_key = _class_key_at(_nmc_name, _nmc_ln)
+			local_class_module_origins.setdefault(_nmc_key, [])
+			if _nmc_origin not in local_class_module_origins[_nmc_key]:
+				local_class_module_origins[_nmc_key].append(_nmc_origin)
 	if seed_module_bases:
 		for _smb_k, _smb_v in seed_module_bases.items():
 			local_class_module_origins.setdefault(_smb_k, [])
@@ -3720,10 +4347,16 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 				_k = _python_resolve_module_member_kind(r[1], r[2], node.attr)
 		else:
 			_k = None
+			if r[0] == 'class' and _instance_only_attr(r[1], node.attr):
+				continue
 			if r[0] in ('instance', 'class'):
 				_k = dynamic_class_attrs.get(r[1], {}).get(node.attr)
 			if _k is None:
 				_k = local_classes.get(r[1], {}).get(node.attr)
+		if _k == 'var':
+			_kir = _infer_type(node)
+			if _kir is not None and (_kir[0] == 'minstance' or (_kir[0] == 'instance' and _kir[1] not in _PYTHON_BUILTIN_MEMBERS)):
+				_k = 'instance'
 		if _k is not None:
 			typed_attrs.append((node.end_lineno, node.end_col_offset - len(node.attr), node.attr, _k))
 	_ck()
@@ -3837,13 +4470,40 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 					_mok, _mp = _lookup_module_callable(_rcv[1], func_name)
 					if _mok:
 						ok, params = _mok, _mp
-				elif _rcv[0] in ('instance', 'class'):
+				elif _rcv[0] in ('instance', 'class') and not (_rcv[0] == 'class' and _instance_only_attr(_rcv[1], func_name)):
+					if local_classes.get(_rcv[1], {}).get(func_name) == 'class':
+						_cat = class_attr_types.get(_rcv[1], {}).get(func_name)
+						if _cat is None and func_name in local_classes:
+							_cat = ('class', func_name)
+						if _cat is not None and _cat[0] == 'class' and _cat[1] in local_classes:
+							_tkey = _cat[1]
+							if _tkey + '.__init__' in local_class_accepts_any:
+								ok, params = True, None
+							elif _tkey + '.__init__' in local_class_method_params:
+								ok, params = True, local_class_method_params[_tkey + '.__init__']
+							else:
+								ok, params = True, set()
+								for _lcmo_mod, _lcmo_cls in local_class_module_origins.get(_tkey, []):
+									found, mp = _python_resolve_module_method(_lcmo_mod, _lcmo_cls, '__init__')
+									if found:
+										ok, params = True, mp
+										break
+								else:
+									_torig = _class_origin_at(_tkey, lineno)
+									if _torig is not None:
+										found, mp = _python_resolve_module_method(_torig[0], _torig[1], '__init__')
+										if found:
+											ok, params = True, mp
+						elif _cat is not None and _cat[0] == 'modclass':
+							found, mp = _python_resolve_module_method(_cat[1], _cat[2], '__init__')
+							if found:
+								ok, params = True, mp
 					_lkey = _rcv[1] + '.' + func_name
-					if _lkey in local_class_accepts_any:
+					if not ok and _lkey in local_class_accepts_any:
 						ok, params = True, None
-					elif _lkey in local_class_method_params:
+					elif not ok and _lkey in local_class_method_params:
 						ok, params = True, local_class_method_params[_lkey]
-					elif _class_origin_at(_rcv[1], lineno) is not None:
+					elif not ok and _class_origin_at(_rcv[1], lineno) is not None:
 						_rorig = _class_origin_at(_rcv[1], lineno)
 						found, mp = _python_resolve_module_method(_rorig[0], _rorig[1], func_name)
 						if found:
@@ -3856,6 +4516,30 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 								break
 		if ok and (params is None or kwarg_name in params):
 			call_kwargs.setdefault(lineno, set()).add(kwarg_name)
+	for _cdk_ln, _cdk_cls, _cdk_defln, _cdk_arg in builder.class_def_kwargs:
+		if _cdk_arg == 'metaclass':
+			call_kwargs.setdefault(_cdk_ln, set()).add(_cdk_arg)
+			continue
+		_cdk_key = _class_key_at(_cdk_cls, _cdk_defln)
+		_cdk_ok = False
+		_cdk_params = None
+		for _cdk_base in class_bases.get(_cdk_key, []):
+			_cdk_mk = _cdk_base + '.__init_subclass__'
+			if _cdk_mk in local_class_accepts_any:
+				_cdk_ok, _cdk_params = True, None
+				break
+			if _cdk_mk in local_class_method_params:
+				_cdk_ok, _cdk_params = True, local_class_method_params[_cdk_mk]
+				break
+			for _cdk_mod, _cdk_mcls in local_class_module_origins.get(_cdk_base, []):
+				found, mp = _python_resolve_module_method(_cdk_mod, _cdk_mcls, '__init_subclass__')
+				if found:
+					_cdk_ok, _cdk_params = True, mp
+					break
+			if _cdk_ok:
+				break
+		if _cdk_ok and (_cdk_params is None or _cdk_arg in _cdk_params):
+			call_kwargs.setdefault(_cdk_ln, set()).add(_cdk_arg)
 	def _resolve_kind_in(start_idx, name, lineno):
 		sidx = start_idx
 		inner = sidx
@@ -3920,7 +4604,38 @@ def _python_build_scopes(text, gen = None, line_blocks = None, seed_names = None
 		if _lat and node.attr in _PYTHON_BUILTIN_MEMBERS.get(_lat, {}):
 			literal_attrs.append((node.end_lineno, node.end_col_offset - len(node.attr), node.attr, _lat))
 	_ck()
-	return builder.scopes, call_kwargs, builder.module_alias_defs, local_classes, module_literals, scope_var_types, literal_attrs, def_name_positions, typed_attrs, param_default_tags, builder.kwarg_positions, import_dotted_lines, import_orig_name_tags, class_module_origin, local_class_method_params, local_class_accepts_any, name_positions, local_class_module_origins, from_func_module, class_type_maps
+	instance_name_positions = set()
+	_instance_name_cache = {}
+	for _inl, _incol, _inname, _instore in list(name_positions) + [(_pl, _pcol, _pname, False) for _pl, _pcol, _pname, _pkind in param_default_tags]:
+		_inkey = (_inname, _inl)
+		_inres = _instance_name_cache.get(_inkey)
+		if _inres is None:
+			_invt = _var_type_at(_inname, _inl)
+			_inres = (_invt is not None and _invt in local_classes and _invt not in _PYTHON_BUILTIN_MEMBERS) or _var_modclass_at(_inname, _inl) is not None
+			_instance_name_cache[_inkey] = _inres
+		if _inres:
+			instance_name_positions.add((_inl, _incol))
+	_ck()
+	_export_func_params = {}
+	for _efp_n, _efp_defs in builder.func_params.items():
+		_efp_mod = [_d for _d in _efp_defs if (_d[2] if len(_d) > 2 else 0) == 0]
+		if _efp_mod:
+			_export_func_params[_efp_n] = max(_efp_mod, key = lambda d: d[0])[1]
+	_export_func_accepts_any = {}
+	for _efa_n, _efa_defs in builder.func_accepts_any.items():
+		_efa_mod = [_d for _d in _efa_defs if (_d[2] if len(_d) > 2 else 0) == 0]
+		if _efa_mod:
+			_export_func_accepts_any[_efa_n] = max(_efa_mod, key = lambda d: d[0])[1]
+	_export_class_bases = {_k: _v for _k, _v in class_bases.items() if _k in module_scope_class_keys}
+	_export_instance_only = {}
+	for _eio_c, _eio_v in _self_assigned_attrs.items():
+		if _eio_c not in module_scope_class_keys:
+			continue
+		_eio_only = set(_eio_v) - _class_body_members.get(_eio_c, set())
+		if _eio_only:
+			_export_instance_only[_eio_c] = _eio_only
+	_export_inherited = {'members': _inherited_members, 'attr_types': _inherited_attr_types, 'method_params': _inherited_method_params}
+	return builder.scopes, call_kwargs, builder.module_alias_defs, local_classes, module_literals, scope_var_types, literal_attrs, def_name_positions, typed_attrs, param_default_tags, builder.kwarg_positions, import_dotted_lines, import_orig_name_tags, class_module_origin, local_class_method_params, local_class_accepts_any, name_positions, local_class_module_origins, from_func_module, class_type_maps, class_attr_types, _export_func_params, _export_func_accepts_any, _export_class_bases, _export_inherited, module_scope_class_keys, _export_instance_only, instance_name_positions
 def _python_scan_names(text, gen = None):
 	global _python_scopes
 	global _python_call_kwargs
@@ -3931,9 +4646,10 @@ def _python_scan_names(text, gen = None):
 	global _python_typed_attrs
 	global _python_param_default_tags
 	global _python_kwarg_positions, _python_import_dotted_lines, _python_import_orig_name_tags
+	global _python_instance_name_positions
 	result = _python_build_scopes(text, gen)
 	if result is not None:
-		scopes, call_kwargs, module_aliases, local_classes, module_literals, scope_var_types, literal_attrs, def_names, typed_attrs, param_default_tags, kwarg_positions, import_dotted_lines, import_orig_name_tags, class_module_origin, local_class_method_params, local_class_accepts_any, name_positions, _lcmo, _ffm, _ctm = result
+		scopes, call_kwargs, module_aliases, local_classes, module_literals, scope_var_types, literal_attrs, def_names, typed_attrs, param_default_tags, kwarg_positions, import_dotted_lines, import_orig_name_tags, class_module_origin, local_class_method_params, local_class_accepts_any, name_positions, _lcmo, _ffm, _ctm, _cat, _efp, _efa, _ecb, _ein, _emck, _eio, instance_name_positions = result
 		_python_scopes = scopes
 		_python_call_kwargs = call_kwargs
 		_python_module_literals = module_literals
@@ -3945,6 +4661,7 @@ def _python_scan_names(text, gen = None):
 		_python_kwarg_positions = kwarg_positions
 		_python_import_dotted_lines = import_dotted_lines
 		_python_import_orig_name_tags = import_orig_name_tags
+		_python_instance_name_positions = instance_name_positions
 		_main_queue.put(lambda: ha('python') if hmode == 'python' else None)
 def _python_scan_start():
 	global _python_names_scan_thread
@@ -4015,6 +4732,7 @@ def ha(ft):
 	python_param_default_tags = _python_param_default_tags
 	python_kwarg_positions = _python_kwarg_positions
 	python_import_dotted_lines = _python_import_dotted_lines
+	python_instance_name_positions = _python_instance_name_positions
 	python_import_orig_name_tags = _python_import_orig_name_tags
 	def do_hl():
 		ops = []
@@ -4045,7 +4763,7 @@ def ha(ft):
 				def_names_by_line = {}
 				for _dl, _dcol, _dname, _dkind in python_def_names:
 					def_names_by_line.setdefault(_dl, []).append((_dcol, _dname, _dkind))
-				python_kind_tags = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx', 'builtin': 'hpb'}
+				python_kind_tags = {'var': 'hpv', 'instance': 'hpi', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx', 'builtin': 'hpb'}
 				python_literal_attrs = _python_literal_attrs
 				literal_attr_by_line = {}
 				for _ln, _col, _attr, _tname in python_literal_attrs:
@@ -4121,6 +4839,8 @@ def ha(ft):
 						_ntag = python_kind_tags.get(_nkind)
 						if _ntag is None:
 							continue
+						if _ntag == 'hpv' and (abs_line, _ncol) in python_instance_name_positions:
+							_ntag = 'hpi'
 						_nccol = _python_bytecol_to_charcol(line_str, _ncol)
 						s = f'{top}+{offset + _nccol}c'
 						e = f'{top}+{offset + _nccol + len(_nname)}c'
@@ -4131,8 +4851,10 @@ def ha(ft):
 						e = f'{top}+{offset + _dccol + len(_dname)}c'
 						ops.append(('add', 'hpf' if _dkind == 'func' else 'hpx', s, e))
 					for _pcol, _pname, _pkind in param_default_by_line.get(abs_line, []):
+						if _pkind == 'var' and (abs_line, _pcol) in python_instance_name_positions:
+							_pkind = 'instance'
 						_pcol = _python_bytecol_to_charcol(line_str, _pcol)
-						_ptag = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(_pkind)
+						_ptag = {'var': 'hpv', 'instance': 'hpi', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(_pkind)
 						if _ptag is not None:
 							s = f'{top}+{offset + _pcol}c'
 							e = f'{top}+{offset + _pcol + len(_pname)}c'
@@ -4162,7 +4884,7 @@ def ha(ft):
 							ops.append(('add', 'hpf' if _kind == 'func' else 'hpv', f'{top}+{offset + _col}c', f'{top}+{offset + _col + len(_attr)}c'))
 					for _tcol, _tattr, _tkind in typed_attr_by_line.get(abs_line, []):
 						_tcol = _python_bytecol_to_charcol(line_str, _tcol)
-						_ttag = {'func': 'hpf', 'var': 'hpv', 'module': 'hpm', 'class': 'hpx'}.get(_tkind, 'hpx')
+						_ttag = {'func': 'hpf', 'var': 'hpv', 'instance': 'hpi', 'module': 'hpm', 'class': 'hpx'}.get(_tkind, 'hpx')
 						ops.append(('add', _ttag, f'{top}+{offset + _tcol}c', f'{top}+{offset + _tcol + len(_tattr)}c'))
 					for _kcol, _kname in kwarg_pos_by_line.get(abs_line, []):
 						_kcol = _python_bytecol_to_charcol(line_str, _kcol)
@@ -4951,14 +5673,14 @@ def _sgr_is_highlight(params):
 				idx += 4
 		idx += 1
 	return result
-_ANSI_16_HEX = ('#000000', '#cd0000', '#00cd00', '#cdcd00', '#0000ee', '#cd00cd', '#00cdcd', '#e5e5e5', '#7f7f7f', '#ff0000', '#00ff00', '#ffff00', '#5c5cff', '#ff00ff', '#00ffff', '#ffffff')
-_ANSI_CUBE_LEVELS = (0, 95, 135, 175, 215, 255)
+_TERM_ANSI_16_HEX = ('#000000', '#cd0000', '#00cd00', '#cdcd00', '#0000ee', '#cd00cd', '#00cdcd', '#e5e5e5', '#7f7f7f', '#ff0000', '#00ff00', '#ffff00', '#5c5cff', '#ff00ff', '#00ffff', '#ffffff')
+_TERM_ANSI_CUBE_LEVELS = (0, 95, 135, 175, 215, 255)
 def _ansi_256_hex(n):
 	if n < 16:
-		return _ANSI_16_HEX[n]
+		return _TERM_ANSI_16_HEX[n]
 	if n < 232:
 		n -= 16
-		return f'#{_ANSI_CUBE_LEVELS[n // 36]:02x}{_ANSI_CUBE_LEVELS[(n % 36) // 6]:02x}{_ANSI_CUBE_LEVELS[n % 6]:02x}'
+		return f'#{_TERM_ANSI_CUBE_LEVELS[n // 36]:02x}{_TERM_ANSI_CUBE_LEVELS[(n % 36) // 6]:02x}{_TERM_ANSI_CUBE_LEVELS[n % 6]:02x}'
 	v = 8 + (n - 232) * 10
 	return f'#{v:02x}{v:02x}{v:02x}'
 def _sgr_new_state():
@@ -8283,6 +9005,12 @@ _pyshell_session_accepts_any = set()
 _pyshell_session_module_bases = {}
 _pyshell_session_func_origins = {}
 _pyshell_session_attr_types = {}
+_pyshell_session_class_attr_types = {}
+_pyshell_session_func_params = {}
+_pyshell_session_func_accepts_any = {}
+_pyshell_session_class_bases = {}
+_pyshell_session_inherited = {'members': set(), 'attr_types': set(), 'method_params': set()}
+_pyshell_session_instance_only = {}
 def hapyshell():
 	global _pyshell_last_scan_key
 	global _pyshell_cached_scope_result
@@ -8295,6 +9023,10 @@ def hapyshell():
 	global _pyshell_session_module_bases
 	global _pyshell_session_func_origins
 	global _pyshell_session_attr_types
+	global _pyshell_session_class_attr_types
+	global _pyshell_session_func_params, _pyshell_session_func_accepts_any
+	global _pyshell_session_class_bases, _pyshell_session_inherited
+	global _pyshell_session_instance_only
 	if _hapyshell_running[0]:
 		return
 	_hapyshell_running[0] = True
@@ -8320,7 +9052,7 @@ def hapyshell():
 	if _scan_key == _pyshell_last_scan_key:
 		shell_result = _pyshell_cached_scope_result
 	else:
-		shell_result = _python_build_scopes(stripped_text, line_blocks = _shell_line_blocks, seed_names = _pyshell_session_names, seed_types = _pyshell_session_types, seed_classes = _pyshell_session_classes, seed_aliases = _pyshell_session_aliases, seed_origins = _pyshell_session_origins, seed_method_params = _pyshell_session_method_params, seed_accepts_any = _pyshell_session_accepts_any, seed_module_bases = _pyshell_session_module_bases, seed_func_origins = _pyshell_session_func_origins, seed_attr_types = _pyshell_session_attr_types)
+		shell_result = _python_build_scopes(stripped_text, line_blocks = _shell_line_blocks, seed_names = _pyshell_session_names, seed_types = _pyshell_session_types, seed_classes = _pyshell_session_classes, seed_aliases = _pyshell_session_aliases, seed_origins = _pyshell_session_origins, seed_method_params = _pyshell_session_method_params, seed_accepts_any = _pyshell_session_accepts_any, seed_module_bases = _pyshell_session_module_bases, seed_func_origins = _pyshell_session_func_origins, seed_attr_types = _pyshell_session_attr_types, seed_class_attr_types = _pyshell_session_class_attr_types, seed_func_params = _pyshell_session_func_params, seed_func_accepts_any = _pyshell_session_func_accepts_any, seed_class_bases = _pyshell_session_class_bases, seed_inherited = _pyshell_session_inherited, seed_instance_only = _pyshell_session_instance_only)
 		_pyshell_last_scan_key = _scan_key
 		_pyshell_cached_scope_result = shell_result
 	if shell_result is None:
@@ -8341,8 +9073,19 @@ def hapyshell():
 		shell_class_module_origin = {}
 		shell_local_class_method_params = {}
 		shell_local_class_accepts_any = set()
+		shell_local_class_module_origins = {}
+		shell_from_func_module = {}
+		shell_class_type_maps = {}
+		shell_class_attr_types = {}
+		shell_func_params = {}
+		shell_func_accepts_any = {}
+		shell_class_bases = {}
+		shell_inherited = {}
+		shell_module_scope_class_keys = set()
+		shell_instance_only = {}
+		shell_instance_name_positions = set()
 	else:
-		shell_scopes, shell_call_kwargs, shell_module_aliases, shell_local_classes, shell_module_literals, shell_scope_var_types, shell_literal_attrs, shell_def_names, shell_typed_attrs, shell_param_default_tags, shell_kwarg_positions, shell_import_dotted_lines, shell_import_orig_name_tags, shell_class_module_origin, shell_local_class_method_params, shell_local_class_accepts_any, shell_name_positions, shell_local_class_module_origins, shell_from_func_module, shell_class_type_maps = shell_result
+		shell_scopes, shell_call_kwargs, shell_module_aliases, shell_local_classes, shell_module_literals, shell_scope_var_types, shell_literal_attrs, shell_def_names, shell_typed_attrs, shell_param_default_tags, shell_kwarg_positions, shell_import_dotted_lines, shell_import_orig_name_tags, shell_class_module_origin, shell_local_class_method_params, shell_local_class_accepts_any, shell_name_positions, shell_local_class_module_origins, shell_from_func_module, shell_class_type_maps, shell_class_attr_types, shell_func_params, shell_func_accepts_any, shell_class_bases, shell_inherited, shell_module_scope_class_keys, shell_instance_only, shell_instance_name_positions = shell_result
 	for _nm, _defs in shell_scopes[0]['names'].items():
 		_exec_defs = [_d for _d in _defs if _d[0] < _exec_boundary]
 		if _exec_defs and _nm not in shell_scopes[0].get('globals', {}) and _nm not in shell_scopes[0].get('nonlocals', {}):
@@ -8366,6 +9109,8 @@ def hapyshell():
 	for _cn, _mem in shell_local_classes.items():
 		if _cn in _PYTHON_BUILTIN_MEMBERS:
 			continue
+		if _cn in _text_class_lines and _cn not in shell_module_scope_class_keys:
+			continue
 		_cls_lines = _text_class_lines.get(_cn)
 		if _cls_lines is None or _cn in _pyshell_session_classes or any(_l < _exec_boundary for _l in _cls_lines):
 			_pyshell_session_classes[_cn] = _mem
@@ -8383,7 +9128,9 @@ def hapyshell():
 				_obest = _od
 		if _obest is not None:
 			_pyshell_session_origins[_on] = _obest[1]
-	_pyshell_session_method_params.update(shell_local_class_method_params)
+	for _mpk, _mpv in shell_local_class_method_params.items():
+		if _mpk.split('.')[0] in shell_module_scope_class_keys:
+			_pyshell_session_method_params[_mpk] = _mpv
 	for _mbk, _mbv in shell_local_class_module_origins.items():
 		_pyshell_session_module_bases.setdefault(_mbk, [])
 		for _mbo in _mbv:
@@ -8395,7 +9142,18 @@ def hapyshell():
 			_pyshell_session_func_origins[_ffk] = _ff_best[1]
 	for _ctk, _ctv in shell_class_type_maps.items():
 		_pyshell_session_attr_types.setdefault(_ctk, {}).update(_ctv)
-	_pyshell_session_accepts_any.update(shell_local_class_accepts_any)
+	for _catk, _catv in shell_class_attr_types.items():
+		_pyshell_session_class_attr_types.setdefault(_catk, {}).update(_catv)
+	for _aak in shell_local_class_accepts_any:
+		if _aak.split('.')[0] in shell_module_scope_class_keys:
+			_pyshell_session_accepts_any.add(_aak)
+	_pyshell_session_func_params.update(shell_func_params)
+	_pyshell_session_func_accepts_any.update(shell_func_accepts_any)
+	_pyshell_session_class_bases.update(shell_class_bases)
+	for _inhk in ('members', 'attr_types', 'method_params'):
+		_pyshell_session_inherited[_inhk].update(shell_inherited.get(_inhk, ()))
+	for _iok, _iov in shell_instance_only.items():
+		_pyshell_session_instance_only.setdefault(_iok, set()).update(_iov)
 	try:
 		shell_top = shellcmd.index('@0,0')
 		shell_bottom = shellcmd.index(f'@0,{shellcmd.winfo_height()}')
@@ -8478,7 +9236,7 @@ def hapyshell():
 		shell_def_names_by_line = {}
 		for _dl, _dcol, _dname, _dkind in shell_def_names:
 			shell_def_names_by_line.setdefault(_dl, []).append((_dcol, _dname, _dkind))
-		shell_kind_tags = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx', 'builtin': 'hpb'}
+		shell_kind_tags = {'var': 'hpv', 'instance': 'hpi', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx', 'builtin': 'hpb'}
 		shell_literal_attr_by_line = {}
 		for _ln, _col, _attr, _tname in shell_literal_attrs:
 			shell_literal_attr_by_line.setdefault(_ln, []).append((_col, _attr, _tname))
@@ -8552,6 +9310,8 @@ def hapyshell():
 				_ntag = shell_kind_tags.get(_nkind)
 				if _ntag is None:
 					continue
+				if _ntag == 'hpv' and (abs_line, _ncol) in shell_instance_name_positions:
+					_ntag = 'hpi'
 				_nccol = _python_bytecol_to_charcol(line_str, _ncol)
 				s = widx(abs_line, _nccol)
 				e = widx(abs_line, _nccol + len(_nname))
@@ -8562,8 +9322,10 @@ def hapyshell():
 				e = widx(abs_line, _dccol + len(_dname))
 				add_idx('hpf' if _dkind == 'func' else 'hpx', s, e)
 			for _pcol, _pname, _pkind in shell_param_default_by_line.get(abs_line, []):
+				if _pkind == 'var' and (abs_line, _pcol) in shell_instance_name_positions:
+					_pkind = 'instance'
 				_pcol = _python_bytecol_to_charcol(line_str, _pcol)
-				_ptag = {'var': 'hpv', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(_pkind)
+				_ptag = {'var': 'hpv', 'instance': 'hpi', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(_pkind)
 				if _ptag is not None:
 					s = widx(abs_line, _pcol)
 					e = widx(abs_line, _pcol + len(_pname))
@@ -8593,7 +9355,7 @@ def hapyshell():
 					add_idx('hpf' if _kind == 'func' else 'hpv', widx(abs_line, _col), widx(abs_line, _col + len(_attr)))
 			for _tcol, _tattr, _tkind in shell_typed_attr_by_line.get(abs_line, []):
 				_tcol = _python_bytecol_to_charcol(line_str, _tcol)
-				_ttag = {'func': 'hpf', 'var': 'hpv', 'module': 'hpm', 'class': 'hpx'}.get(_tkind, 'hpx')
+				_ttag = {'func': 'hpf', 'var': 'hpv', 'instance': 'hpi', 'module': 'hpm', 'class': 'hpx'}.get(_tkind, 'hpx')
 				add_idx(_ttag, widx(abs_line, _tcol), widx(abs_line, _tcol + len(_tattr)))
 			for _kcol, _kname in shell_kwarg_pos_by_line.get(abs_line, []):
 				_kcol = _python_bytecol_to_charcol(line_str, _kcol)
@@ -9187,10 +9949,17 @@ def shellpy():
 		_pyshell_session_module_bases.clear()
 		_pyshell_session_func_origins.clear()
 		_pyshell_session_attr_types.clear()
+		_pyshell_session_class_attr_types.clear()
 		_pyshell_session_aliases.clear()
 		_pyshell_session_origins.clear()
 		_pyshell_session_method_params.clear()
 		_pyshell_session_accepts_any.clear()
+		_pyshell_session_func_params.clear()
+		_pyshell_session_func_accepts_any.clear()
+		_pyshell_session_class_bases.clear()
+		for _inhk in ('members', 'attr_types', 'method_params'):
+			_pyshell_session_inherited[_inhk].clear()
+		_pyshell_session_instance_only.clear()
 		try: _proc_ref[0].terminate()
 		except Exception: pass
 		if platform.system() == 'Linux' and _mfd_ref[0] is not None:
