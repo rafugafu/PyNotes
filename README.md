@@ -9,7 +9,7 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 * **PyCode** - Programming language inside PyNotes to customize it even beyond plugins! You can fully make and change your own keyboard shortcuts, functions, Alt-X commands, startup code, etc!  
 * **MathGod** - Mathematica-like notebook for symbolic math inside PyNotes!  
 * **Email** - Send emails from within PyNotes! Also has a spellcheck and option to change or add new dictionaries for the spellcheck.  
-* **HModes** - Modes like Emacs for different purposes! Changes syntax highlighting, running code, tabs, etc.  
+* **HModes** - Major Modes like Emacs for different purposes! Changes syntax highlighting, running code, menus, tabs, etc.  
 * **Text to speech** - Make PyNotes speak your selection inside the editor!  
 * **Speech to text** - Dictate to write text in the editor!  
 * **Terminal** - Full 256-color/truecolor supporting terminal using a PTY inside PyNotes!  
@@ -17,7 +17,6 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 * **Preferences** - Fully customize your syntax highlighting and options easily in the preferences!  
 * **Search** - Incremental search for Find and Find & Replace - Find strings without fully typing them!  
 * **Regexp Search** - Find and Find & Replace using regexp!  
-* **Emacs-like keybindings in search** - Option to use Emacs-like keybindings for Find and Find & Replace!  
 * **Backup** - Auto backup option to save your files!  
 * **Quick Installation** - Fast installation with an installer script for Linux and a graphical installer for Windows!  
 * **And much more!**  
@@ -30,7 +29,9 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 ![Python Shell](images/Python_Shell.png)  
 ![PyCode](images/PyCode.png)  
 ![MathGod](images/MathGod.png)  
-![Terminal](images/Terminal.png)  
+![Terminal Colours](images/Terminal_Colours.png)  
+![Terminal Running emacs -nw](images/Terminal_Emacs_NW.png)  
+![Terminal Running Cacafire](images/Terminal_Cacafire.png)  
 ![ChessPy](images/ChessPy.png)  
 ![Opening Images in PyNotes](images/Image_in_PyNotes.png)  
 ![Write Command Example](images/Write_Command_Example.png)  
