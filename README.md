@@ -1,7 +1,7 @@
 # About  
 ![Icon](images/Icon.png)  
 PyNotes is an advanced cross-platform text editor and IDE made in Python.  
-Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](codeberg.org/rafugafu/pynotes), [Sourceforge](https://sourceforge.net/projects/pynotespython/), [Launchpad PPA](https://launchpad.net/~rafugafu/+archive/ubuntu/pynotes)  
+Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeberg.org/rafugafu/pynotes), [Sourceforge](https://sourceforge.net/projects/pynotespython/), [Launchpad PPA](https://launchpad.net/~rafugafu/+archive/ubuntu/pynotes)  
 ## Important Features  
 * **Programming** - Efficient scope-aware for Python syntax highlighting and running code with outputs and errors for Python, LaTeX, and HTML! Graphical buttons for formatting LaTeX!  
 * **Alt-X Commands** - Powerful Emacs-like commands inside PyNotes!  
