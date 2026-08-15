@@ -897,8 +897,13 @@ class Editor(easytk.ttk.Frame):
 		self.ln.pack(side = 'left', fill = 'y')
 		self.type_.pack(side = 'right', fill = 'both', expand = True)
 		self._bind_type_events()
-		if self in all_editors:
-			self.type_.bind('<FocusIn>', lambda event: (setactive(all_editors.index(self)), 'break')[1], add = True)
+		self._bind_focus_recursive(self._own_type)
+	def _bind_focus_recursive(self, widget, skip_widgets = ()):
+		if widget in skip_widgets:
+			return
+		widget.bind('<FocusIn>', lambda event, editor = self: setactive(all_editors.index(editor)), add = True)
+		for child in widget.winfo_children():
+			self._bind_focus_recursive(child, skip_widgets)
 	def _bind_type_events(self):
 		self.type_.bind('<Control-a>', lambda event: self.selall())
 		self.type_.bind('<Control-n>', lambda event: self.nw())
@@ -934,6 +939,7 @@ class Editor(easytk.ttk.Frame):
 		if master is None:
 			return
 		self.filename.config(text = master.filename.cget('text'))
+		self.filesaved.config(text = master.filesaved.cget('text'))
 		self.filetype.config(text = master.filetype.cget('text'))
 		self.filesize.config(text = master.filesize.cget('text'))
 		self.tabs.tab(self.ef, state = master.tabs.tab(master.ef, option = 'state'))
@@ -1104,8 +1110,10 @@ class Editor(easytk.ttk.Frame):
 		self.filetype.grid(column = 2, row = 0)
 		self.filesize = root.text(master = self.fileinfo, text = '0 bytes', padding = (5, 5, 5, 5), relief = 'raised')
 		self.filesize.grid(column = 3, row = 0)
-		self.mf = root.frame()
-		self.sf = root.frame()
+		self.tabs = root.tabs(master = self)
+		self.mf = root.frame(master = self.tabs)
+		self.sf = root.frame(master = self.tabs)
+		self.ef = root.frame(master = self.tabs)
 		self.lfouter = root.frame(master = self)
 		self.lfcanvas = easytk.ttk.Canvas(self.lfouter, highlightthickness = 0)
 		self.lfscroll = root.scroll(master = self.lfouter, orient = 'horizontal', command = self.lfcanvas.xview)
@@ -1140,8 +1148,6 @@ class Editor(easytk.ttk.Frame):
 		self.latexcharvar = root.stringvar()
 		self.latexmath = root.dropdown(master = self.lf, stringvar = self.latexcharvar, showdefault = 'Multiplication', options = ['Multiplication', 'Division', 'Less or equal', 'More or equal', 'Not equal', 'Infinity', 'Summation', 'Integral', 'Pi', 'Theta', 'Alpha Lower', 'Alpha Upper', 'Inline Math'], command = self.mathlatex)
 		self.latexmath.grid(column = 11, row = 0, padx = 10, pady = 10)
-		self.ef = root.frame()
-		self.tabs = root.tabs(master = self)
 		self.tabs.add(self.mf, text = 'Editor')
 		self.tabs.add(self.sf, text = 'Python Shell', state = 'hidden')
 		self.tabs.add(self.ef, text = 'Email', state = 'hidden')
@@ -1245,6 +1251,7 @@ class Editor(easytk.ttk.Frame):
 				self.ld(file)
 		else:
 			self._sync_chrome()
+		self._bind_focus_recursive(self, (self._own_type,) + tuple(self.ef.winfo_children()) + ((self.imageload,) if getattr(self, 'imageload', None) else ()))
 		for code in editor_init_code:
 			try:
 				exec(code, globals(), locals())
@@ -1403,6 +1410,7 @@ class Editor(easytk.ttk.Frame):
 				error = str(error)
 				try:
 					self.imageload = root.image(master = self, image = nm, imsize = (1, 1))
+					self._bind_focus_recursive(self.imageload)
 					self.imageloaded = True
 					self.mainwidget = self.imageload
 				except Exception:
@@ -6421,6 +6429,7 @@ class Editor(easytk.ttk.Frame):
 			self.port = root.entry(master = self.loginframe)
 			self.port.grid(column = 1, row = 3, padx = 10, pady = 10)
 			root.button(master = self.loginframe, text = 'Done', command = emailsetupother).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'e')
+			self._bind_focus_recursive(self.loginframe)
 		def sendemail():
 			global e
 			global p
@@ -6521,6 +6530,7 @@ class Editor(easytk.ttk.Frame):
 		self.emailtextbox.pack(fill = 'both', expand = True, padx = 10, pady = 10)
 		self.emailtextbox.bind('<Control-Return>', lambda event: sendemail())
 		self.emailtextbox.bind('<KeyRelease>', lambda event: spellcheck())
+		self._bind_focus_recursive(self.ef)
 	def _email_session_active(self):
 		try:
 			e, p, s, po
@@ -6543,6 +6553,7 @@ class Editor(easytk.ttk.Frame):
 		self.port = root.entry(master = self.loginframe)
 		self.port.grid(column = 1, row = 3, padx = 10, pady = 10)
 		root.button(master = self.loginframe, text = 'Let\'s Go!', command = self.emailsetup).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'e')
+		self._bind_focus_recursive(self.loginframe)
 	def _email_tab_reload(self):
 		for child in self.ef.winfo_children():
 			child.destroy()
@@ -6575,6 +6586,7 @@ class Editor(easytk.ttk.Frame):
 			self.port = root.entry(master = self.loginframe)
 			self.port.grid(column = 1, row = 3, padx = 10, pady = 10)
 			root.button(master = self.loginframe, text = 'Let\'s Go!', command = self.emailsetup).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'e')
+			self._bind_focus_recursive(self.loginframe)
 		else:
 			try:
 				self.emailsetup('file')
@@ -12034,10 +12046,6 @@ def balance(orient = 'all'):
 		for i in range(n - 1):
 			pw.sashpos(i, (i + 1) * step)
 def neweditor(file = None, orient = 'horizontal'):
-	def bindrecur(parent):
-		parent.bind('<FocusIn>', lambda event, editor = newedit: (setactive(all_editors.index(editor)), 'break')[1])
-		for widget in parent.winfo_children():
-			bindrecur(widget)
 	if file == True:
 		fn = openfileget(filetypes = (('All Files', '*'), ('Python Files', '*.py'), ('Text Files', '*.txt'), ('LaTeX Files', '*.tex'), ('PNG Images', '*.png'), ('PDF Files', '*.pdf'), ('ePub Files', '*.epub')))
 		if fn:
@@ -12065,8 +12073,6 @@ def neweditor(file = None, orient = 'horizontal'):
 		balance('vertical')
 	root.update()
 	setactive(-1)
-	bindrecur(newedit)
-	bindrecur(newedit.type_)
 	pcrunhook('after', hookevent, file)
 cmdentry = root.textbox(state = 'disabled', height = 1, bd = 1, font = (monospace, 12))
 cmdentry.pack(padx = 10, pady = 10, fill = 'x', anchor = 'n')
