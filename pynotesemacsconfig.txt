@@ -1,39 +1,46 @@
-(python:tabpressed)
-→:
+(tabpressed) →:
 (
-if pycode:{getselection}: ↩
-	pycode:{indentselection} ↩
-else: ↩
-	pycode:{insert tkindex ('insert'), '	'}
+if (getselection) {indentselection} else {insert tkindex ('insert'), '	'}
+);
+
+(transposechars) →:
+(
+setvar 'chars', get ('insert-1c', 'insert') ↩
+delete 'insert-1c', 'insert' ↩
+setvar 'swapped', chars[::-1] ↩
+insert 'insert-1c', swapped
+);
+
+(killline) →:
+(
+setvar 'lineno', tkindex ('insert', 'line') ↩
+setvar 'textaftercursor', get (tkindex ('insert'), lineno + '.end') ↩
+if (textaftercursor) {
+copytext textaftercursor ↓
+delete tkindex ('insert'), lineno + '.end'
+} else {
+delete tkindex ('insert'), lineno + '.end+1c'
+}
+);
+
+(killwholeline) →:
+(
+setvar 'lineno', tkindex ('insert', 'line') ↩
+copytext get (lineno + '.0', lineno + '.end+1c') ↩
+delete lineno + '.0', lineno + '.end+1c'
+);
+
+(unselect) →:
+(
+if (getselection) {select 0.0, 0.0}
+);
+
+(govardef) →:
+(
+pythongovardef ask 'Variable name:'
 );
 
 <Tab> → <tabpressed>;
-
-(python:transposechars) →:
-(
-chars = pycode:{get 'insert-1c', 'insert'} ↩
-pycode:{delete 'insert-1c', 'insert'} ↩
-swapped = chars[::-1] ↩
-pycode:{insert 'insert-1c', swapped}
-);
-
-(python:killline) →:
-(
-lineno = pycode:{tkindex 'insert', 'line'} ↩
-textaftercursor = pycode:{get tkindex ('insert'), lineno + '.end'} ↩
-if textaftercursor: ↩
-	pycode:{copytext textaftercursor} ↩
-	pycode:{delete tkindex ('insert'), lineno + '.end'} ↩
-else: ↩
-	pycode:{delete tkindex ('insert'), lineno + '.end+1c'}
-);
-
-(python:killwholeline) →:
-(
-lineno = pycode:{tkindex 'insert', 'line'} ↩
-pycode:{copytext get tkindex ('insert', 'line') + '.0', lineno + '.end+1c'} ↩
-pycode:{delete tkindex ('insert', 'line') + '.0', lineno + '.end+1c'}
-);
 
 ⌊transpose-chars⌋ → ⌊transposechars⌋;
 ⌊query-replace⌋ → ⌊findreplace⌋;
@@ -60,6 +67,22 @@ pycode:{delete tkindex ('insert', 'line') + '.0', lineno + '.end+1c'}
 ⌊kill-line⌋ → ⌊killline⌋;
 ⌊kill-whole-line⌋ → ⌊killwholeline⌋;
 
+⌊goto-line⌋ → ⌊gotoline⌋;
+⌊run-python⌋ → ⌊pyshell⌋;
+⌊compile⌋ → ⌊runcode⌋;
+⌊set-mark-command⌋ → ⌊toggleselectionpoint⌋;
+⌊keyboard-quit⌋ → ⌊removeselectionpoint ↩ unselect⌋;
+⌊beginning-of-defun⌋ → ⌊pythongostartof 'f'⌋;
+⌊end-of-defun⌋ → ⌊pythongoendof 'f'⌋;
+⌊xref-find-definitions⌋ → ⌊govardef⌋;
+⌊other-window⌋ → ⌊switcheditor⌋;
+⌊delete-window⌋ → ⌊closeeditor⌋;
+⌊split-window-below⌋ → ⌊spliteditor orient = 'vertical'⌋;
+⌊split-window-right⌋ → ⌊spliteditor⌋;
+⌊balance-windows⌋ → ⌊balanceeditors 'all'⌋;
+⌊make-frame-command⌋ → ⌊neweditor⌋;
+⌊find-file-other-frame⌋ → ⌊openfilenewedit⌋;
+
 <Alt-semicolon> → <commentselection>;
 <Alt-percent> → <findreplace>;
 <Alt-w> → <copy>;
@@ -76,7 +99,6 @@ pycode:{delete tkindex ('insert', 'line') + '.0', lineno + '.end+1c'}
 <Control-f> → <movecursor 'insert+1c'>;
 <Control-b> → <movecursor 'insert-1c'>;
 <Control-k> → <killline>;
-<Control-c> → <pass>;
 <Control-z> → <pass>;
 <Control-Alt-backslash> → <indentselection>;
 <Alt-v> → <pageback>;
@@ -85,10 +107,27 @@ pycode:{delete tkindex ('insert', 'line') + '.0', lineno + '.end+1c'}
 <Alt-greater> → <movecursor 'end'>;
 <Control-Shift-BackSpace> → <killwholeline>;
 
+<Control-space> → <toggleselectionpoint>;
+<Control-g> → <removeselectionpoint ↩ unselect>;
+<Alt-period> → <govardef>;
+<Control-Alt-a> → <pythongostartof 'f'>;
+<Control-Alt-e> → <pythongoendof 'f'>;
+
 <Control-x & h> → <select '1.0', 'end-1c'>;
 <Control-x & Control-c> → <close>;
 <Control-c & less> → <unindentselection>;
 <Control-c & greater> → <indentselection>;
+<Control-c & Control-c> → <runcode>;
+<Control-c & Control-z> → <pyshell>;
 <Control-x & Control-s> → <savefile>;
 <Control-x & Control-w> → <saveasfile>;
 <Control-x & u> → <undo>;
+
+<Alt-g & g> → <gotoline>;
+<Control-x & 0> → <closeeditor>;
+<Control-x & o> → <switcheditor>;
+<Control-x & 2> → <spliteditor orient = 'vertical'>;
+<Control-x & 3> → <spliteditor>;
+<Control-x & plus> → <balanceeditors 'all'>;
+<Control-x & 5 & 2> → <neweditor>;
+<Control-x & 5 & f> → <openfilenewedit>;

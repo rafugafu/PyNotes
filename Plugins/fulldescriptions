@@ -1,0 +1,9 @@
+A standalone 3D maze game turned into a PyNotes plugin, which opens in a separate window from PyNotes. You play against a simple AI agent in randomly generated levels. Made in Python using raylib.
+==========
+A simple standalone chess application turned into a PyNotes plugin. You can either play single player against a chess engine provided by you, or two player. Made in Python using easytk.
+==========
+A simple standalone typing game turned into a PyNotes plugin. Type the words before they fall, getting harder each level. The game stops when your fort is destroyed by the falling words. At the end, you can see an accuracy graph. Made in Python using tkinter and matplotlib for the accuracy graph.
+==========
+A PyNotes plugin to check your spelling in normal HMode editors. You can add new dictionaries and words at any time by putting a plain text wordlist in ~/.local/share/PyNotes/add-ons/Simple Spellcheck/Dictionaries. Turn on or off with the Alt-X and PyCode command 'spellcheck'.
+==========
+A simple typing test plugin which gives feedback in words in the end.

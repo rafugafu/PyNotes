@@ -3,28 +3,33 @@
 PyNotes is an advanced cross-platform text editor and IDE made in Python.  
 Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeberg.org/rafugafu/pynotes), [Sourceforge](https://sourceforge.net/projects/pynotespython/), [Launchpad PPA](https://launchpad.net/~rafugafu/+archive/ubuntu/pynotes)  
 ## Important Features  
-* **Programming** - Efficient scope-aware for Python syntax highlighting and running code with outputs and errors for Python, LaTeX, and HTML! Graphical buttons for formatting LaTeX!  
-* **Alt-X Commands** - Powerful Emacs-like commands inside PyNotes!  
-* **Plugins** - Powerful extensions that seamlessly integrate with PyNotes! Very easy to make and install! Currently made by me are: Letter Invaders Game (A fun typing game), Typing (A typing test that also gives feedback and suggestions), 3D Maze Game (A 3D Maze Game with a simple AI as an opponent), Simple Spellcheck (Spellcheck for the editor with the option to change or add dictionaries), ChessPy (A Chess Program where you can play 2 player or with any engine you provide). Also Simple Spellcheck (old) for PyNotes version < v1.9.  
-* **PyCode** - Programming language inside PyNotes to customize it even beyond plugins! You can fully make and change your own keyboard shortcuts, functions, Alt-X commands, startup code, etc!  
-* **MathGod** - Mathematica-like notebook for symbolic math inside PyNotes!  
-* **Email** - Send emails from within PyNotes! Also has a spellcheck and option to change or add new dictionaries for the spellcheck.  
-* **HModes** - Major Modes like Emacs for different purposes! Changes syntax highlighting, running code, menus, tabs, etc.  
-* **Text to speech** - Make PyNotes speak your selection inside the editor!  
-* **Speech to text** - Dictate to write text in the editor!  
+* **Programming** - Efficient syntax highlighting and running code with outputs and errors for Python, LaTeX, and HTML! Graphical buttons for formatting LaTeX!  
+* **Advanced Syntax Highlighting** - Advanced scope aware AST based syntax highlighting for Python!  
+* **Code Navigation Commands** - Advanced code navigation commands for Python!  
+* **Alt-X Commands** - Powerful Emacs `M-x` like commands inside PyNotes!  
+* **Plugins** - Powerful extensions that seamlessly integrate with PyNotes! Very easy to make and install! Currently made by me are: Letter Invaders Game (A fun typing game), Typing (A typing test that also gives feedback and suggestions), 3D Maze Game (A 3D Maze Game with a simple AI as an opponent), Simple Spellcheck (Spellcheck for the editor with the option to change or add dictionaries), ChessPy (A Chess Program where you can play 2 player or with any engine you provide).
+* **PyCode** - Full programming language inside PyNotes to customize it even beyond plugins! You can make and change your own keyboard shortcuts, functions, Alt-X commands, event hooks, startup code, etc! Optional graphical programming options to use without knowing PyCode syntax!  
+* **Infinite length chord keys** - Infinite length chord keys like Emacs possible to define in PyCode!  
+* **Emacs-like buffers** - Emacs-like buffers (editors) to edit multiple files at once!  
 * **Terminal** - Full 256-color/truecolor supporting terminal using a PTY inside PyNotes!  
 * **Python Shell / REPL** - Full Python shell / REPL using a PTY inside PyNotes!  
+* **HModes** - Major Modes like Emacs for different purposes! Changes syntax highlighting, running code, menus, tabs, etc.  
 * **Preferences** - Fully customize your syntax highlighting and options easily in the preferences!  
-* **Search** - Incremental search for Find and Find & Replace - Find strings without fully typing them!  
+* **Incremental Search** - Incremental search for Find and Find & Replace - Find strings without fully typing them!  
 * **Regexp Search** - Find and Find & Replace using regexp!  
-* **Backup** - Auto backup option to save your files!  
-* **Quick Installation** - Fast installation with an installer script for Linux and a graphical installer for Windows!  
+* **MathGod** - Mathematica-like notebook for symbolic math inside PyNotes!  
+* **Email** - Send emails from within PyNotes! Also has a spellcheck and option to change or add new dictionaries for the spellcheck.  
+* **Text to speech** - Make PyNotes speak your selection inside the editor!  
+* **Speech to text** - Dictate to write text in the editor!  
+* **Auto Backup** - Auto backup option to save your files!  
+* **Quick Installation** - Fast (optional) automatic installation with an installer script for Linux and a graphical installer for Windows!  
+* **Full Builtin Help Texts** - Builtin help including example code and screenshots for PyCode, MathGod, Alt-X commands, and all the other PyNotes features!  
 * **And much more!**  
 ## Screenshots  
+![PyNotes](images/PyNotes.png)  
 ![Typing Test](images/Typing_Test.png)  
 ![3D Maze Game](images/3D_Maze_Game.png)  
 ![Letter Invaders Game](images/Letter_Invaders_Game.png)  
-![Startup](images/Start.png)  
 ![Preferences](images/Preferences.png)  
 ![Python Shell](images/Python_Shell.png)  
 ![PyCode](images/PyCode.png)  
@@ -42,7 +47,7 @@ For PyNotes version v1.8 and above, you might also have to manually download the
 System: Linux or Windows with Python 3.10 or above.  
 **Easytk in PyNotes version < v1.9 needs ttkthemes to work. It is automatically installed with other packages from PyNotes version 1.4.2. For older versions, install with:**  
 `pip install ttkthemes`  
-**Note:** It is highly recommended to upgrade PyNotes to a newer version. v1.4.2 is very old.  
+**Note:** Instead of this, it is highly recommended to upgrade PyNotes to a newer version. v1.4.2 is very old.  
 ## Sourceforge  
 Download from [Sourceforge](https://sourceforge.net/projects/pynotespython/).  
 ## Linux  
@@ -96,12 +101,28 @@ Command: `sudo pynotes_rpm_installer.sh {version no. or blank}`
 **Note:** If PyNotes is open when you install a new plugin, you will have to restart it for the plugin to work, as plugins are loaded only on startup.  
 **Note:** `Simple Spellcheck` is only for PyNotes version >= v1.9. For older versions of PyNotes, use `Simple Spellcheck (old)`.  
 Check [this](Plugins/list) for a list of available plugins.  
-## Script  
+## PyNotes Builtin Management  
+Use PyNotes command line arguments to manage plugins automatically:  
+* `--plugin-list-installed` - List the currently installed plugins with a one line description for each if provided.  
+* `--plugin-list-github` - List the plugins on the PyNotes GitHub with a one line description for each.  
+* `--plugin-describe "plugin name"` - Describe the given plugin in detail if installed, search on GitHub if not.  
+* `--plugin-install "plugin name"` - Installs the plugin if it exists on the PyNotes GitHub.  
+* `--plugin-remove "plugin name"` - Uninstalls the given plugin if installed.  
+## Script Installation  
 This script works on both Linux and Windows. Run the `pynotes_plugin_installer.py` with Python and it will open a window where you can select the plugin(s) from PyNotes' GitHub to install. Once you are done, it will automatically download and install the plugins you have selected.  
-## Manual  
+## Manual Installation  
 Download the plugins from the `Plugins/` folder. You can also make your own or get them from somewhere else. Then extract them if they are compressed, and move the folder to `~/.local/share/PyNotes/add-ons/` on Linux, and `C:/Users/{Your Username}/.local/share/PyNotes/add-ons` on Windows.  
 **Note:** Be careful in downloading plugins from other sources, as they will have full access to your system and be able to run any commands.  
-# PyNotes Emacs Config  
+# Command Line Arguments  
+These are the command line arguments PyNotes accepts except for the plugin management ones:  
+* `--version` - Prints the current PyNotes version.  
+* `--changes` - Prints the current PyNotes version's changelog.  
+* `--no-load-pycode` - Starts PyNotes without loading your PyCode configuration.  
+* `--no-load-plugins` - Starts PyNotes without loading any plugins.  
+* `--pycode-exec "string"` - Executes the given string as PyCode after loading your normal configuration.  
+* `--command-exec "string"` - Executes the given string as Alt-X commands after loading your normal configuration.  
+You can also use `pynotes --help` for a complete list.  
+# PyCode Emacs Config  
 **Note:** This config only works on PyNotes versions 1.8 and above, as it uses chord keybindings, which did not exist before PyNotes v1.8.  
 ## What it does  
 This PyNotes Emacs config copies the following Emacs `M-x` commands and keybindings:  
@@ -130,6 +151,21 @@ This PyNotes Emacs config copies the following Emacs `M-x` commands and keybindi
 * `text-mode` - Switch the HMode to Normal.  
 * `kill-line` - Cut (kill) text from the cursor to the end of the line.  
 * `kill-whole-line` - Cut (kill) the entire current line.  
+* `goto-line` - Go to a given line number.  
+* `run-python` - Open the Python Shell.  
+* `compile` - Run the code in the active editor.  
+* `set-mark-command` - Set (or unset) the selection point at the cursor.  
+* `keyboard-quit` - Remove the selection point and clear the current selection.  
+* `beginning-of-defun` - Jump to the start of the current Python function/class.  
+* `end-of-defun` - Jump to the end of the current Python function/class.  
+* `xref-find-definitions` - Jump to the definition of a given variable name.  
+* `other-window` - Switch to the next editor.  
+* `delete-window` - Close the active editor.  
+* `split-window-below` - Split the active editor vertically.  
+* `split-window-right` - Split the active editor horizontally.  
+* `balance-windows` - Balance all open editors to equal size.  
+* `make-frame-command` - Open a new editor.  
+* `find-file-other-frame` - Open a file in a new editor.  
 ### Emacs Keybindings  
 * `Alt-semicolon` - Comment the current selection.  
 * `Alt-percent` - Find & Replace.  
@@ -160,6 +196,21 @@ This PyNotes Emacs config copies the following Emacs `M-x` commands and keybindi
 * `Control-x & Control-s` - Save file.  
 * `Control-x & Control-w` - Save As.  
 * `Control-x & u` - Undo last change.  
+* `Control-space` - Set (or unset) the selection point at the cursor.  
+* `Control-g` - Remove the selection point and clear the current selection.  
+* `Alt-period` - Jump to the definition of a given variable name.  
+* `Control-Alt-a` - Jump to the start of the current Python function/class.  
+* `Control-Alt-e` - Jump to the end of the current Python function/class.  
+* `Control-c & Control-c` - Run the code in the active editor.  
+* `Control-c & Control-z` - Open the Python Shell.  
+* `Alt-g & g` - Go to a given line number.  
+* `Control-x & 0` - Close the active editor.  
+* `Control-x & o` - Switch to the next editor.  
+* `Control-x & 2` - Split the active editor vertically.  
+* `Control-x & 3` - Split the active editor horizontally.  
+* `Control-x & plus` - Balance all open editors to equal size.  
+* `Control-x & 5 & 2` - Open a new editor.  
+* `Control-x & 5 & f` - Open a file in a new editor.  
 ## To Use  
 For Emacs users, there is a readymade PyCode config in [pynotesemacsconfig.txt](pynotesemacsconfig.txt) that copies a lot of standard Emacs keybindings and `M-x` commands. To use it, open PyCode with `Alt-X pc`, and paste the contents of the file in the window that appears. Then, click the 'Done' button on the bottom. This automatically saves and applies the config to the instance of PyNotes you opened it in. For other already open PyNotes windows, just open PyCode and click 'Done' in them to apply the config. Alternatively, directly copy the file to `~/pynotes` on Linux, and `C:\Users\{yourusername}\.pynotes on Windows. This will only apply to PyNotes opened after this, or if you open PyCode and close it in already open PyNotes windows.  
 **Note:** Make sure to close PyCode with the 'Done' button only, and not close the window in any other way, as this will cancel the changes to your PyCode config.  
