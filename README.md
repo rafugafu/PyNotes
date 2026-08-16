@@ -99,7 +99,7 @@ Command: `sudo pynotes_rpm_installer.sh {version no. or blank}`
 4. It will then open a graphical installer, where you can select the version and install it. This script can also upgrade or downgrade your PyNotes version.  
 # Plugins  
 **Note:** If PyNotes is open when you install a new plugin, you will have to restart it for the plugin to work, as plugins are loaded only on startup.  
-**Note:** The plugins given here only work PyNotes v2.0 and newer, since all older plugins broke because of the massive changes in v2.0. For plugins for older versions of PyNotes, download plugins from an [older commit](https://github.com/rafugafu/pynotes/commits).  
+**Note:** The plugins given here only work PyNotes v2.0 and newer, since all older plugins broke because of the massive changes in v2.0. For plugins for older versions of PyNotes, download plugins from an [older release](https://github.com/rafugafu/pynotes/releases).  
 Check [this](Plugins/list) for a list of available plugins.  
 ## PyNotes Builtin Management  
 Use PyNotes command line arguments to manage plugins automatically:  
