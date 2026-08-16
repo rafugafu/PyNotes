@@ -1096,8 +1096,8 @@ class Editor(easytk.ttk.Frame):
 			self._connect_to(match)
 		else:
 			self.ld(path)
-	def __init__(self, file = None, view_master = None, *args, **kwargs):
-		super().__init__(root, *args, **kwargs)
+	def __init__(self, master, file = None, view_master = None, *args, **kwargs):
+		super().__init__(master, *args, **kwargs)
 		self.view_master = view_master
 		self.view_children = []
 		self.fileinfo = root.frame(master = self)
@@ -10156,6 +10156,12 @@ def cmdrun(fullcommand):
 			except Exception:
 				pass
 		editor.destroy()
+		if not horizontal.winfo_children():
+			for pane in vertical.winfo_children():
+				if pane is not horizontal:
+					vertical.remove(pane)
+					horizontal.add(pane)
+					break
 		all_editors.remove(editor)
 		if n <= editindex:
 			setactive(editindex - 1, force = True)
@@ -11035,6 +11041,12 @@ def pccloseedit(n = None):
 		except Exception:
 			pass
 	editor.destroy()
+	if not horizontal.winfo_children():
+		for pane in vertical.winfo_children():
+			if pane is not horizontal:
+				vertical.remove(pane)
+				horizontal.add(pane)
+				break
 	all_editors.remove(editor)
 	if n <= editindex:
 		setactive(editindex - 1, force = True)
@@ -12060,7 +12072,7 @@ def neweditor(file = None, orient = 'horizontal'):
 	hookevent = 'open-file-new-editor' if file else 'new-file-new-editor'
 	pcrunhook('before', hookevent, file)
 	match = find_open_editor(os.path.abspath(file)) if file else None
-	newedit = Editor(file = None if match else file, view_master = match, padding = 10)
+	newedit = Editor((horizontal if orient == 'horizontal' else vertical), file = None if match else file, view_master = match, padding = 10)
 	all_editors.append(newedit)
 	pcrun(pycode_keybindings_cdt)
 	if orient == 'horizontal':
@@ -12387,6 +12399,8 @@ def _on_root_resize(event):
 def _do_resize_balance():
 	global _resize_after_id
 	_resize_after_id = None
+	if not root.winfo_exists():
+		return
 	pcrunhook('before', 'resize-window')
 	balance()
 	pcrunhook('after', 'resize-window')
