@@ -43,5 +43,7 @@ jobs:
 
       - name: Mirror to SourceForge
         run: |
+          git clone --mirror https://github.com/${{ github.repository }}.git sourceforge_mirror
+          cd sourceforge_mirror
           git remote add sourceforge ssh://rafugafu@git.code.sf.net/p/pynotespython/code
           git push --mirror sourceforge
