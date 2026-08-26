@@ -26,9 +26,9 @@ def start():
 	try:
 		status.config(text = 'Downloading PyNotes')
 		if ver == 'latest':
-			dl_url = 'https://github.com/rafugafu/PyNotes/releases/latest/download/Data%20Windows.zip'
+			dl_url = 'https://github.com/rafugafu/PyNotes/releases/latest/download/Data-Windows.zip'
 		else:
-			dl_url = f'https://github.com/rafugafu/PyNotes/releases/download/v{ver}/Data%20Windows.zip'
+			dl_url = f'https://github.com/rafugafu/PyNotes/releases/download/v{ver}/Data-Windows.zip'
 		with urllib.request.urlopen(dl_url) as response:
 			archive_bytes = io.BytesIO(response.read())
 		pbar['value'] = 20
