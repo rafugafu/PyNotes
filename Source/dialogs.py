@@ -4,11 +4,11 @@ import platform
 import getpass
 import subprocess
 import time
-import easytk
 import state
 from init import v, homedir, monospace
 import utils
 def faketerm(command):
+	import easytk
 	termwin = easytk.win()
 	termwin.title('Terminal')
 	term = termwin.textbox(font = (monospace, 12))
@@ -27,44 +27,6 @@ def faketerm(command):
 		termwin.error('Error', f'An error occured while installing the module {command.split("pip install ")[1]}:\n{e}')
 	time.sleep(2)
 	termwin.destroy()
-class ErrorHandler:
-	def __init__(self):
-		self.win = None
-		self.textbox = None
-	def write(self, error):
-		try:
-			if error.strip():
-				def _do_write(error = error):
-					if self.win == None or not self.win.exists:
-						self.win = state.root.subwin()
-						self.win.title('Error')
-						self.win.bind('<Escape>', lambda event: self.win.destroy())
-						self.win.bind('<Return>', lambda event: self.win.destroy())
-						scrollbar = self.win.scroll()
-						self.textbox = self.win.textbox(yscrollcommand = scrollbar.set, font = (monospace, 12), width = 60, height = 15)
-						scrollbar.config(command = self.textbox.yview)
-						scrollbar.pack(fill = 'y', side = 'right')
-						self.textbox.pack(fill = 'both', expand = True, side = 'left')
-						self.textbox.insert('end', error)
-						self.textbox.see('end')
-						self.textbox.config(state = 'disabled')
-						self.win.style(state.root.gettheme())
-						self.win.update()
-						self.win.sizablefalse()
-					else:
-						self.textbox.config(state = 'normal')
-						self.textbox.insert('end', f'\n{error}')
-						self.textbox.see('end')
-						self.textbox.config(state = 'disabled')
-				state.root.after(0, _do_write)
-		except Exception:
-			print(error)
-	def flush(self):
-		pass
-def _report_callback_exception(exc, val, tb):
-	if issubclass(exc, easytk.tk.TclError):
-		return
-	easytk.tk.Tk.report_callback_exception(state.root, exc, val, tb)
 def fileautocompletefunc(typed):
 	typed = typed.strip()
 	dir_ = os.path.abspath(os.path.expanduser(os.path.dirname(typed)))
@@ -86,6 +48,7 @@ def openfileget(filetypes = (('All Files', '*'),), prompttext = 'Open File: ', i
 		if platform.system() == 'Linux':
 			fn = subprocess.run(['zenity', '--file-selection', f'--filename={initialfile or "./"}', '--title=Open File'] + [f'--file-filter={ft[0]} | {ft[1]}' for ft in filetypes], capture_output = True, text = True).stdout.strip()
 		else:
+			import easytk
 			initialdir = os.path.dirname(initialfile)
 			initialfile = os.path.basename(initialfile)
 			fn = easytk.fd.askopenfilename(title = 'Open File', filetypes = filetypes, initialfile = initialfile or '', initialdir = initialdir or '')
@@ -106,6 +69,7 @@ def saveasfileget(prompttext = 'Save File: ', initialfile = None):
 		if platform.system() == 'Linux':
 			fn = subprocess.run(['zenity', '--file-selection', f'--filename={initialfile or "./"}', '--save', '--confirm-overwrite', '--title=Save As', '--file-filter=All Files | *'], capture_output = True, text = True).stdout.strip()
 		else:
+			import easytk
 			initialdir = os.path.dirname(initialfile)
 			initialfile = os.path.basename(initialfile)
 			fn = easytk.fd.asksaveasfilename(initialfile = initialfile or '', initialdir = initialdir or '')
@@ -192,16 +156,21 @@ def prf():
 			state.pythonexecutable = fn
 			pyexecshowtext.config(text = f'Python interpreter: \'{state.pythonexecutable}\'')
 	def makeowntheme():
-		pr.info('Info', 'Click Save after you\'re done. You can edit the theme later at any time.')
+		pr.info('Info', f'Click Save after you\'re done. You can edit the theme later at any time. To import and use it in PyNotes, save the resulting file to {homedir}/.local/share/PyNotes/themes/.')
 		ttkcreator = subprocess.Popen([sys.executable, '-m', 'ttkcreator'], stdout = subprocess.DEVNULL, stderr = subprocess.PIPE)
-		ttkcreatorerrorhandler = ErrorHandler()
+		ttkcreatorerrorhandler = utils.ErrorHandler()
 		for error in ttkcreator.stderr:
 			ttkcreatorerrorhandler.write(error)
 			ttkcreator.terminate()
-		menu = sts['menu']
-		menu.delete(0, 'end')
-		for theme in tuple(sorted(state.root.themes())):
-			menu.add_command(label = theme, command = lambda nt = theme: stsvar.set(nt))
+		utils.load_themes()
+		current = sts.get()
+		themes = sorted(state.root.themes())
+		sts['values'] = themes
+		if current in themes:
+			sts.set(current)
+		elif themes:
+			sts.set(themes[0])
+		(lambda: [pr.sizabletrue(), pr.style(sts.get()), state.root.style(sts.get()), pr.sizablefalse()])()
 	pr = state.root.subwin()
 	pr.title('Preferences')
 	tabs = pr.tabs()
@@ -230,8 +199,10 @@ def prf():
 	mf.grid(column = 0, row = 0)
 	pr.text(text = 'UI Theme', master = mf).grid(column = 0, row = 0, padx = 10, pady = 10)
 	stsvar = pr.stringvar()
-	sts = pr.dropdown(stringvar = stsvar, showdefault = state.root.gettheme(), options = tuple(sorted(state.root.themes())), command = lambda nt: [pr.sizabletrue(), pr.style(nt), state.root.style(nt), pr.sizablefalse()], master = mf)
+	sts = pr.droptype(options = tuple(sorted(state.root.themes())), command = lambda: [pr.sizabletrue(), pr.style(sts.get()), state.root.style(sts.get()), pr.sizablefalse()], master = mf)
 	sts.grid(column = 1, row = 0, padx = 10, pady = 10, sticky = 'ew')
+	sts.insert('end', state.root.gettheme())
+	sts.config(state = 'readonly')
 	pr.button(master = mf, text = 'Make your own!', command = makeowntheme).grid(column = 2, row = 0, padx = 10, pady = 10, sticky = 'w')
 	pr.text(text = 'Editor Font', master = mf).grid(column = 0, row = 1, padx = 10, pady = 10)
 	showfont = pr.textbox(master = tft, font = (state.defs[2], 12), wrap = 'word', height = 5)

@@ -23,7 +23,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-import easytk
 import state
 from encrypter import encryptdecrypt
 import urllib.request
@@ -49,6 +48,7 @@ if options['changes']:
 	print(f'Changes in v{v}:\n' + state.changestr.replace('\n\n', '\n'))
 	exit()
 os.makedirs(f'{homedir}/.local/share/PyNotes/add-ons', exist_ok = True)
+os.makedirs(f'{homedir}/.local/share/PyNotes/themes', exist_ok = True)
 if options['plugin-list-github']:
 	try:
 		plgns = urllib.request.urlopen('https://raw.githubusercontent.com/rafugafu/PyNotes/main/Plugins/list').read().decode().split('\n')
@@ -189,26 +189,6 @@ except Exception:
 		exit(1)
 if platform.system() != 'Linux':
 	fd = easytk.fd
-from encrypter import encryptdecrypt
-import io
-import time
-import shutil
-import copy
-import codecs
-import base64
-import smtplib
-import webbrowser
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
-import keyword
-import wave
-import re
-import threading
-import queue
-import ast
-import warnings
 from python_scope_build import _PYTHON_BUILTIN_MEMBERS, _PYTHON_BUILTIN_CALLABLE_PARAMS, _PYTHON_BUILTIN_CALLABLE_NAMES, _PYTHON_BUILTIN_NAMES, _PYTHON_BUILTIN_METHOD_RETURNS, _PythonScanCancelled, _PythonScopeBuilder, _python_method_has_implicit_first_param, _python_c3_linearize, _python_partial_target, _python_unwrap_descriptor, _python_import_fromlist_is_nonempty, _python_static_value_kind, _python_inspect_ast_members, _PythonModuleSpec, _python_resolve_toplevel_fs, _python_module_src_path, _python_relative_import_target
 init.ensure_dependencies()
 file, new, defaultdefs = init.load_or_create_defs()

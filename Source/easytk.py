@@ -1,20 +1,21 @@
 import tkinter as tk
 import ttkbootstrap as ttk
-from ttkbootstrap.scrolled import ScrolledText, ScrolledFrame
+from ttkbootstrap.widgets.scrolled import ScrolledText, ScrolledFrame
 from ttkbootstrap.dialogs import Messagebox as mb
 from tkinter import simpledialog as sd
 from tkinter import filedialog as fd
 from tkinter import font
 from tkinter import colorchooser as cc
 import os
+import importlib.util
 class win(ttk.Window):
 	def __init__(self, style = True, *args, **kwargs):
 		if type(style) == str:
-			super().__init__(themename = style, **kwargs)
+			super().__init__(themename = style, *args, **kwargs)
 		elif style == True:
-			super().__init__(themename = 'pulse', **kwargs)
+			super().__init__(**kwargs)
 		else:
-			super().__init__(themename = 'clam', **kwargs)
+			super().__init__(themename = 'clam', *args, **kwargs)
 		self.imgs = []
 		self.path = os.path.dirname(os.path.abspath(__file__))
 	def destroy(self):
@@ -28,7 +29,9 @@ class win(ttk.Window):
 			pass
 		tk.Tk.destroy(self)
 	def import_theme(self, path):
-		self.style()._s.load_user_themes(path)
+		spec = importlib.util.spec_from_file_location(os.path.basename(path), path)
+		module = importlib.util.module_from_spec(spec)
+		spec.loader.exec_module(module)
 	def subwin(self):
 		subwin = toplevel(self)
 		subwin.exists = True
@@ -104,16 +107,7 @@ class win(ttk.Window):
 		else:
 			ttk.Style().theme_use(style)
 	def themes(self):
-		import importlib
-		import ttkbootstrap.themes.user as user_themes
-		from ttkbootstrap.style import ThemeDefinition
-		importlib.reload(user_themes)
-		s = self.style()
-		existing = s.theme_names()
-		for name, definition in user_themes.USER_THEMES.items():
-			if name not in existing:
-				s.register_theme(ThemeDefinition(name = name, themetype = definition['type'], colors = definition['colors']))
-		return sorted(s.theme_names())
+		return sorted(self.style().theme_names())
 	def slider(self, range_, master = None, *args, **kwargs):
 		if master == None:
 			master = self

@@ -3,7 +3,6 @@ import sys
 import platform
 import getpass
 import subprocess
-import easytk
 import state
 from tkinter import messagebox as mb
 exit = sys.exit
@@ -16,14 +15,15 @@ else:
 	rootdir = 'C:/Program Files/PyNotes'
 	homedir = f'C:/Users/{getpass.getuser()}'
 	monospace = 'Courier'
-import dialogs
 def info(title, inf):
+	import easytk
 	infowin = easytk.win()
 	infowin.title(title)
 	infowin.text(text = inf).pack(side = 'top', anchor = 'n', padx = 10, pady = 10)
 	infowin.button(text = 'Close', command = infowin.destroy).pack(side = 'right', anchor = 'se', padx = 10, pady = 10)
 	infowin.show()
 def ask(title, askinput):
+	import easytk
 	def yes():
 		global returnval
 		askwin.destroy()
@@ -50,6 +50,7 @@ def switchvenv():
 	if sys.prefix != venvdir:
 		os.execv(f'{venvdir}/bin/python', [f'{venvdir}/bin/python'] + sys.argv)
 def ensure_dependencies():
+	import dialogs
 	try:
 		import tika
 		from tika import parser
@@ -188,7 +189,7 @@ def ensure_dependencies():
 		exit()
 def load_or_create_defs():
 	defaultpythonexec = '/usr/bin/python3' if platform.system() == 'Linux' else 'python'
-	defaultdefs = f"{v}\nFalse\n{monospace}\npulse\n{rootdir}/english.txt\nFalse\nFalse\nFalse\n{defaultpythonexec}\n'pynotes:found': \"foreground = '#FFFFFF', background = '#16A34A'\", 'pynotes:foundhighlight': \"foreground = '#FFFFFF', background = '#1F2937'\", 'pynotes:marked': \"background = 'yellow'\", 'python:keywords': \"foreground = '#7C3AED', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold')\", 'python:inbuilt': \"foreground = '#D97706'\", 'python:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'python:strings': \"foreground = '#15803D'\", 'python:variable_names': \"foreground = '#DC2626'\", 'python:function_names': \"foreground = '#2563EB'\", 'python:class_names': \"foreground = '#0891B2'\", 'python:class_instances': \"foreground = '#155E75'\", 'python:function_arguments': \"foreground = '#0F766E'\", 'python:operators': \"foreground = 'white', background = 'light grey'\", 'python:module_names': \"foreground = '#0369A1'\", 'latex:inlinemath': \"foreground = '#15803D'\", 'latex:environment': \"background = '#DCFCE7'\", 'latex:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'latex:commands': \"foreground = '#C026D3'\", 'latex:arguments': \"foreground = '#2563EB'\", 'latex:operators': \"foreground = 'white', background = 'light grey'\", 'latex:square_brackets': \"foreground = '#92400E'\", 'html:attributes': \"foreground = '#DC2626'\", 'html:tags': \"foreground = '#047857'\", 'html:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'html:quotes': \"foreground = '#2563EB'\", 'markdown:headers1': \"foreground = '#111827', font = (type_.cget('font')[:-3].strip('{{}}'), 29, 'bold')\", 'markdown:headers2': \"foreground = '#1F2937', font = (type_.cget('font')[:-3].strip('{{}}'), 26, 'bold')\", 'markdown:headers3': \"foreground = '#374151', font = (type_.cget('font')[:-3].strip('{{}}'), 23, 'bold')\", 'markdown:headers4': \"foreground = '#4B5563', font = (type_.cget('font')[:-3].strip('{{}}'), 20, 'bold')\", 'markdown:headers5': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 17, 'bold')\", 'markdown:headers6': \"foreground = '#9CA3AF', font = (type_.cget('font')[:-3].strip('{{}}'), 14, 'bold')\", 'markdown:bold': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold')\", 'markdown:italic': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'markdown:bold_italic': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold italic')\", 'markdown:strike': 'overstrike = True', 'markdown:inlinecode': \"foreground = '#BE123C', background = '#F3F4F6'\", 'markdown:links': \"foreground = '#2563EB', underline = True, underlinefg = '#2563EB'\", 'markdown:blockquotes': \"foreground = '#374151', background = '#F3F4F6'\", 'markdown:codeblocks': \"background = '#F3F4F6'\""
+	defaultdefs = f"{v}\nFalse\n{monospace}\nbootstrap-light\n{rootdir}/english.txt\nFalse\nFalse\nFalse\n{defaultpythonexec}\n'pynotes:found': \"foreground = '#FFFFFF', background = '#16A34A'\", 'pynotes:foundhighlight': \"foreground = '#FFFFFF', background = '#1F2937'\", 'pynotes:marked': \"background = 'yellow'\", 'python:keywords': \"foreground = '#7C3AED', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold')\", 'python:inbuilt': \"foreground = '#D97706'\", 'python:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'python:strings': \"foreground = '#15803D'\", 'python:variable_names': \"foreground = '#DC2626'\", 'python:function_names': \"foreground = '#2563EB'\", 'python:class_names': \"foreground = '#0891B2'\", 'python:class_instances': \"foreground = '#155E75'\", 'python:function_arguments': \"foreground = '#0F766E'\", 'python:operators': \"foreground = 'white', background = 'light grey'\", 'python:module_names': \"foreground = '#0369A1'\", 'latex:inlinemath': \"foreground = '#15803D'\", 'latex:environment': \"background = '#DCFCE7'\", 'latex:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'latex:commands': \"foreground = '#C026D3'\", 'latex:arguments': \"foreground = '#2563EB'\", 'latex:operators': \"foreground = 'white', background = 'light grey'\", 'latex:square_brackets': \"foreground = '#92400E'\", 'html:attributes': \"foreground = '#DC2626'\", 'html:tags': \"foreground = '#047857'\", 'html:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'html:quotes': \"foreground = '#2563EB'\", 'markdown:headers1': \"foreground = '#111827', font = (type_.cget('font')[:-3].strip('{{}}'), 29, 'bold')\", 'markdown:headers2': \"foreground = '#1F2937', font = (type_.cget('font')[:-3].strip('{{}}'), 26, 'bold')\", 'markdown:headers3': \"foreground = '#374151', font = (type_.cget('font')[:-3].strip('{{}}'), 23, 'bold')\", 'markdown:headers4': \"foreground = '#4B5563', font = (type_.cget('font')[:-3].strip('{{}}'), 20, 'bold')\", 'markdown:headers5': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 17, 'bold')\", 'markdown:headers6': \"foreground = '#9CA3AF', font = (type_.cget('font')[:-3].strip('{{}}'), 14, 'bold')\", 'markdown:bold': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold')\", 'markdown:italic': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'markdown:bold_italic': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold italic')\", 'markdown:strike': 'overstrike = True', 'markdown:inlinecode': \"foreground = '#BE123C', background = '#F3F4F6'\", 'markdown:links': \"foreground = '#2563EB', underline = True, underlinefg = '#2563EB'\", 'markdown:blockquotes': \"foreground = '#374151', background = '#F3F4F6'\", 'markdown:codeblocks': \"background = '#F3F4F6'\""
 	new = False
 	try:
 		file = open(f'{homedir}/.local/share/PyNotes/defs', 'r', encoding = 'utf-8')
@@ -302,11 +303,14 @@ def load_plugins(no_load_plugins):
 				exit()
 	return init, first, last
 def _report_callback_exception(*args, **kwargs):
-	import dialogs
-	return dialogs._report_callback_exception(*args, **kwargs)
+	import utils
+	return utils._report_callback_exception(*args, **kwargs)
 def create_root_and_menus():
+	import easytk
+	import utils
 	state.root = easytk.win()
 	state.root.report_callback_exception = _report_callback_exception
+	utils.load_themes()
 	state.fm = state.root.menu()
 	state.em = state.root.menu()
 	state.tem = state.root.menu()
@@ -323,7 +327,7 @@ def create_root_and_menus():
 	state.all_editor_menus = {'File': state.fm, 'Edit': state.em, **state.all_buffer_menus}
 	state.all_terminal_menus = {'File': state.fm, 'Edit': state.tem, **state.all_buffer_menus}
 	os.makedirs(f'{homedir}/.local/share/PyNotes/tempfiles', exist_ok = True)
-	sys.stderr = dialogs.ErrorHandler()
+	sys.stderr = utils.ErrorHandler()
 	state.pcsettitle = False
 def load_config(file, defaultdefs):
 	import math as mathmod

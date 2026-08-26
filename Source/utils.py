@@ -13,6 +13,13 @@ def unbindrecur(widget, *args, **kwargs):
 	widget.unbind(*args, **kwargs)
 	for child in widget.winfo_children():
 		unbindrecur(child, *args, **kwargs)
+def load_themes():
+	themesdir = f'{homedir}/.local/share/PyNotes/themes'
+	for file in os.listdir(themesdir):
+		try:
+			state.root.import_theme(f'{themesdir}/{file}')
+		except Exception:
+			pass
 def show(text):
 	state.prompting = False
 	state.cmdentry.config(state = 'normal')
@@ -103,3 +110,42 @@ def mathgod():
 	show('open mathgod')
 	subprocess.Popen([sys.executable, f'{rootdir}/MathGod.py'])
 	pycode.pcrunhook('after', 'open-mathgod')
+class ErrorHandler:
+	def __init__(self):
+		self.win = None
+		self.textbox = None
+	def write(self, error):
+		try:
+			if error.strip():
+				def _do_write(error = error):
+					if self.win == None or not self.win.exists:
+						self.win = state.root.subwin()
+						self.win.title('Error')
+						self.win.bind('<Escape>', lambda event: self.win.destroy())
+						self.win.bind('<Return>', lambda event: self.win.destroy())
+						scrollbar = self.win.scroll()
+						self.textbox = self.win.textbox(yscrollcommand = scrollbar.set, font = (monospace, 12), width = 60, height = 15)
+						scrollbar.config(command = self.textbox.yview)
+						scrollbar.pack(fill = 'y', side = 'right')
+						self.textbox.pack(fill = 'both', expand = True, side = 'left')
+						self.textbox.insert('end', error)
+						self.textbox.see('end')
+						self.textbox.config(state = 'disabled')
+						self.win.style(state.root.gettheme())
+						self.win.update()
+						self.win.sizablefalse()
+					else:
+						self.textbox.config(state = 'normal')
+						self.textbox.insert('end', f'\n{error}')
+						self.textbox.see('end')
+						self.textbox.config(state = 'disabled')
+				state.root.after(0, _do_write)
+		except Exception:
+			print(error)
+	def flush(self):
+		pass
+def _report_callback_exception(exc, val, tb):
+	import easytk
+	if issubclass(exc, easytk.tk.TclError):
+		return
+	easytk.tk.Tk.report_callback_exception(state.root, exc, val, tb)
