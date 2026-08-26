@@ -43,6 +43,7 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 # Installation  
 For Windows, download Python from [here](https://www.python.org/downloads/windows/).  
 Click [here](pynotes_debian_installer.sh) to download the Debian installer script, [here](pynotes_rpm_installer.sh) for the RPM installer script, and [here](pynotes_windows_installer.py) for the Windows Installer.  
+**Note:** The installation scripts only work for PyNotes versions more than v2.1.  
 For PyNotes version v1.8 and above, you might also have to manually download the Cairo C library. For Linux, install these packages: `python3-tk, python3-venv, zenity, libcairo2-dev, python3-dev, libffi-dev, pkg-config` (names may vary for your distribution). The `.deb` and `.rpm` packages also contain all the dependencies. For Windows, follow [this](https://www.gtk.org/docs/installations/windows).  
 System: Linux or Windows with Python 3.10 or above.  
 **Easytk in PyNotes version < v1.9 needs ttkthemes to work. It is automatically installed with other packages from PyNotes version 1.4.2. For older versions, install with:**  
@@ -79,16 +80,14 @@ If this happens, you should upgrade your PyNotes version to 1.6 or later, which 
 ### PPA for Ubuntu  
 Add the PyNotes Launchpad PPA with the command: `sudo add-apt-repository ppa:rafugafu/pynotes`  
 Then, run `sudo apt update`  
-Now PyNotes should be installable through apt like any other package. Run `sudo apt install pynotes` to install it. You will also be able to upgrade PyNotes through `sudo apt upgrade`.  
+Now PyNotes should be installable through apt like any other package. Run `sudo apt install pynotes` to install it along with its dependencies. You will also be able to upgrade PyNotes through `sudo apt upgrade`.  
 ### Debian Package  
-There is a `.deb` package inside every `tar.gz` inside every version folder. You can install this manually with:  
-`sudo dpkg -i PyNotes.deb`  
+Download a `.deb` package from the ![latest release](https://github.com/rafugafu/pynotes/releases/latest)  
 ### Debian Package Installer Script  
 Run the [pynotes_debian_installer.sh](pynotes_debian_installer.sh) script with root. You can give a specific version as an argument, or it will install the latest version.  
-Command: `sudo pynotes_debian_installer.sh {version no. or blank}`  
+Command: `sudo ./pynotes_debian_installer.sh {version no. or blank}`  
 ### RPM Package  
-There is a `.rpm` package inside every `tar.gz` inside every version folder. You can install this manually with:  
-`sudo rpm -i --replacefiles *.rpm`  
+Download a `.rpm` package from the ![latest release](https://github.com/rafugafu/pynotes/releases/latest)  
 ### RPM Package Installer Script  
 Run the [pynotes_rpm_installer.sh](pynotes_rpm_installer.sh) script with root. You can give a specific version as an argument, or it will install the latest version.  
 Command: `sudo pynotes_rpm_installer.sh {version no. or blank}`  
@@ -96,7 +95,7 @@ Command: `sudo pynotes_rpm_installer.sh {version no. or blank}`
 1. Download Python from [here](https://www.python.org/downloads/windows/).  
 2. Run the installer to install Python. Make sure to check add Python to PATH.  
 3. Run the [pynotes_windows_installer.py](pynotes_windows_installer.py) script with Python, or using the command-line command `python pynotes_windows_installer.py`.  
-4. It will then open a graphical installer, where you can select the version and install it. This script can also upgrade or downgrade your PyNotes version.  
+4. It will then open a graphical installer, where you can select the version and install it.  
 # Plugins  
 **Note:** If PyNotes is open when you install a new plugin, you will have to restart it for the plugin to work, as plugins are loaded only on startup.  
 **Note:** The plugins given here only work PyNotes v2.0 and newer, since all older plugins broke because of the massive changes in v2.0. For plugins for older versions of PyNotes, download plugins from an [older release](https://github.com/rafugafu/pynotes/releases).  

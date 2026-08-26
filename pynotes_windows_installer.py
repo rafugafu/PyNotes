@@ -3,6 +3,9 @@ from tkinter import ttk
 import os
 import sys
 import shutil
+import zipfile
+import urllib.request
+import io
 from tkinter import messagebox as mb
 import ctypes
 import time
@@ -22,17 +25,24 @@ def start():
 		ver = customversionno.get()
 	try:
 		status.config(text = 'Downloading PyNotes')
-		os.system(f'curl -O --ssl-no-revoke https://raw.githubusercontent.com/rafugafu/PyNotes/main/v{ver}/PyNotes%20v{ver}.tar.gz')
+		if ver == 'latest':
+			dl_url = 'https://github.com/rafugafu/PyNotes/releases/latest/download/Data%20Windows.zip'
+		else:
+			dl_url = f'https://github.com/rafugafu/PyNotes/releases/download/v{ver}/Data%20Windows.zip'
+		with urllib.request.urlopen(dl_url) as response:
+			archive_bytes = io.BytesIO(response.read())
 		pbar['value'] = 20
 		status.config(text = 'Extracting PyNotes')
 		root.update()
-		os.system(f'tar -xf "PyNotes%20v{ver}.tar.gz"')
-		pbar['value'] = 40
-		status.config(text = 'Copying Files...')
-		root.update()
-		os.chdir(f'PyNotes v{ver}')
-		os.chdir('Data Windows')
-		shutil.copytree(os.getcwd(), 'C:/Program Files/PyNotes')
+		with zipfile.ZipFile(archive_bytes) as archive:
+			for member in archive.infolist():
+				if member.is_dir():
+					continue
+				relative_path = member.filename.split('/', 1)[1]
+				target_path = os.path.join('C:/Program Files/PyNotes', relative_path)
+				os.makedirs(os.path.dirname(target_path), exist_ok = True)
+				with archive.open(member) as source, open(target_path, 'wb') as target:
+					shutil.copyfileobj(source, target)
 		pbar['value'] = 60
 		if not update == True:
 			status.config(text = 'Adding to PATH')
@@ -41,14 +51,10 @@ def start():
 			pbar['value'] = 80
 			status.config(text = 'Adding shortcut to Start Menu')
 			root.update()
+			os.chdir('C:/Program Files/PyNotes')
 			os.system('"start menu shortcut.bat"')
 		pbar['value'] = 100
-		status.config(text = 'Cleaning Up...')
 		root.update()
-		os.chdir('..')
-		os.chdir('..')
-		os.remove(f'PyNotes%20v{ver}.tar.gz')
-		shutil.rmtree(f'PyNotes v{ver}')
 	except Exception as e:
 		mb.showerror('Error', f'There was an error:\n{e}')
 	button.config(text = 'Finish', command = root.destroy)
