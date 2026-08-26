@@ -7,10 +7,10 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 * **Advanced Syntax Highlighting** - Advanced scope aware AST based syntax highlighting for Python!  
 * **Code Navigation Commands** - Advanced code navigation commands for Python!  
 * **Alt-X Commands** - Powerful Emacs `M-x` like commands inside PyNotes!  
-* **Plugins** - Powerful extensions that seamlessly integrate with PyNotes! Very easy to make and install! Currently made by me are: Letter Invaders Game (A fun typing game), Typing (A typing test that also gives feedback and suggestions), 3D Maze Game (A 3D Maze Game with a simple AI as an opponent), Simple Spellcheck (Spellcheck for the editor with the option to change or add dictionaries), ChessPy (A Chess Program where you can play 2 player or with any engine you provide).
+* **Plugins** - Powerful extensions that seamlessly integrate with PyNotes! Very easy to make and install!  
 * **PyCode** - Full programming language inside PyNotes to customize it even beyond plugins! You can make and change your own keyboard shortcuts, functions, Alt-X commands, event hooks, startup code, etc! Optional graphical programming options to use without knowing PyCode syntax!  
-* **Infinite length chord keys** - Infinite length chord keys like Emacs possible to define in PyCode!  
-* **Emacs-like buffers** - Emacs-like buffers (editors) to edit multiple files at once!  
+* **Infinite Length Chord Keys** - Infinite length chord keys like Emacs possible to define in PyCode!  
+* **Emacs-like Buffers** - Emacs-like buffers (editors) to edit multiple files at once!  
 * **Terminal** - Full 256-color/truecolor supporting terminal using a PTY inside PyNotes!  
 * **Python Shell / REPL** - Full Python shell / REPL using a PTY inside PyNotes!  
 * **HModes** - Major Modes like Emacs for different purposes! Changes syntax highlighting, running code, menus, tabs, etc.  
@@ -19,10 +19,10 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 * **Regexp Search** - Find and Find & Replace using regexp!  
 * **MathGod** - Mathematica-like notebook for symbolic math inside PyNotes!  
 * **Email** - Send emails from within PyNotes! Also has a spellcheck and option to change or add new dictionaries for the spellcheck.  
-* **Text to speech** - Make PyNotes speak your selection inside the editor!  
-* **Speech to text** - Dictate to write text in the editor!  
+* **Text to Speech** - Make PyNotes speak your selection inside the editor!  
+* **Speech to Text** - Dictate to write text in the editor!  
 * **Auto Backup** - Auto backup option to save your files!  
-* **Quick Installation** - Fast (optional) automatic installation with an installer script for Linux and a graphical installer for Windows!  
+* **Quick Installation** - Fast (optionally) automatic installation with an installer script for Linux and a graphical installer for Windows!  
 * **Full Builtin Help Texts** - Builtin help including example code and screenshots for PyCode, MathGod, Alt-X commands, and all the other PyNotes features!  
 * **And much more!**  
 ## Screenshots  
@@ -53,28 +53,28 @@ Download from [Sourceforge](https://sourceforge.net/projects/pynotespython/).
 ## Linux  
 **Note:** In some distros or versions of Linux, tkinter or pip may not come installed. You will then have to manually install tkinter and pip. Example: `sudo apt install python3-tk` and `sudo apt install python3-pip` for Ubuntu. You can also run PyNotes inside a virtual environment.  
 **Note:** In older versions of PyNotes, if you are using Ubuntu 23 or later, you may get an error like this when PyNotes tries to install the dependencies using pip:  
-```
+```  
 error: externally-managed-environment  
   
 × This environment is externally managed  
 ╰─> To install Python packages system-wide, try apt install  
     python3-xyz, where xyz is the package you are trying to  
     install.  
-      
+  
     If you wish to install a non-Debian-packaged Python package,  
     create a virtual environment using python3 -m venv path/to/venv.  
     Then use path/to/venv/bin/python and path/to/venv/bin/pip. Make  
     sure you have python3-full installed.  
-      
+  
     If you wish to install a non-Debian packaged Python application,  
     it may be easiest to use pipx install xyz, which will manage a  
     virtual environment for you. Make sure you have pipx installed.  
-      
+  
     See /usr/share/doc/python3.12/README.venv for more information.  
   
 note: If you believe this is a mistake, please contact your Python installation or OS distribution provider. You can override this, at the risk of breaking your Python installation or OS, by passing --break-system-packages.  
 hint: See PEP 668 for the detailed specification.  
-```
+```  
 If this happens, you should upgrade your PyNotes version to 1.6 or later, which avoids this problem entirely. Otherwise (Not recommended), you can install the required modules manually with `--break-system-packages` (the modules PyNotes and it's add-ons need do not break system packages, this warning is because some other modules might break system packages), run PyNotes inside a Virtual Machine, or remove or move the file `/usr/lib/python3.*/EXTERNALLY-MANAGED` to stop this warning forever.  
 ### PPA for Ubuntu  
 Add the PyNotes Launchpad PPA with the command: `sudo add-apt-repository ppa:rafugafu/pynotes`  
