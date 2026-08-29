@@ -173,6 +173,7 @@ This PyNotes Emacs config copies the following Emacs `M-x` commands and keybindi
 * `Control-underscore` - Undo.  
 * `Control-t` - Transpose (swap) the two characters behind the cursor in the editor.  
 * `Control-s` - Find.  
+* `Control-r` - Find Backwards.  
 * `Control-w` - Cut (kill) selected text.  
 * `Control-y` - Paste previously copied or cut text.  
 * `Control-a` - Move cursor to start of line.  

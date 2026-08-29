@@ -37,7 +37,7 @@ if (getselection) {select 0.0, 0.0}
 
 (govardef) →:
 (
-pythongovardef ask 'Variable name:'
+pythongodef ask 'Variable name:'
 );
 
 <Tab> → <tabpressed>;
@@ -56,7 +56,7 @@ pythongovardef ask 'Variable name:'
 ⌊backward-char⌋ → ⌊movecursor 'insert-1c'⌋;
 ⌊find-file⌋ → ⌊openfile⌋;
 ⌊mark-whole-buffer⌋ → ⌊select '1.0', 'end'⌋;
-⌊save-buffers-kill-terminal⌋ → ⌊close⌋;
+⌊save-buffers-kill-terminal⌋ → ⌊quit⌋;
 ⌊save-buffer⌋ → ⌊savefile⌋;
 ⌊write-file⌋ → ⌊saveasfile⌋;
 ⌊undo⌋ → ⌊undo⌋;
@@ -74,12 +74,12 @@ pythongovardef ask 'Variable name:'
 ⌊keyboard-quit⌋ → ⌊removeselectionpoint ↩ unselect⌋;
 ⌊beginning-of-defun⌋ → ⌊pythongostartof 'f'⌋;
 ⌊end-of-defun⌋ → ⌊pythongoendof 'f'⌋;
-⌊xref-find-definitions⌋ → ⌊govardef⌋;
-⌊other-window⌋ → ⌊switcheditor⌋;
-⌊delete-window⌋ → ⌊closeeditor⌋;
+⌊xref-find-definitions⌋ → ⌊pythongodef⌋;
+⌊other-window⌋ → ⌊switchbuffer⌋;
+⌊delete-window⌋ → ⌊closebuffer⌋;
 ⌊split-window-below⌋ → ⌊spliteditor orient = 'vertical'⌋;
 ⌊split-window-right⌋ → ⌊spliteditor⌋;
-⌊balance-windows⌋ → ⌊balanceeditors 'all'⌋;
+⌊balance-windows⌋ → ⌊balancebuffers 'all'⌋;
 ⌊make-frame-command⌋ → ⌊neweditor⌋;
 ⌊find-file-other-frame⌋ → ⌊openfilenewedit⌋;
 
@@ -90,6 +90,7 @@ pythongovardef ask 'Variable name:'
 <Control-underscore> → <undo>;
 <Control-t> → <transposechars>;
 <Control-s> → <findtext>;
+<Control-r> → <findtext 'backward'>;
 <Control-w> → <cut>;
 <Control-y> → <paste>;
 <Control-a> → <movecursor tkindex ('insert', 'line') + '.0'>;
@@ -109,12 +110,12 @@ pythongovardef ask 'Variable name:'
 
 <Control-space> → <toggleselectionpoint>;
 <Control-g> → <removeselectionpoint ↩ unselect>;
-<Alt-period> → <govardef>;
+<Alt-period> → <pythongodef>;
 <Control-Alt-a> → <pythongostartof 'f'>;
 <Control-Alt-e> → <pythongoendof 'f'>;
 
 <Control-x & h> → <select '1.0', 'end-1c'>;
-<Control-x & Control-c> → <close>;
+<Control-x & Control-c> → <quit>;
 <Control-c & less> → <unindentselection>;
 <Control-c & greater> → <indentselection>;
 <Control-c & Control-c> → <runcode>;
@@ -124,10 +125,10 @@ pythongovardef ask 'Variable name:'
 <Control-x & u> → <undo>;
 
 <Alt-g & g> → <gotoline>;
-<Control-x & 0> → <closeeditor>;
-<Control-x & o> → <switcheditor>;
+<Control-x & 0> → <closebuffer>;
+<Control-x & o> → <switchbuffer>;
 <Control-x & 2> → <spliteditor orient = 'vertical'>;
 <Control-x & 3> → <spliteditor>;
-<Control-x & plus> → <balanceeditors 'all'>;
+<Control-x & plus> → <balancebuffers 'all'>;
 <Control-x & 5 & 2> → <neweditor>;
 <Control-x & 5 & f> → <openfilenewedit>;
