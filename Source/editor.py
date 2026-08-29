@@ -130,7 +130,7 @@ class Editor(Buffer):
 	def _make_peer_type(self, master):
 		name = 'peertype%d' % id(self)
 		master._own_type.peer_create(str(self.mf) + '.' + name)
-		peer = easytk.tk.Text.__new__(easytk.tk.Text)
+		peer = easytk.ttk.Text.__new__(easytk.ttk.Text)
 		peer.widgetName = 'text'
 		peer._tclCommands = None
 		peer._setup(self.mf, {'name': name})
@@ -256,7 +256,7 @@ class Editor(Buffer):
 			old_type = self.type_
 			old_ln = self.ln
 			self._cancel_type_after_ids()
-			self.type_ = state.root.textbox(master = self.mf, font = (state.defs[2], 12), wrap = 'word', blockcursor = True, undo = True, autoseparators = True)
+			self.type_ = state.root.textbox(master = self.mf, font = (state.defs[2], 12), wrap = 'word', undo = True, autoseparators = True)
 			self.mainwidget = self.type_
 			self._wire_type()
 			old_ln.destroy()
@@ -287,7 +287,7 @@ class Editor(Buffer):
 			old_type = self.type_
 			old_ln = self.ln
 			self._cancel_type_after_ids()
-			self.type_ = state.root.textbox(master = self.mf, undo = True, font = (state.defs[2], 12), wrap = 'word')
+			self.type_ = state.root.textbox(master = self.mf, font = (state.defs[2], 12), wrap = 'word', undo = True, autoseparators = True)
 			self.mainwidget = self.type_
 			self._wire_type()
 			old_ln.destroy()
@@ -406,7 +406,7 @@ class Editor(Buffer):
 		self.scrlbr = state.root.scroll(master = self.mf)
 		self.scrlbr.pack(side = 'right', fill = 'y')
 		if view_master is None:
-			self.type_ = state.root.textbox(master = self.mf, undo = True, font = (state.defs[2], 12), wrap = 'word')
+			self.type_ = state.root.textbox(master = self.mf, font = (state.defs[2], 12), wrap = 'word', undo = True, autoseparators = True)
 		else:
 			self.type_ = self._make_peer_type(view_master)
 		self.undoset = False
