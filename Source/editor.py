@@ -1114,8 +1114,7 @@ class Editor(Buffer):
 			self.type_.tag_remove('found', '1.0', 'end')
 			self.type_.tag_remove('foundhighlight', '1.0', 'end')
 			for member in self._group_members():
-				member._own_type.unbind('<<Modified>>', member.findmodbindid)
-				del member.findmodbindid
+				member._own_type.unbind('<<Modified>>', findmodbindid)
 			ok.destroy()
 		def on_type_modified(event):
 			event.widget.edit_modified(False)
@@ -1125,8 +1124,7 @@ class Editor(Buffer):
 		for member in self._group_members():
 			member._own_type.edit_modified(False)
 		state.root.update()
-		for member in self._group_members():
-			member.findmodbindid = member._own_type.bind('<<Modified>>', on_type_modified, '+')
+		findmodbindid = member._own_type.bind('<<Modified>>', on_type_modified, '+')
 		ok.button(text = 'Close', command = close_find).grid(column = 1, row = 6, padx = 10, pady = 10, sticky = 'ew')
 		if state.emacskeysforsearch:
 			ok.bind('<Alt-Return>', lambda event: fnext())
@@ -1324,8 +1322,7 @@ class Editor(Buffer):
 			self.type_.tag_remove('found', '1.0', 'end')
 			self.type_.tag_remove('foundhighlight', '1.0', 'end')
 			for member in self._group_members():
-				member._own_type.unbind('<<Modified>>', member.findmodbindid)
-				del member.findmodbindid
+				member._own_type.unbind('<<Modified>>', findmodbindid)
 			ok.destroy()
 		def on_type_modified(event):
 			event.widget.edit_modified(False)
@@ -1333,8 +1330,7 @@ class Editor(Buffer):
 		for member in self._group_members():
 			member._own_type.edit_modified(False)
 		state.root.update()
-		for member in self._group_members():
-			member.findmodbindid = member._own_type.bind('<<Modified>>', on_type_modified)
+		findmodbindid = member._own_type.bind('<<Modified>>', on_type_modified)
 		ok.button(text = 'Close', command = close_find).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'ew')
 		if state.emacskeysforsearch:
 			ok.bind('<Control-s>', lambda event: fnext())
@@ -2457,7 +2453,7 @@ class Editor(Buffer):
 		utils.show(f'run {self.hmode} code')
 		pycode.pcrunhook('after', 'run-code')
 	def indent(self):
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		if not self.hmode == 'python':
 			return
 		l = int(self.type_.index('insert').split('.')[0])
@@ -2475,7 +2471,7 @@ class Editor(Buffer):
 			return 'break'
 		if line[-1] == ':':
 			self.type_.insert(f'{l + 1}.0', indentthing)
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		return 'break'
 	def gl(self, l = None):
 		if l is None:
@@ -2519,9 +2515,11 @@ class Editor(Buffer):
 		else:
 			pycode.pcrunhook('before', 'cut-text', select)
 			utils.show('cut text')
+		self._set_undo_mark()
 		self.type_.delete('sel.first', 'sel.last')
 		state.root.clipboard_clear()
 		state.root.clipboard_append(select)
+		self._set_undo_mark()
 		utils.show('cut text')
 		pycode.pcrunhook('after', 'cut-text', select)
 	def spk(self):
@@ -2543,9 +2541,9 @@ class Editor(Buffer):
 		else:
 			pycode.pcrunhook('before', 'paste-text', text)
 			utils.show('paste text')
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		self.type_.insert('insert', text)
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		pycode.pcrunhook('after', 'paste-text', text)
 		return 'break'
 	def ptb(self):
@@ -2841,10 +2839,10 @@ class Editor(Buffer):
 			select = self.type_.get('sel.first', 'sel.last')
 		except Exception:
 			return
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		self.type_.delete('sel.first', 'sel.last')
 		self.type_.insert('insert', '{\\bf ' + select + '}')
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		utils.show('bold text latex')
 		self.keypress()
 	def italiclatex(self):
@@ -2852,10 +2850,10 @@ class Editor(Buffer):
 			select = self.type_.get('sel.first', 'sel.last')
 		except Exception:
 			return
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		self.type_.delete('sel.first', 'sel.last')
 		self.type_.insert('insert', '\\textit{' + select + '}')
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		utils.show('italic text latex')
 		self.keypress()
 	def underlinelatex(self):
@@ -2863,10 +2861,10 @@ class Editor(Buffer):
 			select = self.type_.get('sel.first', 'sel.last')
 		except Exception:
 			return
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		self.type_.delete('sel.first', 'sel.last')
 		self.type_.insert('insert', '\\underline{' + select + '}')
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		utils.show('underline text latex')
 		self.keypress()
 	def subscriptlatex(self):
@@ -2874,10 +2872,10 @@ class Editor(Buffer):
 			select = self.type_.get('sel.first', 'sel.last')
 		except Exception:
 			return
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		self.type_.delete('sel.first', 'sel.last')
 		self.type_.insert('insert', '_{' + select + '}')
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		utils.show('subscript text latex')
 		self.keypress()
 	def superscriptlatex(self):
@@ -2885,14 +2883,14 @@ class Editor(Buffer):
 			select = self.type_.get('sel.first', 'sel.last')
 		except Exception:
 			return
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		self.type_.delete('sel.first', 'sel.last')
 		self.type_.insert('insert', '^{' + select + '}')
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		utils.show('superscript text latex')
 		self.keypress()
 	def numberlistlatex(self):
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		try:
 			select = self.type_.get('sel.first', 'sel.last')
 		except Exception:
@@ -2907,11 +2905,11 @@ class Editor(Buffer):
 				keeptext = tryfind[0][len('\\begin{enumerate}'):][:-len('\\end{enumerate}')].replace('\\item ', '')
 				self.type_.delete('sel.first', 'sel.last')
 				self.type_.insert('insert', keeptext)
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		utils.show('numbered list latex')
 		self.keypress()
 	def bulletlistlatex(self):
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		try:
 			select = self.type_.get('sel.first', 'sel.last')
 		except Exception:
@@ -2926,16 +2924,16 @@ class Editor(Buffer):
 				keeptext = tryfind[0][len('\\begin{itemize}'):][:-len('\\end{itemize}')].replace('\\item ', '')
 				self.type_.delete('sel.first', 'sel.last')
 				self.type_.insert('insert', keeptext)
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		utils.show('bulleted list latex')
 		self.keypress()
 	def paragraphlatex(self):
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		self.type_.insert('insert', '\\par\n')
 		utils.show('new paragraph latex')
 		self.keypress()
 	def equationlatex(self):
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		try:
 			select = self.type_.get('sel.first', 'sel.last')
 		except Exception:
@@ -2950,25 +2948,25 @@ class Editor(Buffer):
 				keeptext = tryfind[0][len('\\begin{equation}'):][:-len('\\end{equation}')].replace('\\', '')
 				self.type_.delete('sel.first', 'sel.last')
 				self.type_.insert('insert', keeptext)
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		utils.show('equation latex')
 		self.keypress()
 	def sectionlatex(self, typeofsection):
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		typeofsection = typeofsection.lower()
 		secname = 'Section'
 		if secname:
 			self.type_.insert('insert', f'\n\\{typeofsection}' + '{' + secname + '}\n')
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		utils.show(f'new {typeofsection} latex')
 		self.keypress()
 	def mathlatex(self, whichchar):
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		original = ['Multiplication', 'Division', 'Less or equal', 'More or equal', 'Not equal', 'Infinity', 'Summation', 'Integral', 'Pi', 'Theta', 'Alpha Lower', 'Alpha Upper', 'Inline Math']
 		replaces = ['\\times', '\\div', '\\leq', '\\meq', '\\neq', '\\infty', '\\sum', '\\int', '\\pi', '\\theta', '\\alpha', '\\Alpha', '$$']
 		whichchar = replaces[original.index(whichchar)]
 		self.type_.insert('insert', whichchar)
-		self.type_.edit_separator()
+		self._set_undo_mark()
 		utils.show('insert math latex')
 		self.keypress()
 	def hapyshell(self):
