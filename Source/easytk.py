@@ -69,7 +69,7 @@ class win(ttk.Window):
 			ans = ScrolledText(master, *args, **kwargs)
 			ans.bind = ans.text.bind
 		else:
-			ans = tk.Text(master, *args, **kwargs)
+			ans = ttk.Text(master, *args, **kwargs)
 		ans.bind('<Control-a>', lambda event: self.selall(ans))
 		return ans
 	def text(self, master = None, text = '', image = None, imsize = (10, 10), *args, **kwargs):

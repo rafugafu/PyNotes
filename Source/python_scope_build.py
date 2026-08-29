@@ -2163,18 +2163,24 @@ def _python_build_scopes(buf, text, gen = None, line_blocks = None, seed_names =
 		_vtype = None
 		_vfound = False
 		while _scur is not None and not _vfound:
-			_svt = scope_var_types.get(_scur, {}).get(_vasrc)
-			if _svt:
-				_vb = None
-				for _vdl, _vtn in _svt:
-					if _scur == _vsc and _vdl > _valn:
-						continue
-					if _vb is None or _vdl > _vb[0]:
-						_vb = (_vdl, _vtn)
-				if _vb is not None:
-					_vtype = _vb[1]
-					_vfound = True
-			_scur = builder.scopes[_scur]['parent']
+			_vscobj = builder.scopes[_scur]
+			if _vscobj.get('kind') == 'class' and _scur != _vsc:
+				_scur = _vscobj['parent']
+				continue
+			if _vasrc in _vscobj['names']:
+				_svt = scope_var_types.get(_scur, {}).get(_vasrc)
+				if _svt:
+					_vb = None
+					for _vdl, _vtn in _svt:
+						if _scur == _vsc and _vdl > _valn:
+							continue
+						if _vb is None or _vdl > _vb[0]:
+							_vb = (_vdl, _vtn)
+					if _vb is not None:
+						_vtype = _vb[1]
+				_vfound = True
+				break
+			_scur = _vscobj['parent']
 		_vtsc = _binding_scope_for(_vatgt, _vsc)
 		if _vtsc is not None:
 			scope_var_types.setdefault(_vtsc, {}).setdefault(_vatgt, []).append((_valn, _vtype))

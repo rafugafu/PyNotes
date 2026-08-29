@@ -6,7 +6,7 @@ import subprocess
 import state
 from tkinter import messagebox as mb
 exit = sys.exit
-v = '2.1'
+v = '2.2'
 if platform.system() == 'Linux':
 	rootdir = '/usr/share/PyNotes'
 	homedir = f'/home/{getpass.getuser()}'

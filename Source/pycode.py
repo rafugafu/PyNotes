@@ -207,102 +207,102 @@ def pcruncode():
 		utils.show('not an editor')
 		return
 	state.active.f5()
-def pccopy(*args):
+def pccopy(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.cp(*args)
-def pccut(*args):
+	return state.active.cp(*args, **kwargs)
+def pccut(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.cut(*args)
-def pcfindreplace(*args):
+	return state.active.cut(*args, **kwargs)
+def pcfindreplace(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.fr(*args)
-def pcfindtext(*args):
+	return state.active.fr(*args, **kwargs)
+def pcfindtext(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.f(*args)
-def pcget(*args):
+	return state.active.f(*args, **kwargs)
+def pcget(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.type_.get(*args)
-def pcgotoline(*args):
+	return state.active.type_.get(*args, **kwargs)
+def pcgotoline(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.gl(*args)
-def pchmode(*args):
+	return state.active.gl(*args, **kwargs)
+def pchmode(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.pchmode(*args)
-def pcinsert(*args):
+	return state.active.pchmode(*args, **kwargs)
+def pcinsert(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.type_.insert(*args)
-def pcnewfile(*args):
+	return state.active.type_.insert(*args, **kwargs)
+def pcnewfile(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.nw(*args)
-def pcopenfile(*args):
+	return state.active.nw(*args, **kwargs)
+def pcopenfile(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.llld(*args)
-def pcpageback(*args):
+	return state.active.llld(*args, **kwargs)
+def pcpageback(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.ptb(*args)
-def pcpageforw(*args):
+	return state.active.ptb(*args, **kwargs)
+def pcpageforw(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.ptf(*args)
-def pcpaste(*args):
+	return state.active.ptf(*args, **kwargs)
+def pcpaste(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.pst(*args)
-def pcredo(*args):
+	return state.active.pst(*args, **kwargs)
+def pcredo(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.redo(*args)
-def pcremoveselectionpoint(*args):
+	return state.active.redo(*args, **kwargs)
+def pcremoveselectionpoint(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.removeselpoint(*args)
-def pcsaveasfile(*args):
+	return state.active.removeselpoint(*args, **kwargs)
+def pcsaveasfile(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.ssv(*args)
-def pcsavefile(*args):
+	return state.active.ssv(*args, **kwargs)
+def pcsavefile(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.sssv(*args)
-def pcselall(*args):
+	return state.active.sssv(*args, **kwargs)
+def pcselall(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.selall(*args)
-def pcsetselectionpoint(*args):
+	return state.active.selall(*args, **kwargs)
+def pcsetselectionpoint(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.setselpoint(*args)
-def pcspeaktext(*args):
+	return state.active.setselpoint(*args, **kwargs)
+def pcspeaktext(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.spk(*args)
-def pctag(*args):
+	return state.active.spk(*args, **kwargs)
+def pctag(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.type_.tag_add(*args)
-def pctoggleselectionpoint(*args):
+	return state.active.type_.tag_add(*args, **kwargs)
+def pctoggleselectionpoint(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.toggleselpoint(*args)
-def pcundo(*args):
+	return state.active.toggleselpoint(*args, **kwargs)
+def pcundo(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.undo(*args)
-def pcuntag(*args):
+	return state.active.undo(*args, **kwargs)
+def pcuntag(*args, **kwargs):
 	if not isinstance(state.active, editor.Editor):
 		return
-	return state.active.type_.tag_remove(*args)
+	return state.active.type_.tag_remove(*args, **kwargs)
 def pccommentregion(start, end):
 	if not isinstance(state.active, editor.Editor):
 		utils.show('not an editor')
@@ -788,7 +788,9 @@ def pcunindentselection():
 		utils.show('unindent selection')
 		state.active.keypress()
 		pcrunhook('after', 'unindent-region', (start, end))
-pycodetopythoncommands = {'aboutpynotes': 'abt', 'ask': 'pcask', 'balancebuffers': 'balance', 'cleareditor': 'pccleareditor', 'closebuffer': 'pcclosebuff', 'cmdrun': 'cmdrun', 'color': 'pccolor', 'commentregion': 'pccommentregion', 'commentselection': 'pccommentselection', 'copy': 'pccopy', 'copytext': 'pccopytext', 'cut': 'pccut', 'delete': 'pcdelete', 'dictate': 'st', 'downloadplugins': 'dp', 'fileinfoconfig': 'active.fileinfoconfig', 'findreplace': 'pcfindreplace', 'findtext': 'pcfindtext', 'fullscreen': 'pcfullscreen', 'get': 'pcget', 'getselection': 'pcgetselection', 'gotoline': 'pcgotoline', 'hmode': 'pchmode', 'indentregion': 'pcindentregion', 'indentselection': 'pcindentselection', 'insert': 'pcinsert', 'killquit': 'pckillexit', 'mark': 'pcmark', 'markselection': 'pcmarkselection', 'mathgod': 'mathgod', 'maximize': 'pcmax', 'minimize': 'pcmin', 'movecursor': 'pcmovecursor', 'neweditor': 'neweditor', 'newfile': 'pcnewfile', 'openfile': 'pcopenfile', 'openfilenewedit': 'pcneweditfile', 'openhelp': 'pcopenhelp', 'openplugindir': 'op', 'openpycode': 'pc', 'openterm': 'term', 'pageback': 'pcpageback', 'pageforw': 'pcpageforw', 'pass': 'pass', 'paste': 'pcpaste', 'preferences': 'prf', 'prompt': 'pcprompt', 'pynotessourcecode': 'ss', 'pyshell': 'pcpyshell', 'pythongoendof': 'pcpyendof', 'pythongostartof': 'pcpystartof', 'pythongodef': 'pcgodef', 'quit': 'ext', 'redo': 'pcredo', 'repeatxcommand': 'pcrepeatx', 'removeselectionpoint': 'pcremoveselectionpoint', 'return': 'return', 'runcode': 'pcruncode', 'saveasfile': 'pcsaveasfile', 'savefile': 'pcsavefile', 'say': 'say', 'selall': 'pcselall', 'select': 'pcselecttext', 'setselectionpoint': 'pcsetselectionpoint', 'setvar': 'pcsetvar', 'setwingeometry': 'root.geometry', 'setwintitle': 'pcgosettitle', 'show': 'show', 'speaktext': 'pcspeaktext', 'spliteditor': 'pcsplitedit', 'switchbuffer': 'setactive', 'switcheditortab': 'pcswitchedittab', 'switchemailtab': 'pcswitchemailtab', 'tag': 'pctag', 'termexec': 'pctermexec', 'tkindex': 'pctkindex', 'toggleselectionpoint': 'pctoggleselectionpoint', 'typecommand': 'cmd', 'uncommentregion': 'pcuncommentregion', 'uncommentselection': 'pcuncommentselection', 'undo': 'pcundo', 'unfullscreen': 'pcunfullscreen', 'unindentregion': 'pcunindentregion', 'unindentselection': 'pcunindentselection', 'unmark': 'pcunmark', 'unmarkall': 'pcunmarkall', 'unmaximize': 'pcunmax', 'unsetwintitle': 'pcunsettitle', 'untag': 'pcuntag', 'wait': 'time.sleep', 'write': 'pccmdwrite'}
+pycodetopythoncommands = {'aboutpynotes': 'abt', 'ask': 'pcask', 'balancebuffers': 'balance', 'cleareditor': 'pccleareditor', 'closebuffer': 'pcclosebuff', 'cmdrun': 'cmdrun', 'color': 'pccolor', 'commentregion': 'pccommentregion', 'commentselection': 'pccommentselection', 'copy': 'pccopy', 'copytext': 'pccopytext', 'cut': 'pccut', 'delete': 'pcdelete', 'dictate': 'st', 'downloadplugins': 'dp', 'fileinfoconfig': 'active.fileinfoconfig', 'findreplace': 'pcfindreplace', 'findtext': 'pcfindtext', 'fullscreen': 'pcfullscreen', 'get': 'pcget', 'getattr': 'getattr', 'getselection': 'pcgetselection', 'gotoline': 'pcgotoline', 'hmode': 'pchmode', 'indentregion': 'pcindentregion', 'indentselection': 'pcindentselection', 'insert': 'pcinsert', 'killquit': 'pckillexit', 'mark': 'pcmark', 'markselection': 'pcmarkselection', 'mathgod': 'mathgod', 'maximize': 'pcmax', 'minimize': 'pcmin', 'movecursor': 'pcmovecursor', 'neweditor': 'neweditor', 'newfile': 'pcnewfile', 'openfile': 'pcopenfile', 'openfilenewedit': 'pcneweditfile', 'openhelp': 'pcopenhelp', 'openplugindir': 'op', 'openpycode': 'pc', 'openterm': 'term', 'pageback': 'pcpageback', 'pageforw': 'pcpageforw', 'pass': 'pass', 'paste': 'pcpaste', 'preferences': 'prf', 'prompt': 'pcprompt', 'pynotessourcecode': 'ss', 'pyshell': 'pcpyshell', 'pythongoendof': 'pcpyendof', 'pythongostartof': 'pcpystartof', 'pythongodef': 'pcgodef', 'quit': 'ext', 'redo': 'pcredo', 'repeatxcommand': 'pcrepeatx', 'removeselectionpoint': 'pcremoveselectionpoint', 'return': 'return', 'runcode': 'pcruncode', 'saveasfile': 'pcsaveasfile', 'savefile': 'pcsavefile', 'say': 'say', 'selall': 'pcselall', 'select': 'pcselecttext', 'setattr': 'setattr', 'setselectionpoint': 'pcsetselectionpoint', 'setvar': 'pcsetvar', 'setwingeometry': 'root.geometry', 'setwintitle': 'pcgosettitle', 'show': 'show', 'speaktext': 'pcspeaktext', 'spliteditor': 'pcsplitedit', 'switchbuffer': 'setactive', 'switcheditortab': 'pcswitchedittab', 'switchemailtab': 'pcswitchemailtab', 'tag': 'pctag', 'termexec': 'pctermexec', 'tkindex': 'pctkindex', 'toggleselectionpoint': 'pctoggleselectionpoint', 'typecommand': 'cmd', 'uncommentregion': 'pcuncommentregion', 'uncommentselection': 'pcuncommentselection', 'undo': 'pcundo', 'unfullscreen': 'pcunfullscreen', 'unindentregion': 'pcunindentregion', 'unindentselection': 'pcunindentselection', 'unmark': 'pcunmark', 'unmarkall': 'pcunmarkall', 'unmaximize': 'pcunmax', 'unsetwintitle': 'pcunsettitle', 'untag': 'pcuntag', 'wait': 'time.sleep', 'write': 'pccmdwrite'}
+pycodecommands = sorted(list(pycodetopythoncommands))
+pythoncommands = [pycodetopythoncommands[x] for x in pycodecommands]
 def pcread(code):
 	global pycodecommands
 	global pythoncommands
@@ -1254,30 +1256,30 @@ bindrecur(root, '<Control-O>', lambda event: neweditor(True))
 bindrecur(root, '<Control-q>', lambda event: ext())
 '''
 	defaults_cdt_type_ = '''\
-for buffer in all_buffers: bindtype_(buffer, '<Control-a>', lambda event, buffer = buffer: buffer.selall())
-for buffer in all_buffers: bindtype_(buffer, '<Control-n>', lambda event, buffer = buffer: buffer.nw())
-for buffer in all_buffers: bindtype_(buffer, '<Control-o>', lambda event, buffer = buffer: buffer.llld())
-for buffer in all_buffers: bindtype_(buffer, '<Control-c>', lambda event, buffer = buffer: buffer.cp())
-for buffer in all_buffers: bindtype_(buffer, '<Control-v>', lambda event, buffer = buffer: buffer.pst())
-for buffer in all_buffers: bindtype_(buffer, '<Control-w>', lambda event, buffer = buffer: pcclosebuff(all_buffers.index(buffer)))
-for buffer in all_buffers: bindtype_(buffer, '<Control-x>', lambda event, buffer = buffer: buffer.cut())
-for buffer in all_buffers: bindtype_(buffer, '<KeyRelease>', lambda event, buffer = buffer: buffer.keypress())
-for buffer in all_buffers: bindtype_(buffer, '<BackSpace>', lambda event: show('delete text'))
-for buffer in all_buffers: bindtype_(buffer, '<Delete>', lambda event: show('delete text'))
-for buffer in all_buffers: bindtype_(buffer, '<Return>', lambda event, buffer = buffer: buffer.indent())
-for buffer in all_buffers: bindtype_(buffer, '<Alt-l>', lambda event, buffer = buffer: buffer.gl())
-for buffer in all_buffers: bindtype_(buffer, '<Control-p>', lambda event, buffer = buffer: buffer.ptf())
-for buffer in all_buffers: bindtype_(buffer, '<Control-P>', lambda event, buffer = buffer: buffer.ptb())
-for buffer in all_buffers: bindtype_(buffer, '<Control-f>', lambda event, buffer = buffer: buffer.f())
-for buffer in all_buffers: bindtype_(buffer, '<Control-F>', lambda event, buffer = buffer: buffer.fr())
-for buffer in all_buffers: bindtype_(buffer, '<Control-h>', lambda event, buffer = buffer: buffer.fr())
-for buffer in all_buffers: bindtype_(buffer, '<Control-z>', lambda event, buffer = buffer: buffer.undo())
-for buffer in all_buffers: bindtype_(buffer, '<Control-Z>', lambda event, buffer = buffer: buffer.redo())
-for buffer in all_buffers: bindtype_(buffer, '<Control-s>', lambda event, buffer = buffer: buffer.sssv())
-for buffer in all_buffers: bindtype_(buffer, '<Control-S>', lambda event, buffer = buffer: buffer.ssv())
-for buffer in all_buffers: bindtype_(buffer, '<F5>', lambda event, buffer = buffer: buffer.f5())
-for buffer in all_buffers: bindtype_(buffer, '<Control-space>', lambda event, buffer = buffer: buffer.toggleselpoint())
-for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, buffer = buffer: buffer.selkeypress(event))
+for buffer in all_buffers: bindtype_(buffer, '<Control-a>', lambda event, editor = buffer: editor.selall())
+for buffer in all_buffers: bindtype_(buffer, '<Control-n>', lambda event, editor = buffer: editor.nw())
+for buffer in all_buffers: bindtype_(buffer, '<Control-o>', lambda event, editor = buffer: editor.llld())
+for buffer in all_buffers: bindtype_(buffer, '<Control-c>', lambda event, editor = buffer: editor.cp())
+for buffer in all_buffers: bindtype_(buffer, '<Control-v>', lambda event, editor = buffer: editor.pst())
+for buffer in all_buffers: bindtype_(buffer, '<Control-w>', lambda event, editor = buffer: pcclosebuff(all_buffers.index(buffer)))
+for buffer in all_buffers: bindtype_(buffer, '<Control-x>', lambda event, editor = buffer: editor.cut())
+for buffer in all_buffers: bindtype_(buffer, '<KeyRelease>', lambda event, editor = buffer: editor.keypress(), break_ = False)
+for buffer in all_buffers: bindtype_(buffer, '<BackSpace>', lambda event: show('delete text'), break_ = False)
+for buffer in all_buffers: bindtype_(buffer, '<Delete>', lambda event: show('delete text'), break_ = False)
+for buffer in all_buffers: bindtype_(buffer, '<Return>', lambda event, editor = buffer: editor.indent(), break_ = False)
+for buffer in all_buffers: bindtype_(buffer, '<Alt-l>', lambda event, editor = buffer: editor.gl())
+for buffer in all_buffers: bindtype_(buffer, '<Control-p>', lambda event, editor = buffer: editor.ptf())
+for buffer in all_buffers: bindtype_(buffer, '<Control-P>', lambda event, editor = buffer: editor.ptb())
+for buffer in all_buffers: bindtype_(buffer, '<Control-f>', lambda event, editor = buffer: editor.f())
+for buffer in all_buffers: bindtype_(buffer, '<Control-F>', lambda event, editor = buffer: editor.fr())
+for buffer in all_buffers: bindtype_(buffer, '<Control-h>', lambda event, editor = buffer: editor.fr())
+for buffer in all_buffers: bindtype_(buffer, '<Control-z>', lambda event, editor = buffer: editor.undo())
+for buffer in all_buffers: bindtype_(buffer, '<Control-Z>', lambda event, editor = buffer: editor.redo())
+for buffer in all_buffers: bindtype_(buffer, '<Control-s>', lambda event, editor = buffer: editor.sssv())
+for buffer in all_buffers: bindtype_(buffer, '<Control-S>', lambda event, editor = buffer: editor.ssv())
+for buffer in all_buffers: bindtype_(buffer, '<F5>', lambda event, editor = buffer: editor.f5())
+for buffer in all_buffers: bindtype_(buffer, '<Control-space>', lambda event, editor = buffer: editor.toggleselpoint())
+for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, editor = buffer: editor.selkeypress(event), break_ = False)
 '''
 	cdt = defaults_cdt_root + cdt
 	type_bind_cdt = defaults_cdt_type_ + type_bind_cdt

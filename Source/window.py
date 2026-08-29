@@ -52,9 +52,12 @@ def setactive(newindex = None, force = False):
 		return
 	if 0 <= state.buffindex < len(state.all_buffers):
 		state.all_buffers[state.buffindex].active = False
+	try:
+		buffer = state.all_buffers[newindex]
+	except Exception:
+		return
 	pycode.pcrunhook('before', 'switch-buffer', newindex)
 	state.buffindex = newindex
-	buffer = state.all_buffers[state.buffindex]
 	buffer.active = True
 	state.mainmenu.delete(0, 'end')
 	lastentry = buffer.m.index('end')

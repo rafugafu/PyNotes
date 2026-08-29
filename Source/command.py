@@ -9,6 +9,7 @@ import speech
 import terminal
 import utils
 import window
+import preferences
 def cmdfindgroupclose(s, openindex):
 	depth = 0
 	i = openindex
@@ -458,15 +459,25 @@ def cmdrun(fullcommand):
 			return
 		state.active.ssv()
 	elif command == 'search' or command == 'f':
-		if commandinput:
-			utils.show(f'error: command \'{command}\' does not take input')
+		if commandinput and not commandinput in ('b', 'back'):
+			utils.show(f'error: invalid input \'{commandinput}\' for find command')
 			return
-		state.active.f()
+		if not isinstance(state.active, editor.Editor):
+			utils.show('not an editor')
+		if commandinput:
+			state.active.f('backward')
+		else:
+			state.active.f()
 	elif command == 'find-replace' or command == 'findreplace' or command == 'fr':
-		if commandinput:
-			utils.show(f'error: command \'{command}\' does not take input')
+		if commandinput and not commandinput in ('b', 'back'):
+			utils.show(f'error: invalid input \'{commandinput}\' for find & replace command')
 			return
-		state.active.fr()
+		if not isinstance(state.active, editor.Editor):
+			utils.show('not an editor')
+		if commandinput:
+			state.active.fr('backward')
+		else:
+			state.active.fr()
 	elif command == 'show-source' or command == 'source-code':
 		if commandinput:
 			utils.show(f'error: command \'{command}\' does not take input')
@@ -506,7 +517,7 @@ def cmdrun(fullcommand):
 		if commandinput:
 			utils.show(f'error: command \'{command}\' does not take input')
 			return
-		dialogs.prf()
+		preferences.prf()
 	elif command == 'cancel' or command == 'z':
 		if commandinput:
 			utils.show(f'error: command \'{command}\' does not take input')
@@ -699,8 +710,8 @@ cmdregister(('u', 'undo'))
 cmdregister(('r', 'redo'))
 cmdregister(('save', 's'))
 cmdregister(('saveas', 'sa'))
-cmdregister(('search', 'f'))
-cmdregister(('find-replace', 'findreplace', 'fr'))
+cmdregister(('search', 'f'), inputs = [None, 'b', 'back'])
+cmdregister(('find-replace', 'findreplace', 'fr'), inputs = [None, 'b', 'back'])
 cmdregister(('show-source', 'source-code'))
 cmdregister(('new', 'n'))
 cmdregister(('l', 'gl', 'gotoline'))
@@ -806,4 +817,3 @@ def cmd():
 	state.root.update()
 	if hasattr(state.active, 'keypress'):
 		state.active.keypress()
-	state.active.mainwidget.focus_set()

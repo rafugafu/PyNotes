@@ -158,28 +158,28 @@ class Editor(Buffer):
 		for child in widget.winfo_children():
 			self._bind_focus_recursive(child, skip_widgets)
 	def _bind_type_events(self):
-		self.type_.bind('<Control-a>', lambda event: self.selall())
-		self.type_.bind('<Control-n>', lambda event: self.nw())
-		self.type_.bind('<Control-o>', lambda event: self.llld())
-		self.type_.bind('<Control-c>', lambda event: self.cp())
-		self.type_.bind('<Control-v>', lambda event: self.pst())
-		self.type_.bind('<Control-x>', lambda event: self.cut())
+		self.type_.bind('<Control-a>', lambda event: self.selall() or 'break')
+		self.type_.bind('<Control-n>', lambda event: self.nw() or 'break')
+		self.type_.bind('<Control-o>', lambda event: self.llld() or 'break')
+		self.type_.bind('<Control-c>', lambda event: self.cp() or 'break')
+		self.type_.bind('<Control-v>', lambda event: self.pst() or 'break')
+		self.type_.bind('<Control-x>', lambda event: self.cut() or 'break')
 		self.type_.bind('<KeyRelease>', lambda event: self.keypress())
 		self.type_.bind('<BackSpace>', lambda event: utils.show('delete text'))
 		self.type_.bind('<Delete>', lambda event: utils.show('delete text'))
 		self.type_.bind('<Return>', lambda event: self.indent())
-		self.type_.bind('<Alt-l>', lambda event: self.gl())
-		self.type_.bind('<Control-p>', lambda event: self.ptf())
-		self.type_.bind('<Control-P>', lambda event: self.ptb())
-		self.type_.bind('<Control-f>', lambda event: self.f())
-		self.type_.bind('<Control-F>', lambda event: self.fr())
-		self.type_.bind('<Control-h>', lambda event: self.fr())
-		self.type_.bind('<Control-z>', lambda event: self.undo())
-		self.type_.bind('<Control-Z>', lambda event: self.redo())
-		self.type_.bind('<Control-s>', lambda event: self.sssv())
-		self.type_.bind('<Control-S>', lambda event: self.ssv())
-		self.type_.bind('<F5>', lambda event: self.f5())
-		self.type_.bind('<Control-space>', lambda event: self.toggleselpoint())
+		self.type_.bind('<Alt-l>', lambda event: self.gl() or 'break')
+		self.type_.bind('<Control-p>', lambda event: self.ptf() or 'break')
+		self.type_.bind('<Control-P>', lambda event: self.ptb() or 'break')
+		self.type_.bind('<Control-f>', lambda event: self.f() or 'break')
+		self.type_.bind('<Control-F>', lambda event: self.fr() or 'break')
+		self.type_.bind('<Control-h>', lambda event: self.fr() or 'break')
+		self.type_.bind('<Control-z>', lambda event: self.undo() or 'break')
+		self.type_.bind('<Control-Z>', lambda event: self.redo() or 'break')
+		self.type_.bind('<Control-s>', lambda event: self.sssv() or 'break')
+		self.type_.bind('<Control-S>', lambda event: self.ssv() or 'break')
+		self.type_.bind('<F5>', lambda event: self.f5() or 'break')
+		self.type_.bind('<Control-space>', lambda event: self.toggleselpoint() or 'break')
 		self.type_.bind('<KeyPress>', self.selkeypress)
 	def selkeypress(self, event):
 		if not self.selectionpoint:
@@ -208,7 +208,7 @@ class Editor(Buffer):
 			self.type_.pack(fill = 'both', expand = True, anchor = 'n')
 			self.tabs.pack(padx = 10, pady = 10, fill = 'both', expand = True)
 	def _cancel_type_after_ids(self):
-		for name in ('_main_poll_after_id', '_ha_after_id', '_filesize_after_id', '_unsaved_after_id', '_python_scan_after_id', '_find_apply_after_id'):
+		for name in ('_main_poll_after_id', '_ha_after_id', '_filesize_after_id', '_setundo_after_id', '_unsaved_after_id', '_python_scan_after_id', '_find_apply_after_id'):
 			after_id = getattr(self, name, None)
 			if after_id is not None:
 				try:
@@ -256,7 +256,7 @@ class Editor(Buffer):
 			old_type = self.type_
 			old_ln = self.ln
 			self._cancel_type_after_ids()
-			self.type_ = state.root.textbox(master = self.mf, undo = True, font = (state.defs[2], 12), wrap = 'word')
+			self.type_ = state.root.textbox(master = self.mf, font = (state.defs[2], 12), wrap = 'word', blockcursor = True, undo = True, autoseparators = True)
 			self.mainwidget = self.type_
 			self._wire_type()
 			old_ln.destroy()
@@ -409,6 +409,8 @@ class Editor(Buffer):
 			self.type_ = state.root.textbox(master = self.mf, undo = True, font = (state.defs[2], 12), wrap = 'word')
 		else:
 			self.type_ = self._make_peer_type(view_master)
+		self.undoset = False
+		self.type_.bind('<<Modified>>', lambda event: [setattr(self, 'undoset', False), self.type_.edit_modified(False)])
 		self.mainwidget = self.type_
 		self._wire_type()
 		self.type_top = '1.0'
@@ -417,6 +419,7 @@ class Editor(Buffer):
 		self._ha_apply_after_id = None
 		self._find_apply_after_id = None
 		self._filesize_after_id = None
+		self._setundo_after_id = None
 		self._unsaved_after_id = None
 		self._prev_visible_region = None
 		self._main_poll_after_id = None
@@ -827,23 +830,49 @@ class Editor(Buffer):
 			self.fileinfoconfig(filesize = '0 bytes')
 			utils.show('new file')
 			pycode.pcrunhook('after', 'new-file-current-editor')
-	def fr(self):
-		utils.show('find & replace text')
-		def fback():
+	def fr(self, dir = 'forward'):
+		if dir == 'forward':
+			utils.show('find & replace text forward')
+		elif dir == 'backward':
+			utils.show('find & replace text backward')
+		elif dir == 'beginning':
+			utils.show('find & replace text from beginning')
+		search_anchor = [self.type_.index('insert')]
+		def fback(replacetext = None):
 			nonlocal i
 			if searching[0]:
 				return
 			self.type_.tag_remove('foundhighlight', '1.0', 'end')
 			if not foundlist:
 				return
-			if i != 0:
-				i -= 1
+			if replacetext is not None:
+				replace_start = foundlist[i][0]
+				programmatic_edit[0] = True
+				self.type_.delete(foundlist[i][0], foundlist[i][1])
+				self.type_.insert(foundlist[i][0], replacetext)
+				self.type_.after_idle(clear_programmatic_edit)
+				def after_search():
+					nonlocal i
+					for j in range(len(foundlist) - 1, -1, -1):
+						if self.type_.compare(foundlist[j][0], '<', replace_start):
+							i = j
+							self.type_.tag_add('foundhighlight', foundlist[i][0], foundlist[i][1])
+							exec("self.type_.tag_config('foundhighlight'," + state.theme['pynotes:foundhighlight'] + ')')
+							self.type_.see(foundlist[i][1])
+							self.type_.mark_set('insert', foundlist[i][1])
+							return
+					close_find()
+				pending_action[0] = after_search
+				updatef()
 			else:
-				i = len(foundlist) - 1
-			self.type_.tag_add('foundhighlight', foundlist[i][0], foundlist[i][1])
-			exec("self.type_.tag_config('foundhighlight'," + state.theme['pynotes:foundhighlight'] + ')')
-			self.type_.see(foundlist[i][1])
-			self.type_.mark_set('insert', foundlist[i][1])
+				if i != 0:
+					i -= 1
+				else:
+					i = len(foundlist) - 1
+				self.type_.tag_add('foundhighlight', foundlist[i][0], foundlist[i][1])
+				exec("self.type_.tag_config('foundhighlight'," + state.theme['pynotes:foundhighlight'] + ')')
+				self.type_.see(foundlist[i][1])
+				self.type_.mark_set('insert', foundlist[i][1])
 			self.keypress()
 		def fnext(replacetext = None):
 			nonlocal i
@@ -857,7 +886,7 @@ class Editor(Buffer):
 				programmatic_edit[0] = True
 				self.type_.delete(foundlist[i][0], foundlist[i][1])
 				self.type_.insert(foundlist[i][0], replacetext)
-				programmatic_edit[0] = False
+				self.type_.after_idle(clear_programmatic_edit)
 				after_replace = '%s+%dc' % (replace_start, len(replacetext))
 				def after_search():
 					nonlocal i
@@ -869,19 +898,14 @@ class Editor(Buffer):
 							self.type_.see(foundlist[i][1])
 							self.type_.mark_set('insert', foundlist[i][1])
 							return
-					self.type_.tag_remove('found', '1.0', 'end')
-					self.type_.tag_remove('foundhighlight', '1.0', 'end')
-					ok.destroy()
+					close_find()
 				pending_action[0] = after_search
 				updatef()
 			else:
 				if i != len(foundlist) - 1:
 					i += 1
 				else:
-					self.type_.tag_remove('found', '1.0', 'end')
-					self.type_.tag_remove('foundhighlight', '1.0', 'end')
-					ok.destroy()
-					return
+					i = 0
 				self.type_.tag_add('foundhighlight', foundlist[i][0], foundlist[i][1])
 				exec("self.type_.tag_config('foundhighlight'," + state.theme['pynotes:foundhighlight'] + ')')
 				self.type_.see(foundlist[i][1])
@@ -898,22 +922,27 @@ class Editor(Buffer):
 			for j in range(len(foundlist) - 1, i - 1, -1):
 				self.type_.delete(foundlist[j][0], foundlist[j][1])
 				self.type_.insert(foundlist[j][0], replacetext)
-			programmatic_edit[0] = False
-			self.type_.tag_remove('found', '1.0', 'end')
-			ok.destroy()
+			self.type_.after_idle(clear_programmatic_edit)
+			close_find()
 			self.keypress()
 		search_cancel = [None]
 		searching = [False]
 		pending_action = [None]
 		programmatic_edit = [False]
+		def clear_programmatic_edit():
+			programmatic_edit[0] = False
 		def updatef():
 			nonlocal i
 			nonlocal foundlist
 			find = findbox.get()
 			useregx = regx.get()
 			case = cs.get()
+			wholeword = ww.get()
 			if search_cancel[0]:
 				search_cancel[0].set()
+			if self._find_apply_after_id is not None:
+				self._own_type.after_cancel(self._find_apply_after_id)
+				self._find_apply_after_id = None
 			if not find:
 				self.type_.tag_remove('found', '1.0', 'end')
 				self.type_.tag_remove('foundhighlight', '1.0', 'end')
@@ -929,6 +958,8 @@ class Editor(Buffer):
 			def do_search():
 				try:
 					pat = find if useregx else re.escape(find)
+					if wholeword:
+						pat = r'\b' + pat + r'\b'
 					flags = 0 if case else re.IGNORECASE
 					compiled = re.compile(pat, flags)
 				except Exception:
@@ -967,11 +998,27 @@ class Editor(Buffer):
 					return
 				foundlist = []
 				i = 0
+				if tk_results:
+					if dir == 'forward':
+						cursor = search_anchor[0]
+						for idx in range(len(tk_results)):
+							if self.type_.compare(tk_results[idx][0], '>=', cursor):
+								i = idx
+								break
+						else:
+							i = 0
+					elif dir == 'backward':
+						cursor = search_anchor[0]
+						for idx in range(len(tk_results) - 1, -1, -1):
+							if self.type_.compare(tk_results[idx][0], '<', cursor):
+								i = idx
+								break
+						else:
+							i = len(tk_results) - 1
 				_apply_batch(tk_results, len(tk_results), 0)
 			def _apply_batch(tk_results, n, idx):
 				nonlocal i, foundlist
 				if cancel.is_set():
-					self._own_type.tag_remove('found', '1.0', 'end')
 					self._find_apply_after_id = None
 					searching[0] = False
 					return
@@ -1010,7 +1057,8 @@ class Editor(Buffer):
 			self.type_.see(foundlist[i][1])
 			self.type_.mark_set('insert', foundlist[i][1])
 		ok = state.root.subwin()
-		i = 0
+		if dir == 'beginning':
+			i = 0
 		foundlist = []
 		ok.title('Find & Replace')
 		ok.text(text = 'Find:').grid(column = 0, row = 0, padx = 10, pady = 10)
@@ -1018,20 +1066,22 @@ class Editor(Buffer):
 		findbox.focus()
 		findbox.bind('<KeyRelease>', updateff)
 		if not state.emacskeysforsearch:
-			findbox.bind('<Shift-Return>', lambda event: fback())
-			findbox.bind('<Return>', lambda event: fnext())
+			findbox.bind(('<Return>' if dir != 'backward' else '<Shift-Return>'), lambda event: fnext())
+			findbox.bind(('<Return>' if dir == 'backward' else '<Shift-Return>'), lambda event: fback())
 		findbox.grid(column = 1, row = 0, padx = 10, pady = 10, sticky = 'ew')
 		ok.text(text = 'Replace:').grid(column = 0, row = 1, padx = 10, pady = 10)
 		replacebox = ok.entry()
 		if not state.emacskeysforsearch:
-			replacebox.bind('<Return>', lambda event: fnext(replacebox.get()))
+			replacebox.bind('<Return>', lambda event: fback(replacebox.get()) if dir == 'backward' else fnext(replacebox.get()))
 		replacebox.grid(column = 1, row = 1, padx = 10, pady = 10, sticky = 'ew')
 		cs = ok.booleanvar()
 		ok.check(text = 'Case Sensitive', variable = cs, command = updateff).grid(column = 0, row = 2, padx = 10, pady = 10, sticky = 'ew')
 		regx = ok.booleanvar()
 		ok.check(text = 'Use regexp', variable = regx, command = updateff).grid(column = 1, row = 2, padx = 10, pady = 10, sticky = 'ew')
-		ok.button(text = 'Previous', command = fback).grid(column = 0, row = 3, padx = 10, pady = 10, sticky = 'ew')
-		ok.button(text = 'Next', command = fnext).grid(column = 1, row = 3, padx = 10, pady = 10, sticky = 'ew')
+		ww = ok.booleanvar()
+		ok.check(text = 'Match Whole Word Only', variable = ww, command = updateff).grid(column = 0, row = 3, columnspan = 2, padx = 10, pady = 10, sticky = 'ew')
+		ok.button(text = 'Previous', command = fback).grid(column = 0, row = 4, padx = 10, pady = 10, sticky = 'ew')
+		ok.button(text = 'Next', command = fnext).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'ew')
 		def replace_current():
 			nonlocal i
 			if searching[0] or not foundlist:
@@ -1039,7 +1089,7 @@ class Editor(Buffer):
 			programmatic_edit[0] = True
 			self.type_.delete(foundlist[i][0], foundlist[i][1])
 			self.type_.insert(foundlist[i][0], replacebox.get())
-			programmatic_edit[0] = False
+			self.type_.after_idle(clear_programmatic_edit)
 			saved_i = i
 			def after_search():
 				nonlocal i
@@ -1052,14 +1102,20 @@ class Editor(Buffer):
 				self.type_.mark_set('insert', foundlist[i][1])
 			pending_action[0] = after_search
 			updatef()
-		ok.button(text = 'Replace', command = replace_current).grid(column = 0, row = 4, padx = 10, pady = 10, sticky = 'ew')
-		ok.button(text = 'Replace and next', command = lambda: fnext(replacebox.get())).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'ew')
-		ok.button(text = 'Replace all', command = lambda: replaceall(replacebox.get())).grid(column = 0, row = 5, padx = 10, pady = 10, sticky = 'ew')
+		ok.button(text = 'Replace', command = replace_current).grid(column = 0, row = 5, padx = 10, pady = 10, sticky = 'ew')
+		ok.button(text = 'Replace and next', command = lambda: fnext(replacebox.get())).grid(column = 1, row = 5, padx = 10, pady = 10, sticky = 'ew')
+		ok.button(text = 'Replace all', command = lambda: replaceall(replacebox.get())).grid(column = 0, row = 6, padx = 10, pady = 10, sticky = 'ew')
 		def close_find():
+			if search_cancel[0]:
+				search_cancel[0].set()
+			if self._find_apply_after_id is not None:
+				self._own_type.after_cancel(self._find_apply_after_id)
+				self._find_apply_after_id = None
 			self.type_.tag_remove('found', '1.0', 'end')
 			self.type_.tag_remove('foundhighlight', '1.0', 'end')
 			for member in self._group_members():
-				member._own_type.unbind('<<Modified>>')
+				member._own_type.unbind('<<Modified>>', member.findmodbindid)
+				del member.findmodbindid
 			ok.destroy()
 		def on_type_modified(event):
 			event.widget.edit_modified(False)
@@ -1070,12 +1126,12 @@ class Editor(Buffer):
 			member._own_type.edit_modified(False)
 		state.root.update()
 		for member in self._group_members():
-			member._own_type.bind('<<Modified>>', on_type_modified)
-		ok.button(text = 'Close', command = close_find).grid(column = 1, row = 5, padx = 10, pady = 10, sticky = 'ew')
+			member.findmodbindid = member._own_type.bind('<<Modified>>', on_type_modified, '+')
+		ok.button(text = 'Close', command = close_find).grid(column = 1, row = 6, padx = 10, pady = 10, sticky = 'ew')
 		if state.emacskeysforsearch:
 			ok.bind('<Alt-Return>', lambda event: fnext())
 			ok.bind('^', lambda event: fback())
-			ok.bind('<Control-t>', lambda event: fnext(replacebox.get()))
+			ok.bind('<Control-t>', lambda event: fback(replacebox.get()) if dir == 'backward' else fnext(replacebox.get()))
 			ok.bind('!', lambda event: replaceall(replacebox.get()))
 			ok.bind('<Return>', lambda event: close_find())
 			for w in (findbox, replacebox):
@@ -1086,8 +1142,14 @@ class Editor(Buffer):
 		ok.style(state.root.gettheme())
 		ok.bind('<Escape>', lambda event: close_find())
 		ok.protocol('WM_DELETE_WINDOW', close_find)
-	def f(self):
-		utils.show('find text')
+	def f(self, dir = 'forward'):
+		if dir == 'forward':
+			utils.show('find text forward')
+		elif dir == 'backward':
+			utils.show('find text backward')
+		elif dir == 'beginning':
+			utils.show('find text from beginning')
+		search_anchor = [self.type_.index('insert')]
 		def fback():
 			nonlocal i
 			self.type_.tag_remove('foundhighlight', '1.0', 'end')
@@ -1123,8 +1185,12 @@ class Editor(Buffer):
 			find = findbox.get()
 			useregx = regx.get()
 			case = cs.get()
+			wholeword = ww.get()
 			if search_cancel[0]:
 				search_cancel[0].set()
+			if self._find_apply_after_id is not None:
+				self._own_type.after_cancel(self._find_apply_after_id)
+				self._find_apply_after_id = None
 			if not find:
 				self.type_.tag_remove('found', '1.0', 'end')
 				self.type_.tag_remove('foundhighlight', '1.0', 'end')
@@ -1138,6 +1204,8 @@ class Editor(Buffer):
 			def do_search():
 				try:
 					pat = find if useregx else re.escape(find)
+					if wholeword:
+						pat = r'\b' + pat + r'\b'
 					flags = 0 if case else re.IGNORECASE
 					compiled = re.compile(pat, flags)
 				except Exception:
@@ -1175,11 +1243,27 @@ class Editor(Buffer):
 					return
 				foundlist = []
 				i = 0
+				if tk_results:
+					if dir == 'forward':
+						cursor = search_anchor[0]
+						for idx in range(len(tk_results)):
+							if self.type_.compare(tk_results[idx][0], '>=', cursor):
+								i = idx
+								break
+						else:
+							i = 0
+					elif dir == 'backward':
+						cursor = search_anchor[0]
+						for idx in range(len(tk_results) - 1, -1, -1):
+							if self.type_.compare(tk_results[idx][0], '<', cursor):
+								i = idx
+								break
+						else:
+							i = len(tk_results) - 1
 				_apply_batch(tk_results, len(tk_results), 0)
 			def _apply_batch(tk_results, n, idx):
 				nonlocal i, foundlist
 				if cancel.is_set():
-					self._own_type.tag_remove('found', '1.0', 'end')
 					self._find_apply_after_id = None
 					return
 				end = idx + 500
@@ -1211,7 +1295,8 @@ class Editor(Buffer):
 			self.type_.see(foundlist[i][1])
 			self.type_.mark_set('insert', foundlist[i][1])
 		ok = state.root.subwin()
-		i = 0
+		if dir == 'beginning':
+			i = 0
 		foundlist = []
 		ok.title('Find')
 		ok.text(text = 'Find:').grid(column = 0, row = 0, padx = 10, pady = 10)
@@ -1219,20 +1304,28 @@ class Editor(Buffer):
 		findbox.focus()
 		findbox.bind('<KeyRelease>', updateff)
 		if not state.emacskeysforsearch:
-			findbox.bind('<Return>', lambda event: fnext())
-			findbox.bind('<Shift-Return>', lambda event: fback())
+			findbox.bind(('<Return>' if dir != 'backward' else '<Shift-Return>'), lambda event: fnext())
+			findbox.bind(('<Return>' if dir == 'backward' else '<Shift-Return>'), lambda event: fback())
 		findbox.grid(column = 1, row = 0, padx = 10, pady = 10, sticky = 'ew')
 		cs = ok.booleanvar()
 		ok.check(text = 'Case Sensitive', variable = cs, command = updateff).grid(column = 0, row = 1, padx = 10, pady = 10, sticky = 'ew')
 		regx = ok.booleanvar()
 		ok.check(text = 'Use regexp', variable = regx, command = updateff).grid(column = 1, row = 1, padx = 10, pady = 10, sticky = 'ew')
-		ok.button(text = 'Previous', command = fback).grid(column = 0, row = 2, padx = 10, pady = 10, sticky = 'ew')
-		ok.button(text = 'Next', command = fnext).grid(column = 1, row = 2, padx = 10, pady = 10, sticky = 'ew')
+		ww = ok.booleanvar()
+		ok.check(text = 'Match Whole Word Only', variable = ww, command = updateff).grid(column = 0, row = 2, columnspan = 2, padx = 10, pady = 10, sticky = 'ew')
+		ok.button(text = 'Previous', command = fback).grid(column = 0, row = 3, padx = 10, pady = 10, sticky = 'ew')
+		ok.button(text = 'Next', command = fnext).grid(column = 1, row = 3, padx = 10, pady = 10, sticky = 'ew')
 		def close_find():
+			if search_cancel[0]:
+				search_cancel[0].set()
+			if self._find_apply_after_id is not None:
+				self._own_type.after_cancel(self._find_apply_after_id)
+				self._find_apply_after_id = None
 			self.type_.tag_remove('found', '1.0', 'end')
 			self.type_.tag_remove('foundhighlight', '1.0', 'end')
 			for member in self._group_members():
-				member._own_type.unbind('<<Modified>>')
+				member._own_type.unbind('<<Modified>>', member.findmodbindid)
+				del member.findmodbindid
 			ok.destroy()
 		def on_type_modified(event):
 			event.widget.edit_modified(False)
@@ -1241,8 +1334,8 @@ class Editor(Buffer):
 			member._own_type.edit_modified(False)
 		state.root.update()
 		for member in self._group_members():
-			member._own_type.bind('<<Modified>>', on_type_modified)
-		ok.button(text = 'Close', command = close_find).grid(column = 1, row = 3, padx = 10, pady = 10, sticky = 'ew')
+			member.findmodbindid = member._own_type.bind('<<Modified>>', on_type_modified)
+		ok.button(text = 'Close', command = close_find).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'ew')
 		if state.emacskeysforsearch:
 			ok.bind('<Control-s>', lambda event: fnext())
 			ok.bind('<Control-r>', lambda event: fback())
@@ -1265,6 +1358,14 @@ class Editor(Buffer):
 		if self._filesize_after_id is not None:
 			self._own_type.after_cancel(self._filesize_after_id)
 		self._filesize_after_id = self._own_type.after(DEBOUNCE_TIME, self._update_filesize)
+	def _set_undo_mark(self):
+		if not self.undoset:
+			self.type_.edit_separator()
+			self.undoset = True
+	def trigger_undo_set(self):
+		if self._setundo_after_id is not None:
+			self._own_type.after_cancel(self._setundo_after_id)
+		self.setundo_after_id = self._own_type.after(DEBOUNCE_TIME, self._set_undo_mark)
 	def _update_unsaved(self):
 		if self.title and not self.hmode in ['png', 'pdf', 'epub']:
 			if self.type_.get('1.0', 'end-1c') != self.unsavedtext:
@@ -2190,6 +2291,7 @@ class Editor(Buffer):
 		self._python_edit_generation[0] += 1
 		self.ln.redraw()
 		self.trigger_filesize()
+		self.trigger_undo_set()
 		if self.hmode == 'python':
 			self.tabs.tab(self.sf, state = 'normal')
 			self.python_trigger_name_scan()
@@ -3055,12 +3157,7 @@ class Editor(Buffer):
 			def _removable(tag):
 				return tag not in state._PYTHON_SHELL_HL_SKIP_REMOVE_TAGS and (tag not in state.skiptagspythonshell or self.hmode not in state.skiptagspythonshell[tag])
 			shell_top_line_real = int(shell_top.split('.')[0])
-			try:
-				shell_bottom_line_real = int(self.shellcmd.index(shell_bottom).split('.')[0])
-			except Exception:
-				shell_bottom_line_real = shell_top_line_real + len(stripped_lines)
 			shell_top_line = _shell_real_to_logical.get(shell_top_line_real, 1)
-			shell_bottom_line = _shell_real_to_logical.get(shell_bottom_line_real, len(stripped_lines))
 			if shell_top_line < _exec_boundary:
 				shell_top_line = _exec_boundary
 				if 0 <= shell_top_line - 1 < len(_shell_logical_real_range):
@@ -3068,6 +3165,8 @@ class Editor(Buffer):
 				else:
 					_clamp_first_real = shell_top_line_real
 				shell_top = f'{_clamp_first_real}.0'
+			shell_bottom_line = len(stripped_lines)
+			shell_bottom = 'end'
 			vis_abs = list(range(shell_top_line, shell_bottom_line + 1))
 			vis_code = [stripped_lines[L - 1] if 0 <= L - 1 < len(stripped_lines) else '' for L in vis_abs]
 			visible_code = '\n'.join(vis_code)
@@ -3504,9 +3603,6 @@ class Editor(Buffer):
 			self.hapyshell()
 			self._shell_setview_after_id = self.sf.after(50, shell_setview)
 		self._shell_setview_after_id = self.sf.after(50, shell_setview)
-def bindtype_(buffer, *args, **kwargs):
-	if isinstance(buffer, Editor):
-		buffer._own_type.bind(*args, **kwargs)
 def _init_hl_tags():
 	for buffer in state.all_buffers:
 		if isinstance(buffer, Editor):

@@ -138,7 +138,7 @@ def _term_sgr_resolve(state, default_fg, default_bg):
 		fg = bg if bg is not None else default_bg
 		bg = oldfg if oldfg is not None else default_fg
 	return fg, bg
-class Terminal(easytk.tk.Text):
+class Terminal(easytk.ttk.Text):
 	_term_csi_keys = {'Up': 'A', 'Down': 'B', 'Right': 'C', 'Left': 'D', 'Home': 'H', 'End': 'F'}
 	_term_tilde_keys = {'Insert': '2', 'Delete': '3', 'Prior': '5', 'Next': '6', 'F5': '15', 'F6': '17', 'F7': '18', 'F8': '19', 'F9': '20', 'F10': '21', 'F11': '23', 'F12': '24'}
 	_term_ss3_keys = {'F1': 'P', 'F2': 'Q', 'F3': 'R', 'F4': 'S'}
@@ -195,6 +195,7 @@ class Terminal(easytk.tk.Text):
 		self._last_term_size = (0, 0)
 		self._term_started = False
 		self._polling = False
+		self._read_generation = 0
 		self._follow_bottom = True
 		self._poll_after_id = None
 		self._termmenu = state.root.menu(master = self)
@@ -218,6 +219,7 @@ class Terminal(easytk.tk.Text):
 		self.bind('<Meta-w>', self._meta_key)
 		self.bind('<FocusIn>', self._focus_in)
 		self.bind('<FocusOut>', self._focus_out)
+		self.bind('<<ThemeChanged>>', self._term_on_theme_changed)
 		self.bind('<Button-1>', self._term_button1_press)
 		self.bind('<ButtonRelease-1>', self._term_button1_release)
 		self.bind('<B1-Motion>', self._term_button1_motion)
@@ -250,8 +252,11 @@ class Terminal(easytk.tk.Text):
 	def _term_compute_size(self):
 		state.root.update()
 		charw, charh = self._term_char_size()
-		cols = max(1, self.winfo_width() // charw)
-		rows = max(1, self.winfo_height() // charh)
+		_chrome = int(self.cget('borderwidth')) + int(self.cget('highlightthickness'))
+		_pad_w = 2 * (_chrome + int(self.cget('padx')))
+		_pad_h = 2 * (_chrome + int(self.cget('pady')))
+		cols = max(1, (self.winfo_width() - _pad_w) // charw)
+		rows = max(1, (self.winfo_height() - _pad_h) // charh)
 		self.config(width = cols, height = rows)
 		return self.cget('width'), self.cget('height')
 	def _term_on_map(self, event):
@@ -295,7 +300,8 @@ class Terminal(easytk.tk.Text):
 		else:
 			self.proc = PtyProcess.spawn(self._term_command if self._term_command else ['powershell.exe'], dimensions = (self._GRID_ROWS, self._GRID_COLS))
 		state._open_terminal_closers.append(self._terminate_process)
-		threading.Thread(target = self._read, daemon = True).start()
+		self._read_generation += 1
+		threading.Thread(target = self._read, args = (self._read_generation, self._out_q, getattr(self, 'master_fd', None), self.proc), daemon = True).start()
 		self.after(50, self._poll)
 	def _term_on_configure(self, event):
 		size = (event.width, event.height)
@@ -358,27 +364,27 @@ class Terminal(easytk.tk.Text):
 		import termios
 		os.setsid()
 		fcntl.ioctl(0, termios.TIOCSCTTY, 0)
-	def _read(self):
+	def _read(self, gen, q, fd, proc):
 		_dec = codecs.getincrementaldecoder('utf-8')(errors = 'replace')
-		while self.running:
+		while self._read_generation == gen:
 			try:
 				if platform.system() == 'Linux':
 					import select
-					r, _, _ = select.select([self.master_fd], [], [], 0.05)
+					r, _, _ = select.select([fd], [], [], 0.05)
 					if r:
-						data = os.read(self.master_fd, 4096)
+						data = os.read(fd, 4096)
 						if not data:
 							break
-						self._out_q.put(_dec.decode(data))
-					elif self.proc.poll() is not None:
+						q.put(_dec.decode(data))
+					elif proc.poll() is not None:
 						break
 				else:
-					data = self.proc.read(4096)
+					data = proc.read(4096)
 					if data:
-						self._out_q.put(data if isinstance(data, str) else _dec.decode(data))
+						q.put(data if isinstance(data, str) else _dec.decode(data))
 			except Exception:
 				break
-		self._out_q.put(None)
+		q.put(None)
 	def _write(self, data):
 		if platform.system() == 'Linux':
 			os.write(self.master_fd, data)
@@ -1728,6 +1734,25 @@ class Terminal(easytk.tk.Text):
 				self._write(b'\x1b[O')
 			except Exception:
 				pass
+	def _term_on_theme_changed(self, e = None):
+		if self._alt_mode or self._reverse_screen:
+			return
+		try:
+			_bg = self.cget('background')
+			_fg = self.cget('foreground')
+		except Exception:
+			return
+		if _bg == self._term_default_bg and _fg == self._term_default_fg:
+			return
+		self._term_default_bg = _bg
+		self._term_default_fg = _fg
+		self._default_fg_rgb = self.winfo_rgb(_fg)
+		self._default_bg_rgb = self.winfo_rgb(_bg)
+		self.tag_configure('sel', background = _fg, foreground = _bg)
+		if not self._alt_mode:
+			self.config(insertbackground = _fg)
+		if not self.nocolor:
+			self._recompute_sgr_tag()
 class TerminalBuffer(Buffer):
 	def __init__(self, master, command, title, endmessage, *args, **kwargs):
 		super().__init__(master, *args, **kwargs)

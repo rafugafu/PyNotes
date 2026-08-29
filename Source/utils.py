@@ -5,14 +5,29 @@ import subprocess
 import webbrowser
 import state
 from init import homedir, rootdir, monospace
-def bindrecur(widget, event, func, *args, **kwargs):
-	widget.bind(event, lambda event, f = func: (f(event), 'break')[1], *args, **kwargs)
+def bindrecur(widget, event, func, break_ = True, *args, **kwargs):
+	if break_:
+		f = lambda *args, **kwargs: func(*args, **kwargs) or 'break'
+	else:
+		f = func
+	widget.bind(event, lambda event, f = f: f(event), *args, **kwargs)
 	for child in widget.winfo_children():
-		bindrecur(child, event, func, *args, **kwargs)
+		bindrecur(child, event, func, break_, *args, **kwargs)
 def unbindrecur(widget, *args, **kwargs):
 	widget.unbind(*args, **kwargs)
 	for child in widget.winfo_children():
 		unbindrecur(child, *args, **kwargs)
+def bindtype_(buffer, event, func, break_ = True, *args, **kwargs):
+	import editor
+	if break_:
+		f = lambda *args, **kwargs: func(*args, **kwargs) or 'break'
+	else:
+		f = func
+	if isinstance(buffer, editor.Editor):
+		buffer._own_type.bind(event, lambda event, f = f: f(event), *args, **kwargs)
+def unbindtype_(buffer, *args, **kwargs):
+	if isinstance(buffer, editor.Editor):
+		buffer._own_type.unbind(*args, **kwargs)
 def load_themes():
 	themesdir = f'{homedir}/.local/share/PyNotes/themes'
 	for file in os.listdir(themesdir):
@@ -81,7 +96,7 @@ def prompt(text, autocompletefunc = None, defaultinput = None):
 	state.cmdentry.bind('<Return>', lambda event, promptend = promptend: setreturninput(promptend))
 	state.cmdentry.bind('<Escape>', lambda event: show(''))
 	if autocompletefunc:
-		state.cmdentry.bind('<Tab>', lambda event, cmdentry = state.cmdentry, promptend = promptend, autocompletefunc = autocompletefunc: (autocomplete(cmdentry, promptend, autocompletefunc), 'break')[1])
+		state.cmdentry.bind('<Tab>', lambda event, cmdentry = state.cmdentry, promptend = promptend, autocompletefunc = autocompletefunc: autocomplete(cmdentry, promptend, autocompletefunc) or 'break')
 	state.root.update()
 	state.cmdentry.focus_set()
 	while state.prompting:
@@ -92,6 +107,7 @@ def prompt(text, autocompletefunc = None, defaultinput = None):
 	state.cmdentry.unbind('<Escape>')
 	state.cmdentry.config(state = 'disabled')
 	state.cmdautocomplete.pack_forget()
+	state.active.mainwidget.focus_set()
 	state.root.update()
 	return inputtext
 def dp():

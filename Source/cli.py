@@ -1,5 +1,6 @@
 from init import exit
 def argparse(options, args):
+	options = {key: (item if item != [True] else []) for key, item in options.copy().items()}
 	exitwith = lambda message: [print(message), exit(1)]
 	curarg = None
 	files_to_open = []
@@ -23,6 +24,8 @@ def argparse(options, args):
 					exitwith(f'error: unknown option "--{opn}"')
 				if options[opn] == True:
 					options[opn] = opv
+				elif type(options[opn]) == list:
+					options[opn].append(opv)
 				elif options[opn] in (False, None):
 					exitwith(f'error: option "--{opn}" does not take any argument')
 				else:
@@ -30,15 +33,18 @@ def argparse(options, args):
 			else:
 				if arg not in options:
 					exitwith(f'error: unknown option "--{arg}"')
-				if options[arg] == True:
+				if options[arg] == True or type(options[arg]) == list:
 					curarg = arg
 				elif options[arg] == False:
 					curarg = arg
 					options[arg] = None
 				else:
 					exitwith(f'error: repeated argument "--{arg}"')
-		else:
-			options[curarg] = arg
+		elif curarg:
+			if type(options[curarg]) == list:
+				options[curarg].append(arg)
+			else:
+				options[curarg] = arg
 			curarg = None
 	if curarg and options[curarg] not in (False, None):
 		exitwith(f'error: unspecified option "{curarg}"')

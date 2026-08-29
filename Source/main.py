@@ -32,7 +32,7 @@ import init
 from cli import argparse
 from tkinter import messagebox as mb
 options, files_to_open = argparse({'version': False, 'changes': False, 'plugin-list-github': False, 'plugin-list-installed': False, 'no-load-pycode': False, 'no-load-plugins': False, 'pycode-exec': True, 'command-exec': True, 'help': False, 'plugin-install': True, 'plugin-remove': True, 'plugin-describe': True}, sys.argv[1:])
-changelist = ['Added mouse support to the PyNotes terminal.', 'Made the PyNotes terminal a buffer instead of a subwindow.', 'Added resizing of the PyNotes terminal.', 'Fixed some bugs in the terminal and added support for more ANSI codes.', 'Added some more PyCode commands.', 'Fixed a bug where --plugin-install would not work with spaces in the plugin name.', 'Fixed a bug where resizing buffers by hand would balance the buffers again afterward.', 'Fixed a bug on Linux where in fullscreen/maximized window the menu would disappear until a window resize when a new buffer is opened.', 'Made the Python shell also a full terminal without color instead of a small \'linux\' terminal.']
+changelist = ['Added reverse search and separated forward search from search from beginning.', 'Added setattr and getattr commands to PyCode.', 'Fixed upgrading ttkbootstrap from 1.x failing.', 'Fixed some bugs.']
 state.changestr = ''
 for i in range(len(changelist) - 1):
 	state.changestr += f'{i + 1}. {changelist[i]}\n\n'
@@ -181,7 +181,7 @@ try:
 except Exception:
 	if mb.askyesno('Info', 'The module \'ttkbootstrap\' is not installed. PyNotes will not be able to run without this module. Should PyNotes install it locally?'):
 		pipdir = os.path.dirname(sys.executable)
-		subprocess.run([os.path.join(pipdir, 'pip'), 'install', 'ttkbootstrap'])
+		subprocess.run([os.path.join(pipdir, 'pip'), 'install', '-U', 'ttkbootstrap'])
 	try:
 		import easytk
 	except Exception:
@@ -266,7 +266,8 @@ import command
 import pycode
 import window
 import help
-for _m in (utils, buffer, speech, dialogs, editor, terminal, command, pycode, window, help):
+import preferences
+for _m in (utils, buffer, speech, dialogs, editor, terminal, command, pycode, window, help, preferences):
 	globals().update({_k: _v for _k, _v in vars(_m).items() if not _k.startswith('__')})
 del _m
 init.create_root_and_menus()
@@ -389,6 +390,8 @@ state.root.bind('<Configure>', _on_root_resize)
 neweditor()
 if state.defs[3] in state.root.themes():
 	state.root.style(state.defs[3])
+else:
+	state.root.style('bootstrap-light')
 vars(state).update(globals())
 if not options['no-load-pycode']:
 	try:
