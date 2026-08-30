@@ -753,15 +753,17 @@ class Editor(Buffer):
 			if not self.hmode in ['png', 'pdf', 'epub']:
 				try:
 					content = self.type_.get('1.0', 'end-1c')
-					if content == self.unsavedtext:
-						utils.show('no changes to save')
-						return True
 					if os.path.isdir(nm):
 						state.root.error('Error', f'"{os.path.basename(nm)}" is an already existing directory.')
 						return False
 					if os.path.dirname(nm):
+						if not os.path.exists(os.path.dirname(nm)):
+							os.makedirs(os.path.dirname(nm), exist_ok = True)
 						os.chdir(os.path.dirname(nm))
 						nm = os.path.basename(nm)
+					if content == self.unsavedtext:
+						utils.show('no changes to save')
+						return True
 					self.file_editing_own = True
 					try:
 						file = open(nm, 'w', encoding = 'utf-8')
