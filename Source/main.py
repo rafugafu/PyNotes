@@ -27,8 +27,12 @@ import state
 from encrypter import encryptdecrypt
 import urllib.request
 import zipfile
-from init import v, rootdir, homedir, monospace, info, switchvenv
 import init
+import utils
+import dialogs
+for _m in (init, utils, dialogs):
+	globals().update({_k: _v for _k, _v in vars(_m).items() if not _k.startswith('__')})
+del _m
 from cli import argparse
 from tkinter import messagebox as mb
 options, files_to_open = argparse({'version': False, 'changes': False, 'plugin-list-github': False, 'plugin-list-installed': False, 'no-load-pycode': False, 'no-load-plugins': False, 'pycode-exec': True, 'command-exec': True, 'help': False, 'plugin-install': True, 'plugin-remove': True, 'plugin-describe': True}, sys.argv[1:])
@@ -256,10 +260,8 @@ except Exception:
 	pass
 if platform.system() != 'Linux':
 	from winpty import PtyProcess
-import utils
 import buffer
 import speech
-import dialogs
 import editor
 import terminal
 import command
@@ -267,7 +269,7 @@ import pycode
 import window
 import help
 import preferences
-for _m in (utils, buffer, speech, dialogs, editor, terminal, command, pycode, window, help, preferences):
+for _m in (buffer, speech, editor, terminal, command, pycode, window, help, preferences):
 	globals().update({_k: _v for _k, _v in vars(_m).items() if not _k.startswith('__')})
 del _m
 init.create_root_and_menus()
