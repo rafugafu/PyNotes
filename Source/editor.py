@@ -337,6 +337,8 @@ class Editor(Buffer):
 			self.tabs.tab(self.ef, state = 'hidden')
 			self.lfouter.pack_forget()
 			pycode.pcrun(state.pycode_keybindings_cdt)
+	def resetfileinfo(self):
+		self.fileinfoconfig(filename = 'Untitled', filetype = 'Plain Text (*.*)', filesize = '0 bytes', filesaved = 'Untitled File')
 	def _detach_before_close(self):
 		if self.view_children:
 			window._promote_new_master(self)
@@ -360,7 +362,7 @@ class Editor(Buffer):
 		super().__init__(master, *args, **kwargs)
 		self.view_master = view_master
 		self.view_children = []
-		self.fileinfoconfig(filename = 'Untitled', filetype = 'Plain Text (*.*)', filesize = '0 bytes', filesaved = 'Untitled File')
+		self.resetfileinfo()
 		self.tabs = state.root.tabs(master = self)
 		self.mf = state.root.frame(master = self.tabs)
 		self.sf = state.root.frame(master = self.tabs)

@@ -657,7 +657,9 @@ def _python_resolve_module_members(buf, name, visited = None):
 		return {}
 	members = _python_inspect_ast_members(mod_ast.body)
 	_import_nodes = []
-	def _collect_scope_imports(_stmts, _globals):
+	def _collect_scope_imports(_stmts, _globals, _depth = 0):
+		if _depth > 60:
+			return
 		for _st in _stmts:
 			if isinstance(_st, (ast.Import, ast.ImportFrom)):
 				if _globals is None:
@@ -672,27 +674,27 @@ def _python_resolve_module_members(buf, name, visited = None):
 				if _globals is not None:
 					_globals.update(_st.names)
 			elif isinstance(_st, ast.If):
-				_collect_scope_imports(_st.body, _globals)
-				_collect_scope_imports(_st.orelse, _globals)
+				_collect_scope_imports(_st.body, _globals, _depth + 1)
+				_collect_scope_imports(_st.orelse, _globals, _depth + 1)
 			elif isinstance(_st, ast.Try):
-				_collect_scope_imports(_st.body, _globals)
+				_collect_scope_imports(_st.body, _globals, _depth + 1)
 				for _h in _st.handlers:
-					_collect_scope_imports(_h.body, _globals)
-				_collect_scope_imports(_st.orelse, _globals)
-				_collect_scope_imports(_st.finalbody, _globals)
+					_collect_scope_imports(_h.body, _globals, _depth + 1)
+				_collect_scope_imports(_st.orelse, _globals, _depth + 1)
+				_collect_scope_imports(_st.finalbody, _globals, _depth + 1)
 			elif isinstance(_st, (ast.With, ast.AsyncWith)):
-				_collect_scope_imports(_st.body, _globals)
+				_collect_scope_imports(_st.body, _globals, _depth + 1)
 			elif isinstance(_st, (ast.For, ast.AsyncFor, ast.While)):
-				_collect_scope_imports(_st.body, _globals)
-				_collect_scope_imports(_st.orelse, _globals)
+				_collect_scope_imports(_st.body, _globals, _depth + 1)
+				_collect_scope_imports(_st.orelse, _globals, _depth + 1)
 			elif isinstance(_st, (ast.FunctionDef, ast.AsyncFunctionDef)):
 				_fnglobals = set()
 				for _sub in ast.walk(_st):
 					if isinstance(_sub, ast.Global):
 						_fnglobals.update(_sub.names)
-				_collect_scope_imports(_st.body, _fnglobals)
+				_collect_scope_imports(_st.body, _fnglobals, _depth + 1)
 			elif isinstance(_st, ast.ClassDef):
-				_collect_scope_imports(_st.body, set())
+				_collect_scope_imports(_st.body, set(), _depth + 1)
 	_collect_scope_imports(mod_ast.body, None)
 	for node in _import_nodes:
 		if isinstance(node, ast.ImportFrom):
@@ -1094,25 +1096,27 @@ def _python_build_scopes(buf, text, gen = None, line_blocks = None, seed_names =
 	for _tn in tree_class_defs:
 		if _tn.name not in _class_def_by_name:
 			_class_def_by_name[_tn.name] = _tn
-	def _flatten_class_body(body):
+	def _flatten_class_body(body, depth = 0):
 		out = []
+		if depth > 60:
+			return out
 		for _s in body:
 			if isinstance(_s, (ast.Assign, ast.AnnAssign)):
 				out.append(_s)
 			elif isinstance(_s, (ast.For, ast.AsyncFor, ast.While)):
-				out.extend(_flatten_class_body(_s.body))
-				out.extend(_flatten_class_body(_s.orelse))
+				out.extend(_flatten_class_body(_s.body, depth + 1))
+				out.extend(_flatten_class_body(_s.orelse, depth + 1))
 			elif isinstance(_s, ast.If):
-				out.extend(_flatten_class_body(_s.body))
-				out.extend(_flatten_class_body(_s.orelse))
+				out.extend(_flatten_class_body(_s.body, depth + 1))
+				out.extend(_flatten_class_body(_s.orelse, depth + 1))
 			elif isinstance(_s, (ast.With, ast.AsyncWith)):
-				out.extend(_flatten_class_body(_s.body))
+				out.extend(_flatten_class_body(_s.body, depth + 1))
 			elif isinstance(_s, ast.Try):
-				out.extend(_flatten_class_body(_s.body))
+				out.extend(_flatten_class_body(_s.body, depth + 1))
 				for _h in _s.handlers:
-					out.extend(_flatten_class_body(_h.body))
-				out.extend(_flatten_class_body(_s.orelse))
-				out.extend(_flatten_class_body(_s.finalbody))
+					out.extend(_flatten_class_body(_h.body, depth + 1))
+				out.extend(_flatten_class_body(_s.orelse, depth + 1))
+				out.extend(_flatten_class_body(_s.finalbody, depth + 1))
 		return out
 	def _compute_class_members(node):
 		members = _python_inspect_ast_members(node.body)
