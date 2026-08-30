@@ -59,17 +59,19 @@ def setactive(newindex = None, force = False):
 	pycode.pcrunhook('before', 'switch-buffer', newindex)
 	state.buffindex = newindex
 	buffer.active = True
-	state.mainmenu.delete(0, 'end')
-	lastentry = buffer.m.index('end')
-	if lastentry is not None:
-		for i in range(lastentry + 1):
-			if buffer.m.type(i) == 'cascade':
-				state.mainmenu.add_cascade(label = buffer.m.entrycget(i, 'label'), menu = state.root.nametowidget(buffer.m.entrycget(i, 'menu')))
 	state.active = buffer
+	update_menus()
 	state.root.update()
 	buffer.mainwidget.focus_set()
 	settitle()
 	pycode.pcrunhook('after', 'switch-buffer', state.buffindex)
+def update_menus():
+	state.mainmenu.delete(0, 'end')
+	lastentry = state.active.m.index('end')
+	if lastentry is not None:
+		for i in range(lastentry + 1):
+			if state.active.m.type(i) == 'cascade':
+				state.mainmenu.add_cascade(label = state.active.m.entrycget(i, 'label'), menu = state.root.nametowidget(state.active.m.entrycget(i, 'menu')))
 def settitle():
 	if state.active and not state.pcsettitle:
 		state.root.title('PyNotes - ' + state.active.wanttitle)

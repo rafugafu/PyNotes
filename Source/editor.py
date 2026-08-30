@@ -2332,6 +2332,7 @@ class Editor(Buffer):
 			self.m.insert_cascade(self.m.index('Options') + 1, label = 'Python', menu = state.pm)
 		elif mode == 'latex':
 			self.m.insert_cascade(self.m.index('Options') + 1, label = 'LaTeX', menu = state.lm)
+		window.update_menus()
 	def pchmode(self, mode):
 		if self.view_master:
 			return self.view_master.pchmode(mode)
