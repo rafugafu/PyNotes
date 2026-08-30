@@ -794,6 +794,11 @@ pythoncommands = [pycodetopythoncommands[x] for x in pycodecommands]
 def pcread(code):
 	global pycodecommands
 	global pythoncommands
+	for binded in state.wholenewwords:
+		state.root.unbind(binded)
+		for buffer in state.all_buffers:
+			unbindrecur(buffer, binded)
+	state.wholenewwords.clear()
 	pycodecommands = sorted(list(pycodetopythoncommands))
 	pythoncommands = [pycodetopythoncommands[x] for x in pycodecommands]
 	state.pcwrittencommands = {}
@@ -1134,8 +1139,8 @@ def pcread(code):
 					else:
 						state.wholenewwords.append(key_part)
 						simple_bindings_seen[key_part] = action_parts
-						type_bind_cdt += f"for buffer in all_buffers: bindrecur(buffer, '{key_part}', lambda event: pcexecaction(\"{action_parts}\") or 'break')" + '\n'
-						cdt += f'root.bind(\'{key_part}\', lambda event: pcexecaction("{action_parts}"))' + '\n'
+						type_bind_cdt += f'for buffer in all_buffers: bindrecur(buffer, \'{key_part}\', lambda event: pcexecaction("{action_parts}"))' + '\n'
+						cdt += f'root.bind(\'{key_part}\', lambda event: pcexecaction("{action_parts}") or \'break\')' + '\n'
 				elif p and len(p) == 1:
 					p = p[0].strip()[:-1]
 					func_name = p.split('→:')[0].strip()[:-1][1:].strip()
@@ -1279,7 +1284,7 @@ for buffer in all_buffers: bindtype_(buffer, '<Control-s>', lambda event, editor
 for buffer in all_buffers: bindtype_(buffer, '<Control-S>', lambda event, editor = buffer: editor.ssv())
 for buffer in all_buffers: bindtype_(buffer, '<F5>', lambda event, editor = buffer: editor.f5())
 for buffer in all_buffers: bindtype_(buffer, '<Control-space>', lambda event, editor = buffer: editor.toggleselpoint())
-for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, editor = buffer: editor.selkeypress(event), break_ = False)
+for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, editor = buffer: editor.selkeypress(event), False, '+')
 '''
 	cdt = defaults_cdt_root + cdt
 	type_bind_cdt = defaults_cdt_type_ + type_bind_cdt
@@ -1314,8 +1319,9 @@ for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, editor 
 			kp_body = f"((pcexecaction(\"{ap}\") or _pychord_state.__setitem__(0, None) or 'break') if _pychord_state[0] in ('{es}',) and event.keysym in ('{ks_}',) and not (event.state & 12) else {kp_body})"
 		chord_init = 'globals().setdefault(\'_pychord_state\', [None])\n'
 		chord_init += f'root.bind(\'<KeyPress>\', lambda event: {kp_body})\n'
-		type_bind_cdt = f'for editor in all_buffers: bindtype_(editor, \'<KeyPress>\', lambda event: {kp_body})\n' + type_bind_cdt
+		type_bind_cdt = f'for editor in all_buffers: bindtype_(editor, \'<KeyPress>\', lambda event: {kp_body}, False, \'+\')\n' + type_bind_cdt
 		cdt = chord_init + cdt
+		state.wholenewwords.append('<KeyPress>')
 	state.pycode_keybindings_cdt = type_bind_cdt
 	pcrun(cdt)
 	pcrun(type_bind_cdt)
@@ -1362,11 +1368,6 @@ pchookevents = ['new-file-current-editor', 'new-file-new-editor', 'open-file-cur
 def pc():
 	pcrunhook('before', 'open-pycode')
 	utils.show('open pycode')
-	for binded in state.wholenewwords:
-		state.root.unbind(binded)
-		for buffer in state.all_buffers:
-			unbindrecur(buffer, binded)
-	state.wholenewwords.clear()
 	pcwin = state.root.subwin()
 	pcwin.title('PyCode - PyNotes')
 	gcframe = pcwin.frame()
