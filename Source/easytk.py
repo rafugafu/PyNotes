@@ -85,7 +85,7 @@ class win(ttk.Window):
 	def menu(self, master = None, *args, **kwargs):
 		if master == None:
 			master = self
-		return tk.Menu(master, *args, **kwargs)
+		return ttk.Menu(master, *args, **kwargs)
 	def entry(self, master = None, *args, **kwargs):
 		if master == None:
 			master = self
