@@ -666,9 +666,9 @@ def cmdrevalues(currentinput):
 		content, multiplier = currentinput.split('*', 1)
 		return [candidate + '*' + multiplier for candidate in cmdautocompletefunc(content)]
 	return cmdautocompletefunc(currentinput)
-def cmdregister(names, hmodes = None, inputs = None):
+def cmdregister(names, hmodes = None, inputs = None, buffertypes = None):
 	for name in names:
-		cmdregistry[name] = {'hmodes': hmodes, 'inputs': inputs}
+		cmdregistry[name] = {'hmodes': hmodes, 'inputs': inputs, 'buffertypes': buffertypes}
 cmdregistry = {}
 cmdregister(('exit', 'e'))
 cmdregister(('sh', 'splithoriz', 'split-editor-horizontal'))
@@ -685,14 +685,14 @@ cmdregister(('nev', 'neweditvert', 'new-editor-vertical'))
 cmdregister(('onh', 'opennewhoriz', 'open-file-horizontal'))
 cmdregister(('onv', 'opennewvert', 'open-file-vertical'))
 cmdregister(('changes', 'ch'))
-cmdregister(('run',), hmodes = ('python', 'latex', 'html'))
+cmdregister(('run',), hmodes = ('python', 'latex', 'html'), buffertypes = (editor.Editor,))
 cmdregister(('ms', 'mark', 'markset', 'mark-selection'))
 cmdregister(('unms', 'unmark', 'unmark-selection'))
-cmdregister(('sendemail', 'sendmail'), hmodes = ('email',))
+cmdregister(('sendemail', 'sendmail'), hmodes = ('email',), buffertypes = (editor.Editor,))
 cmdregister(('unma', 'unmarkall'))
-cmdregister(('comment', 'cr', 'comment-region'), hmodes = ('python', 'latex', 'html', 'markdown'))
-cmdregister(('uncomment', 'uncr', 'uncomment-region'), hmodes = ('python', 'latex', 'html', 'markdown'))
-cmdregister(('pyshell', 'ps'), hmodes = ('python',))
+cmdregister(('comment', 'cr', 'comment-region'), hmodes = ('python', 'latex', 'html', 'markdown'), buffertypes = (editor.Editor,))
+cmdregister(('uncomment', 'uncr', 'uncomment-region'), hmodes = ('python', 'latex', 'html', 'markdown'), buffertypes = (editor.Editor,))
+cmdregister(('pyshell', 'ps'), hmodes = ('python',), buffertypes = (editor.Editor,))
 cmdregister(('fullup',))
 cmdregister(('fulldown',))
 cmdregister(('editor', 'ed'))
@@ -734,18 +734,26 @@ cmdregister(('min',))
 cmdregister(('clear',))
 cmdregister(('pycode', 'pc'))
 cmdregister(('ab', 'abt', 'about', 'pynotes'))
-cmdregister(('pynavstart', 'pyjumpstart', 'python-jump-startof'), hmodes = ('python',), inputs = cmdpynavvalues)
-cmdregister(('pynavend', 'pyjumpend', 'python-jump-endof'), hmodes = ('python',), inputs = cmdpynavvalues)
-cmdregister(('pygodef', 'python-go-definition'), hmodes = ('python',), inputs = cmdpygodefvalues)
-cmdregister(('hmode',), hmodes = cmdallhmodenames, inputs = cmdhmodevalues)
+cmdregister(('pynavstart', 'pyjumpstart', 'python-jump-startof'), hmodes = ('python',), inputs = cmdpynavvalues, buffertypes = (editor.Editor,))
+cmdregister(('pynavend', 'pyjumpend', 'python-jump-endof'), hmodes = ('python',), inputs = cmdpynavvalues, buffertypes = (editor.Editor,))
+cmdregister(('pygodef', 'python-go-definition'), hmodes = ('python',), inputs = cmdpygodefvalues, buffertypes = (editor.Editor,))
+cmdregister(('hmode',), hmodes = cmdallhmodenames, inputs = cmdhmodevalues, buffertypes = (editor.Editor,))
 def cmdregistryentry(name):
-	return cmdregistry.get(name, {'hmodes': None, 'inputs': None})
+	return cmdregistry.get(name, {'hmodes': None, 'inputs': None, 'buffertypes': None})
+def cmdbuffertypeavailable(buffertypes):
+	if buffertypes is None:
+		return True
+	if state.active is None:
+		return False
+	return isinstance(state.active, tuple(buffertypes))
 def cmdhmodeavailable(hmodes):
 	if hmodes is None:
 		return True
 	if callable(hmodes):
 		hmodes = hmodes()
 	if state.active is None:
+		return False
+	if not isinstance(state.active, editor.Editor):
 		return False
 	return state.active.hmode in hmodes
 def cmdinputvariants(inputs):
@@ -767,6 +775,8 @@ def cmdbasecommandnames():
 	basecommandnames = []
 	for name in names:
 		entry = cmdregistryentry(name)
+		if not cmdbuffertypeavailable(entry['buffertypes']):
+			continue
 		if not cmdhmodeavailable(entry['hmodes']):
 			continue
 		showbare, showcolon = cmdinputvariants(entry['inputs'])
@@ -777,6 +787,8 @@ def cmdbasecommandnames():
 	return basecommandnames
 def cmdcommandvalues(command, currentinput):
 	entry = cmdregistryentry(command)
+	if not cmdbuffertypeavailable(entry['buffertypes']):
+		return []
 	if not cmdhmodeavailable(entry['hmodes']):
 		return []
 	inputs = entry['inputs']
