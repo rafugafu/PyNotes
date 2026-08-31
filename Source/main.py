@@ -182,15 +182,16 @@ if platform.system() == 'Linux':
 switchvenv()
 try:
 	import easytk
+	assert tuple(map(int, easytk.ttk.__version__.split('.'))) >= (2, 0, 0)
 except Exception:
 	if mb.askyesno('Info', 'The module \'ttkbootstrap\' is not installed. PyNotes will not be able to run without this module. Should PyNotes install it locally?'):
 		pipdir = os.path.dirname(sys.executable)
 		subprocess.run([os.path.join(pipdir, 'pip'), 'install', '-U', 'ttkbootstrap'])
-	try:
-		import easytk
-	except Exception:
-		mb.showerror('Error', 'ttkbootstrap was not installed successfully. Quitting PyNotes.')
+	else:
+		mb.showerror('Error!', 'Quitting PyNotes.')
 		exit(1)
+	mb.showinfo('Info', 'Restarting PyNotes.')
+	os.execv(sys.executable, [sys.executable] + sys.argv)
 if platform.system() != 'Linux':
 	fd = easytk.fd
 from python_scope_build import _PYTHON_BUILTIN_MEMBERS, _PYTHON_BUILTIN_CALLABLE_PARAMS, _PYTHON_BUILTIN_CALLABLE_NAMES, _PYTHON_BUILTIN_NAMES, _PYTHON_BUILTIN_METHOD_RETURNS, _PythonScanCancelled, _PythonScopeBuilder, _python_method_has_implicit_first_param, _python_c3_linearize, _python_partial_target, _python_unwrap_descriptor, _python_import_fromlist_is_nonempty, _python_static_value_kind, _python_inspect_ast_members, _PythonModuleSpec, _python_resolve_toplevel_fs, _python_module_src_path, _python_relative_import_target
