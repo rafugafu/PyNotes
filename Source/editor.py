@@ -1113,22 +1113,20 @@ class Editor(Buffer):
 			if search_cancel[0]:
 				search_cancel[0].set()
 			if self._find_apply_after_id is not None:
-				self._own_type.after_cancel(self._find_apply_after_id)
+				self.type_.after_cancel(self._find_apply_after_id)
 				self._find_apply_after_id = None
 			self.type_.tag_remove('found', '1.0', 'end')
 			self.type_.tag_remove('foundhighlight', '1.0', 'end')
-			for member in self._group_members():
-				member._own_type.unbind('<<Modified>>', findmodbindid)
+			self.type_.unbind('<<Modified>>', findmodbindid)
 			ok.destroy()
 		def on_type_modified(event):
 			event.widget.edit_modified(False)
 			if programmatic_edit[0]:
 				return
 			close_find()
-		for member in self._group_members():
-			member._own_type.edit_modified(False)
+		self.type_.edit_modified(False)
 		state.root.update()
-		findmodbindid = member._own_type.bind('<<Modified>>', on_type_modified, '+')
+		findmodbindid = self.type_.bind('<<Modified>>', on_type_modified, '+')
 		ok.button(text = 'Close', command = close_find).grid(column = 1, row = 6, padx = 10, pady = 10, sticky = 'ew')
 		if state.emacskeysforsearch:
 			ok.bind('<Alt-Return>', lambda event: fnext())
@@ -1321,20 +1319,18 @@ class Editor(Buffer):
 			if search_cancel[0]:
 				search_cancel[0].set()
 			if self._find_apply_after_id is not None:
-				self._own_type.after_cancel(self._find_apply_after_id)
+				self.type_.after_cancel(self._find_apply_after_id)
 				self._find_apply_after_id = None
 			self.type_.tag_remove('found', '1.0', 'end')
 			self.type_.tag_remove('foundhighlight', '1.0', 'end')
-			for member in self._group_members():
-				member._own_type.unbind('<<Modified>>', findmodbindid)
+			self.type_.unbind('<<Modified>>', findmodbindid)
 			ok.destroy()
 		def on_type_modified(event):
 			event.widget.edit_modified(False)
 			close_find()
-		for member in self._group_members():
-			member._own_type.edit_modified(False)
+		self.type_.edit_modified(False)
 		state.root.update()
-		findmodbindid = member._own_type.bind('<<Modified>>', on_type_modified)
+		findmodbindid = self.type_.bind('<<Modified>>', on_type_modified)
 		ok.button(text = 'Close', command = close_find).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'ew')
 		if state.emacskeysforsearch:
 			ok.bind('<Control-s>', lambda event: fnext())
