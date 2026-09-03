@@ -282,7 +282,7 @@ for code in first_plugin:
 	except Exception as error:
 		error = str(error)
 		state.root.error('Error!', f'There was an error in the first part of the plugin "{os.path.basename(os.path.normpath(code[0]))}":\n{error}')
-state._PYTHON_EDITOR_HL_SKIP_REMOVE_TAGS = {'sel', 'marked', 'found', 'foundhighlight'}
+state._EDITOR_HL_SKIP_REMOVE_TAGS = {'sel', 'marked', 'found', 'foundhighlight'}
 state._PYTHON_SHELL_HL_SKIP_REMOVE_TAGS = {'sel', 'prompt', 'wrapcont'}
 state.skiptags = {}
 state.skiptagspythonshell = {}

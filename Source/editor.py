@@ -2171,7 +2171,7 @@ class Editor(Buffer):
 					on_done()
 					return
 				all_tags = set(own_type.tag_names())
-				removable_tags = [tag for tag in all_tags if tag not in state._PYTHON_EDITOR_HL_SKIP_REMOVE_TAGS and (tag not in state.skiptags or member.hmode not in state.skiptags[tag])]
+				removable_tags = [tag for tag in all_tags if tag not in state._EDITOR_HL_SKIP_REMOVE_TAGS and (tag not in state.skiptags or member.hmode not in state.skiptags[tag])]
 				_HA_CHUNK_SIZE = 4000
 				def _apply_chunk(start):
 					try:
@@ -2274,6 +2274,7 @@ class Editor(Buffer):
 				continue
 			for tag, (pat, theme_key) in mapping.items():
 				try:
+					self._own_type.tag_delete(tag)
 					exec("self._own_type.tag_config('" + tag + "'," + state.theme[theme_key].replace('type_', 'self._own_type') + ')')
 				except Exception:
 					pass
@@ -2339,7 +2340,7 @@ class Editor(Buffer):
 		if self.hmode in ['png', 'pdf', 'epub']:
 			return
 		pycode.pcrunhook('before', 'change-hmode', mode)
-		[self.type_.tag_remove(tag, '1.0', 'end') for tag in ('hpa', 'hpb', 'hpv', 'hpi', 'hpf', 'hpx', 'hpfa', 'hpm', 'hpo', 'hpd', 'hpc', 'hla', 'hlb', 'hld', 'hle', 'hlf', 'hlg', 'hlh', 'hstuff', 'hattr', 'hstr', 'hcmt', 'hmh1', 'hmh2', 'hmh3', 'hmh4', 'hmh5', 'hmh6', 'hmb', 'hmi', 'hmbi')]
+		[self.type_.tag_remove(tag, '1.0', 'end') for tag in self.type_.tag_names() if tag not in state._EDITOR_HL_SKIP_REMOVE_TAGS]
 		if mode == 'python' or mode == 'py':
 			self.sethmenu('python')
 			self.tabs.tab(self.sf, state = 'normal')

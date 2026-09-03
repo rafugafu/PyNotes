@@ -141,7 +141,7 @@ def pccolor(name, *args, **kwargs):
 	theme_key = f'pccolor:{name}'
 	state.theme[theme_key] = ', '.join([repr(arg) for arg in args] + [f'{kw} = {repr(val)}' for kw, val in kwargs.items()])
 	state.plugin_hl[theme_key] = {name: (None, theme_key)}
-	state._PYTHON_EDITOR_HL_SKIP_REMOVE_TAGS.add(name)
+	state._EDITOR_HL_SKIP_REMOVE_TAGS.add(name)
 	for buffer in state.all_buffers:
 		if isinstance(buffer, editor.Editor):
 			buffer.type_.tag_config(name, *args, **kwargs)
