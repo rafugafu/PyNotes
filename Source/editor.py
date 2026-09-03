@@ -181,6 +181,7 @@ class Editor(Buffer):
 		self.type_.bind('<F5>', lambda event: self.f5() or 'break')
 		self.type_.bind('<Control-space>', lambda event: self.toggleselpoint() or 'break')
 		self.type_.bind('<KeyPress>', self.selkeypress)
+		self.type_.bind('<Destroy>', lambda event: self._cancel_type_after_ids())
 	def selkeypress(self, event):
 		if not self.selectionpoint:
 			return
@@ -2163,6 +2164,9 @@ class Editor(Buffer):
 			_process(0)
 		def _finish_one(member, own_type, top, bottom, text, ops, on_done):
 			try:
+				if not own_type.winfo_exists():
+					on_done()
+					return
 				if own_type.get(top, bottom) != text:
 					on_done()
 					return
