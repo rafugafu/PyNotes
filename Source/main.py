@@ -36,7 +36,7 @@ del _m
 from cli import argparse
 from tkinter import messagebox as mb
 options, files_to_open = argparse({'version': False, 'changes': False, 'plugin-list-github': False, 'plugin-list-installed': False, 'no-load-pycode': False, 'no-load-plugins': False, 'pycode-exec': True, 'command-exec': True, 'help': False, 'plugin-install': True, 'plugin-remove': True, 'plugin-describe': True}, sys.argv[1:])
-changelist = ['Added reverse search and separated forward search from search from beginning.', 'Added setattr and getattr commands to PyCode.', 'Fixed upgrading ttkbootstrap from 1.x failing.', 'Fixed some bugs.']
+changelist = ['Added reverse search and separated forward search from search from beginning.', 'Added setattr and getattr commands to PyCode.', 'Added a PyCode evaluator Alt-X command.', 'Fixed upgrading ttkbootstrap from 1.x failing.', 'Fixed some bugs.']
 state.changestr = ''
 for i in range(len(changelist) - 1):
 	state.changestr += f'{i + 1}. {changelist[i]}\n\n'

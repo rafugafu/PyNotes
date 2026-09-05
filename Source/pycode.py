@@ -791,6 +791,237 @@ def pcunindentselection():
 pycodetopythoncommands = {'aboutpynotes': 'abt', 'ask': 'pcask', 'balancebuffers': 'balance', 'cleareditor': 'pccleareditor', 'closebuffer': 'pcclosebuff', 'cmdrun': 'cmdrun', 'color': 'pccolor', 'commentregion': 'pccommentregion', 'commentselection': 'pccommentselection', 'copy': 'pccopy', 'copytext': 'pccopytext', 'cut': 'pccut', 'delete': 'pcdelete', 'dictate': 'st', 'downloadplugins': 'dp', 'fileinfoconfig': 'active.fileinfoconfig', 'findreplace': 'pcfindreplace', 'findtext': 'pcfindtext', 'fullscreen': 'pcfullscreen', 'get': 'pcget', 'getattr': 'getattr', 'getselection': 'pcgetselection', 'gotoline': 'pcgotoline', 'hmode': 'pchmode', 'indentregion': 'pcindentregion', 'indentselection': 'pcindentselection', 'insert': 'pcinsert', 'killquit': 'pckillexit', 'mark': 'pcmark', 'markselection': 'pcmarkselection', 'mathgod': 'mathgod', 'maximize': 'pcmax', 'minimize': 'pcmin', 'movecursor': 'pcmovecursor', 'neweditor': 'neweditor', 'newfile': 'pcnewfile', 'openfile': 'pcopenfile', 'openfilenewedit': 'pcneweditfile', 'openhelp': 'pcopenhelp', 'openplugindir': 'op', 'openpycode': 'pc', 'openterm': 'term', 'pageback': 'pcpageback', 'pageforw': 'pcpageforw', 'pass': 'pass', 'paste': 'pcpaste', 'preferences': 'prf', 'prompt': 'pcprompt', 'pynotessourcecode': 'ss', 'pyshell': 'pcpyshell', 'pythongoendof': 'pcpyendof', 'pythongostartof': 'pcpystartof', 'pythongodef': 'pcgodef', 'quit': 'ext', 'redo': 'pcredo', 'repeatxcommand': 'pcrepeatx', 'removeselectionpoint': 'pcremoveselectionpoint', 'return': 'return', 'runcode': 'pcruncode', 'saveasfile': 'pcsaveasfile', 'savefile': 'pcsavefile', 'say': 'say', 'selall': 'pcselall', 'select': 'pcselecttext', 'setattr': 'setattr', 'setselectionpoint': 'pcsetselectionpoint', 'setvar': 'pcsetvar', 'setwingeometry': 'root.geometry', 'setwintitle': 'pcgosettitle', 'show': 'show', 'speaktext': 'pcspeaktext', 'spliteditor': 'pcsplitedit', 'switchbuffer': 'setactive', 'switcheditortab': 'pcswitchedittab', 'switchemailtab': 'pcswitchemailtab', 'tag': 'pctag', 'termexec': 'pctermexec', 'tkindex': 'pctkindex', 'toggleselectionpoint': 'pctoggleselectionpoint', 'typecommand': 'cmd', 'uncommentregion': 'pcuncommentregion', 'uncommentselection': 'pcuncommentselection', 'undo': 'pcundo', 'unfullscreen': 'pcunfullscreen', 'unindentregion': 'pcunindentregion', 'unindentselection': 'pcunindentselection', 'unmark': 'pcunmark', 'unmarkall': 'pcunmarkall', 'unmaximize': 'pcunmax', 'unsetwintitle': 'pcunsettitle', 'untag': 'pcuntag', 'wait': 'time.sleep', 'write': 'pccmdwrite'}
 pycodecommands = sorted(list(pycodetopythoncommands))
 pythoncommands = [pycodetopythoncommands[x] for x in pycodecommands]
+def finddelimitedspans(s, opener, closer):
+	spans = []
+	depth = 0
+	instring = False
+	start = -1
+	i = 0
+	while i < len(s):
+		ch = s[i]
+		if ch == '\'':
+			instring = not instring
+		if not instring:
+			if s.startswith(opener, i):
+				if depth == 0:
+					start = i
+				depth += 1
+				i += len(opener)
+				continue
+			elif s.startswith(closer, i):
+				depth -= 1
+				i += len(closer)
+				if depth == 0 and start != -1:
+					spans.append((start, i))
+					start = -1
+				continue
+		i += 1
+	return spans
+def pycodesplitdownarrow(s):
+	parts = []
+	depth = 0
+	instring = False
+	current = ''
+	i = 0
+	while i < len(s):
+		ch = s[i]
+		if ch == '\'':
+			instring = not instring
+		if not instring:
+			if ch in '([{':
+				depth += 1
+			elif ch in ')]}':
+				depth -= 1
+		if not instring and depth == 0 and s.startswith('↓', i):
+			parts.append(current)
+			current = ''
+			i += 1
+			continue
+		current += ch
+		i += 1
+	parts.append(current)
+	return parts
+def pycodeblocktoexpr(blockcode):
+	pieces = [piece.strip() for piece in pycodesplitdownarrow(blockcode) if piece.strip()]
+	if not pieces:
+		return 'None'
+	exprs = []
+	for piece in pieces:
+		expr = pycodeindex(piece)
+		if not expr:
+			return None
+		exprs.append(expr)
+	if len(exprs) == 1:
+		return f'({exprs[0]})'
+	return '(' + ', '.join(exprs) + ')'
+def pycodecondexpr(condition):
+	return pycodeindex(condition) or condition
+def pycodeifexpr(pycodecode):
+	text = pycodecode.strip()
+	ifmatch = re.match(r'if\s*(?=\()', text)
+	if not ifmatch:
+		return None
+	pos = ifmatch.end()
+	condspans = finddelimitedspans(text[pos:], '(', ')')
+	if not condspans or condspans[0][0] != 0:
+		return None
+	cs, ce = condspans[0]
+	condition = pycodecondexpr(text[pos + cs + 1:pos + ce - 1].strip())
+	pos += ce
+	gapmatch = re.match(r'\s*', text[pos:])
+	pos += gapmatch.end()
+	if pos >= len(text) or text[pos] != '{':
+		return None
+	codespans = finddelimitedspans(text[pos:], '{', '}')
+	if not codespans or codespans[0][0] != 0:
+		return None
+	bs, be = codespans[0]
+	blockcode = text[pos + bs + 1:pos + be - 1]
+	trueexpr = pycodeblocktoexpr(blockcode)
+	if trueexpr is None:
+		raise Exception(f'Invalid command "{blockcode.strip()}"')
+	pos += be
+	branches = []
+	while True:
+		gapmatch = re.match(r'\s*', text[pos:])
+		nextpos = pos + gapmatch.end()
+		elifmatch = re.match(r'elif\s*(?=\()', text[nextpos:])
+		if not elifmatch:
+			break
+		nextpos += elifmatch.end()
+		econdspans = finddelimitedspans(text[nextpos:], '(', ')')
+		if not econdspans or econdspans[0][0] != 0:
+			raise Exception(f'Invalid condition in "{text}"')
+		ecs, ece = econdspans[0]
+		econdition = pycodecondexpr(text[nextpos + ecs + 1:nextpos + ece - 1].strip())
+		nextpos += ece
+		ebracematch = re.match(r'\s*', text[nextpos:])
+		nextpos += ebracematch.end()
+		if nextpos >= len(text) or text[nextpos] != '{':
+			raise Exception(f'Invalid syntax in "{text}"')
+		ecodespans = finddelimitedspans(text[nextpos:], '{', '}')
+		if not ecodespans or ecodespans[0][0] != 0:
+			raise Exception(f'Invalid syntax in "{text}"')
+		ebs, ebe = ecodespans[0]
+		eblockcode = text[nextpos + ebs + 1:nextpos + ebe - 1]
+		eexpr = pycodeblocktoexpr(eblockcode)
+		if eexpr is None:
+			raise Exception(f'Invalid command "{eblockcode.strip()}"')
+		branches.append((econdition, eexpr))
+		pos = nextpos + ebe
+	gapmatch = re.match(r'\s*', text[pos:])
+	nextpos = pos + gapmatch.end()
+	elseexpr = 'None'
+	if re.match(r'else\s*(?=\{)', text[nextpos:]):
+		elsematch = re.match(r'else\s*', text[nextpos:])
+		nextpos += elsematch.end()
+		ocodespans = finddelimitedspans(text[nextpos:], '{', '}')
+		if not ocodespans or ocodespans[0][0] != 0:
+			raise Exception(f'Invalid syntax in "{text}"')
+		obs, obe = ocodespans[0]
+		oblockcode = text[nextpos + obs + 1:nextpos + obe - 1]
+		oexpr = pycodeblocktoexpr(oblockcode)
+		if oexpr is None:
+			raise Exception(f'Invalid command "{oblockcode.strip()}"')
+		elseexpr = oexpr
+		pos = nextpos + obe
+	if text[pos:].strip():
+		raise Exception(f'Invalid syntax in "{text}"')
+	result = elseexpr
+	for econdition, eexpr in reversed(branches):
+		result = f'({eexpr} if ({econdition}) else {result})'
+	return f'({trueexpr} if ({condition}) else {result})'
+def pycodewhileexpr(pycodecode):
+	text = pycodecode.strip()
+	whilematch = re.match(r'while\s*(?=\()', text)
+	if not whilematch:
+		return None
+	pos = whilematch.end()
+	condspans = finddelimitedspans(text[pos:], '(', ')')
+	if not condspans or condspans[0][0] != 0:
+		return None
+	cs, ce = condspans[0]
+	condition = pycodecondexpr(text[pos + cs + 1:pos + ce - 1].strip())
+	pos += ce
+	gapmatch = re.match(r'\s*', text[pos:])
+	pos += gapmatch.end()
+	if pos >= len(text) or text[pos] != '{':
+		return None
+	codespans = finddelimitedspans(text[pos:], '{', '}')
+	if not codespans or codespans[0][0] != 0:
+		return None
+	bs, be = codespans[0]
+	blockcode = text[pos + bs + 1:pos + be - 1]
+	bodyexpr = pycodeblocktoexpr(blockcode)
+	if bodyexpr is None:
+		raise Exception(f'Invalid command "{blockcode.strip()}"')
+	pos += be
+	if text[pos:].strip():
+		raise Exception(f'Invalid syntax in "{text}"')
+	return f'pcwhileloop(lambda: ({condition}), lambda: {bodyexpr})'
+def splittoplevelcommas(s):
+	parts = []
+	depth = 0
+	instring = False
+	current = ''
+	for ch in s:
+		if ch == '\'':
+			instring = not instring
+		if not instring:
+			if ch == '(':
+				depth += 1
+			elif ch == ')':
+				depth -= 1
+		if ch == ',' and depth == 0 and not instring:
+			parts.append(current)
+			current = ''
+		else:
+			current += ch
+	parts.append(current)
+	return parts
+def indexargs(s):
+	parts = splittoplevelcommas(s)
+	for i, part in enumerate(parts):
+		partstripped = part.strip()
+		if partstripped in pycodecommands or partstripped.split(' ')[0] in pycodecommands:
+			parts[i] = pycodeindex(partstripped)
+	return ','.join(parts)
+def pycodeindex(pycodecode):
+	ifexpr = pycodeifexpr(pycodecode)
+	if ifexpr is not None:
+		return ifexpr
+	whileexpr = pycodewhileexpr(pycodecode)
+	if whileexpr is not None:
+		return whileexpr
+	if pycodecode in pycodecommands:
+		if pycodecode in ('pass', 'return'):
+			return pythoncommands[pycodecommands.index(pycodecode)]
+		return pythoncommands[pycodecommands.index(pycodecode)] + '()'
+	elif pycodecode.split(' ', 1)[0] in pycodecommands:
+		func = pycodecode.split(' ', 1)[0]
+		rest = pycodecode.split(' ', 1)[1]
+		rest_lstripped = rest.lstrip()
+		if rest_lstripped.startswith('('):
+			depth = 0
+			close_idx = -1
+			for i, ch in enumerate(rest_lstripped):
+				if ch == '(':
+					depth += 1
+				elif ch == ')':
+					depth -= 1
+					if depth == 0:
+						close_idx = i
+						break
+			if close_idx != -1:
+				inner = rest_lstripped[1:close_idx].strip()
+				after = rest_lstripped[close_idx + 1:]
+				return pythoncommands[pycodecommands.index(func)] + f'({indexargs(inner)})' + after
+		giveninput = rest
+		if giveninput.strip() in pycodecommands or giveninput.strip().split(' ')[0] in pycodecommands:
+			giveninput = pycodeindex(giveninput)
+		elif ',' in giveninput:
+			giveninput = indexargs(giveninput)
+		return pythoncommands[pycodecommands.index(func)] + f'({giveninput})'
 def pcread(code):
 	global pycodecommands
 	global pythoncommands
@@ -804,237 +1035,6 @@ def pcread(code):
 	state.pcwrittencommands = {}
 	state.pcbeforehooks = {}
 	state.pcafterhooks = {}
-	def finddelimitedspans(s, opener, closer):
-		spans = []
-		depth = 0
-		instring = False
-		start = -1
-		i = 0
-		while i < len(s):
-			ch = s[i]
-			if ch == '\'':
-				instring = not instring
-			if not instring:
-				if s.startswith(opener, i):
-					if depth == 0:
-						start = i
-					depth += 1
-					i += len(opener)
-					continue
-				elif s.startswith(closer, i):
-					depth -= 1
-					i += len(closer)
-					if depth == 0 and start != -1:
-						spans.append((start, i))
-						start = -1
-					continue
-			i += 1
-		return spans
-	def pycodesplitdownarrow(s):
-		parts = []
-		depth = 0
-		instring = False
-		current = ''
-		i = 0
-		while i < len(s):
-			ch = s[i]
-			if ch == '\'':
-				instring = not instring
-			if not instring:
-				if ch in '([{':
-					depth += 1
-				elif ch in ')]}':
-					depth -= 1
-			if not instring and depth == 0 and s.startswith('↓', i):
-				parts.append(current)
-				current = ''
-				i += 1
-				continue
-			current += ch
-			i += 1
-		parts.append(current)
-		return parts
-	def pycodeblocktoexpr(blockcode):
-		pieces = [piece.strip() for piece in pycodesplitdownarrow(blockcode) if piece.strip()]
-		if not pieces:
-			return 'None'
-		exprs = []
-		for piece in pieces:
-			expr = pycodeindex(piece)
-			if not expr:
-				return None
-			exprs.append(expr)
-		if len(exprs) == 1:
-			return f'({exprs[0]})'
-		return '(' + ', '.join(exprs) + ')'
-	def pycodecondexpr(condition):
-		return pycodeindex(condition) or condition
-	def pycodeifexpr(pycodecode):
-		text = pycodecode.strip()
-		ifmatch = re.match(r'if\s*(?=\()', text)
-		if not ifmatch:
-			return None
-		pos = ifmatch.end()
-		condspans = finddelimitedspans(text[pos:], '(', ')')
-		if not condspans or condspans[0][0] != 0:
-			return None
-		cs, ce = condspans[0]
-		condition = pycodecondexpr(text[pos + cs + 1:pos + ce - 1].strip())
-		pos += ce
-		gapmatch = re.match(r'\s*', text[pos:])
-		pos += gapmatch.end()
-		if pos >= len(text) or text[pos] != '{':
-			return None
-		codespans = finddelimitedspans(text[pos:], '{', '}')
-		if not codespans or codespans[0][0] != 0:
-			return None
-		bs, be = codespans[0]
-		blockcode = text[pos + bs + 1:pos + be - 1]
-		trueexpr = pycodeblocktoexpr(blockcode)
-		if trueexpr is None:
-			raise Exception(f'Invalid command "{blockcode.strip()}"')
-		pos += be
-		branches = []
-		while True:
-			gapmatch = re.match(r'\s*', text[pos:])
-			nextpos = pos + gapmatch.end()
-			elifmatch = re.match(r'elif\s*(?=\()', text[nextpos:])
-			if not elifmatch:
-				break
-			nextpos += elifmatch.end()
-			econdspans = finddelimitedspans(text[nextpos:], '(', ')')
-			if not econdspans or econdspans[0][0] != 0:
-				raise Exception(f'Invalid condition in "{text}"')
-			ecs, ece = econdspans[0]
-			econdition = pycodecondexpr(text[nextpos + ecs + 1:nextpos + ece - 1].strip())
-			nextpos += ece
-			ebracematch = re.match(r'\s*', text[nextpos:])
-			nextpos += ebracematch.end()
-			if nextpos >= len(text) or text[nextpos] != '{':
-				raise Exception(f'Invalid syntax in "{text}"')
-			ecodespans = finddelimitedspans(text[nextpos:], '{', '}')
-			if not ecodespans or ecodespans[0][0] != 0:
-				raise Exception(f'Invalid syntax in "{text}"')
-			ebs, ebe = ecodespans[0]
-			eblockcode = text[nextpos + ebs + 1:nextpos + ebe - 1]
-			eexpr = pycodeblocktoexpr(eblockcode)
-			if eexpr is None:
-				raise Exception(f'Invalid command "{eblockcode.strip()}"')
-			branches.append((econdition, eexpr))
-			pos = nextpos + ebe
-		gapmatch = re.match(r'\s*', text[pos:])
-		nextpos = pos + gapmatch.end()
-		elseexpr = 'None'
-		if re.match(r'else\s*(?=\{)', text[nextpos:]):
-			elsematch = re.match(r'else\s*', text[nextpos:])
-			nextpos += elsematch.end()
-			ocodespans = finddelimitedspans(text[nextpos:], '{', '}')
-			if not ocodespans or ocodespans[0][0] != 0:
-				raise Exception(f'Invalid syntax in "{text}"')
-			obs, obe = ocodespans[0]
-			oblockcode = text[nextpos + obs + 1:nextpos + obe - 1]
-			oexpr = pycodeblocktoexpr(oblockcode)
-			if oexpr is None:
-				raise Exception(f'Invalid command "{oblockcode.strip()}"')
-			elseexpr = oexpr
-			pos = nextpos + obe
-		if text[pos:].strip():
-			raise Exception(f'Invalid syntax in "{text}"')
-		result = elseexpr
-		for econdition, eexpr in reversed(branches):
-			result = f'({eexpr} if ({econdition}) else {result})'
-		return f'({trueexpr} if ({condition}) else {result})'
-	def pycodewhileexpr(pycodecode):
-		text = pycodecode.strip()
-		whilematch = re.match(r'while\s*(?=\()', text)
-		if not whilematch:
-			return None
-		pos = whilematch.end()
-		condspans = finddelimitedspans(text[pos:], '(', ')')
-		if not condspans or condspans[0][0] != 0:
-			return None
-		cs, ce = condspans[0]
-		condition = pycodecondexpr(text[pos + cs + 1:pos + ce - 1].strip())
-		pos += ce
-		gapmatch = re.match(r'\s*', text[pos:])
-		pos += gapmatch.end()
-		if pos >= len(text) or text[pos] != '{':
-			return None
-		codespans = finddelimitedspans(text[pos:], '{', '}')
-		if not codespans or codespans[0][0] != 0:
-			return None
-		bs, be = codespans[0]
-		blockcode = text[pos + bs + 1:pos + be - 1]
-		bodyexpr = pycodeblocktoexpr(blockcode)
-		if bodyexpr is None:
-			raise Exception(f'Invalid command "{blockcode.strip()}"')
-		pos += be
-		if text[pos:].strip():
-			raise Exception(f'Invalid syntax in "{text}"')
-		return f'pcwhileloop(lambda: ({condition}), lambda: {bodyexpr})'
-	def splittoplevelcommas(s):
-		parts = []
-		depth = 0
-		instring = False
-		current = ''
-		for ch in s:
-			if ch == '\'':
-				instring = not instring
-			if not instring:
-				if ch == '(':
-					depth += 1
-				elif ch == ')':
-					depth -= 1
-			if ch == ',' and depth == 0 and not instring:
-				parts.append(current)
-				current = ''
-			else:
-				current += ch
-		parts.append(current)
-		return parts
-	def indexargs(s):
-		parts = splittoplevelcommas(s)
-		for i, part in enumerate(parts):
-			partstripped = part.strip()
-			if partstripped in pycodecommands or partstripped.split(' ')[0] in pycodecommands:
-				parts[i] = pycodeindex(partstripped)
-		return ','.join(parts)
-	def pycodeindex(pycodecode):
-		ifexpr = pycodeifexpr(pycodecode)
-		if ifexpr is not None:
-			return ifexpr
-		whileexpr = pycodewhileexpr(pycodecode)
-		if whileexpr is not None:
-			return whileexpr
-		if pycodecode in pycodecommands:
-			if pycodecode in ('pass', 'return'):
-				return pythoncommands[pycodecommands.index(pycodecode)]
-			return pythoncommands[pycodecommands.index(pycodecode)] + '()'
-		elif pycodecode.split(' ', 1)[0] in pycodecommands:
-			func = pycodecode.split(' ', 1)[0]
-			rest = pycodecode.split(' ', 1)[1]
-			rest_lstripped = rest.lstrip()
-			if rest_lstripped.startswith('('):
-				depth = 0
-				close_idx = -1
-				for i, ch in enumerate(rest_lstripped):
-					if ch == '(':
-						depth += 1
-					elif ch == ')':
-						depth -= 1
-						if depth == 0:
-							close_idx = i
-							break
-				if close_idx != -1:
-					inner = rest_lstripped[1:close_idx].strip()
-					after = rest_lstripped[close_idx + 1:]
-					return pythoncommands[pycodecommands.index(func)] + f'({indexargs(inner)})' + after
-			giveninput = rest
-			if giveninput.strip() in pycodecommands or giveninput.strip().split(' ')[0] in pycodecommands:
-				giveninput = pycodeindex(giveninput)
-			elif ',' in giveninput:
-				giveninput = indexargs(giveninput)
-			return pythoncommands[pycodecommands.index(func)] + f'({giveninput})'
 	code = code.replace('\n', '').split(';')
 	cdt = ''
 	type_bind_cdt = ''

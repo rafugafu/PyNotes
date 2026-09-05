@@ -150,6 +150,21 @@ def cmdrun(fullcommand):
 			utils.show(f'error: command \'{command}\' does not take input')
 			return
 		window.ext()
+	elif command == 'pccmd' or command == 'pycodecommand':
+		if not commandinput:
+			utils.show('error: no input given')
+			return
+		try:
+			translated = pycode.pycodeindex(commandinput)
+			if translated:
+				exec(translated, vars(state))
+			else:
+				utils.show('invalid pycode expression')
+				return
+		except Exception as error:
+			error = str(error)
+			state.root.error('Error', f'Error in PyCode: {error}')
+		utils.show('evaluated pycode expression')
 	elif command == 'sh' or command == 'splithoriz' or command == 'split-editor-horizontal':
 		if commandinput:
 			utils.show(f'error: command \'{command}\' does not take input')
@@ -646,8 +661,6 @@ def cmdrun(fullcommand):
 	pycode.pcrunhook('after', f'alt-x-command:{command}', commandinput)
 def cmdallhmodenames():
 	return ['python', 'latex', 'normal', 'email', 'html', 'markdown'] + list(state.plgnhmodes)
-def cmdhmodevalues(currentinput):
-	return list(('python', 'py', 'latex', 'la', 'normal', 'norm', 'email', 'em', 'html', 'markdown', 'md')) + list(state.plgnhmodes)
 def cmdpynavvalues(currentinput):
 	if state.active is None or state.active.hmode != 'python':
 		return []
@@ -671,6 +684,7 @@ def cmdregister(names, hmodes = None, inputs = None, buffertypes = None):
 		cmdregistry[name] = {'hmodes': hmodes, 'inputs': inputs, 'buffertypes': buffertypes}
 cmdregistry = {}
 cmdregister(('exit', 'e'))
+cmdregister(('pccmd', 'pycodecommand'), inputs = pycode.pycodecommands)
 cmdregister(('sh', 'splithoriz', 'split-editor-horizontal'))
 cmdregister(('sv', 'splitvert', 'split-editor-vertical'))
 cmdregister(('setsel', 'selpointset', 'selection-point-set'))
@@ -737,7 +751,7 @@ cmdregister(('ab', 'abt', 'about', 'pynotes'))
 cmdregister(('pynavstart', 'pyjumpstart', 'python-jump-startof'), hmodes = ('python',), inputs = cmdpynavvalues, buffertypes = (editor.Editor,))
 cmdregister(('pynavend', 'pyjumpend', 'python-jump-endof'), hmodes = ('python',), inputs = cmdpynavvalues, buffertypes = (editor.Editor,))
 cmdregister(('pygodef', 'python-go-definition'), hmodes = ('python',), inputs = cmdpygodefvalues, buffertypes = (editor.Editor,))
-cmdregister(('hmode',), hmodes = cmdallhmodenames, inputs = cmdhmodevalues, buffertypes = (editor.Editor,))
+cmdregister(('hmode',), hmodes = cmdallhmodenames, inputs = ['python', 'py', 'latex', 'la', 'normal', 'norm', 'email', 'em', 'html', 'markdown', 'md'] + list(state.plgnhmodes), buffertypes = (editor.Editor,))
 def cmdregistryentry(name):
 	return cmdregistry.get(name, {'hmodes': None, 'inputs': None, 'buffertypes': None})
 def cmdbuffertypeavailable(buffertypes):
