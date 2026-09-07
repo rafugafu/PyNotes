@@ -45,6 +45,7 @@ def show(text):
 	state.cmdentry.unbind('<Escape>')
 	state.cmdentry.config(state = 'disabled')
 	state.cmdautocomplete.pack_forget()
+	state.console.show(text)
 def prompt(text, autocompletefunc = None, defaultinput = None):
 	def check_edit(event, text, promptend):
 		state.cmdentry.delete('1.0', promptend)
@@ -157,7 +158,7 @@ class ErrorHandler:
 						self.textbox.config(state = 'disabled')
 				state.root.after(0, _do_write)
 		except Exception:
-			print(error)
+			print(error, file = state.stdout)
 	def flush(self):
 		pass
 def _report_callback_exception(exc, val, tb):

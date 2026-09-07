@@ -30,30 +30,30 @@ import zipfile
 import init
 import utils
 import dialogs
+from cli import claht, clcht
 for _m in (init, utils, dialogs):
 	globals().update({_k: _v for _k, _v in vars(_m).items() if not _k.startswith('__')})
 del _m
-from cli import argparse
+from cli import argparse, start_console
 from tkinter import messagebox as mb
-options, files_to_open = argparse({'version': False, 'changes': False, 'plugin-list-github': False, 'plugin-list-installed': False, 'no-load-pycode': False, 'no-load-plugins': False, 'pycode-exec': True, 'command-exec': True, 'help': False, 'plugin-install': True, 'plugin-remove': True, 'plugin-describe': True}, sys.argv[1:])
-changelist = ['Added reverse search and separated forward search from search from beginning.', 'Added setattr and getattr commands to PyCode.', 'Added a PyCode evaluator Alt-X command.', 'Fixed upgrading ttkbootstrap from 1.x failing.', 'Fixed some bugs.']
+state.options, state.files_to_open = argparse({'version': False, 'changes': False, 'plugin-list-github': False, 'plugin-list-installed': False, 'no-load-pycode': False, 'no-load-plugins': False, 'pycode-exec': True, 'command-exec': True, 'help': False, 'plugin-install': True, 'plugin-remove': True, 'plugin-describe': True, 'wait-start': False}, sys.argv[1:])
+changelist = ['Added a live cli console inside the starting terminal which can interact with and control PyNotes while it runs. (See pynotes --help)\nNow PyNotes will run with Terminal=true even on linux.', 'Added reverse search and separated forward search from search from beginning.', 'Added setattr and getattr commands to PyCode.', 'Added a PyCode evaluator Alt-X command.', 'Fixed upgrading ttkbootstrap from 1.x failing.', 'Fixed some bugs.']
 state.changestr = ''
 for i in range(len(changelist) - 1):
 	state.changestr += f'{i + 1}. {changelist[i]}\n\n'
 state.changestr += f'{len(changelist)}. {changelist[-1]}'
-if sum([bool(options[op]) for op in ('version', 'changes', 'help', 'plugin-list-github', 'plugin-list-installed', 'plugin-install', 'plugin-describe')]) > 1:
-	print(options)
-	print(f'error: cannot combine --version, --changes, --help, --plugin-list-github, --plugin-list-installed, --plugin-install, --plugin-describe arguments')
+if sum([bool(state.options[op]) for op in ('version', 'changes', 'help', 'plugin-list-github', 'plugin-list-installed', 'plugin-install', 'plugin-describe', 'wait-start')]) > 1:
+	print(f'error: cannot combine --version, --changes, --help, --plugin-list-github, --plugin-list-installed, --plugin-install, --plugin-describe, --wait-start arguments')
 	exit(1)
-if options['version']:
+if state.options['version']:
 	print(f'This is PyNotes v{v}.')
 	exit()
-if options['changes']:
+if state.options['changes']:
 	print(f'Changes in v{v}:\n' + state.changestr.replace('\n\n', '\n'))
 	exit()
 os.makedirs(f'{homedir}/.local/share/PyNotes/add-ons', exist_ok = True)
 os.makedirs(f'{homedir}/.local/share/PyNotes/themes', exist_ok = True)
-if options['plugin-list-github']:
+if state.options['plugin-list-github']:
 	try:
 		plgns = urllib.request.urlopen('https://raw.githubusercontent.com/rafugafu/PyNotes/main/Plugins/list').read().decode().split('\n')
 		onelinedescplgns = urllib.request.urlopen('https://raw.githubusercontent.com/rafugafu/PyNotes/main/Plugins/onelinedescriptions').read().decode().split('\n')
@@ -76,7 +76,7 @@ if options['plugin-list-github']:
 	printstr += plgns[-1] + ' - ' + onelinedescplgns[-1] + '.'
 	print(printstr)
 	exit()
-if options['plugin-list-installed']:
+if state.options['plugin-list-installed']:
 	installed = os.listdir(f'{homedir}/.local/share/PyNotes/add-ons')
 	if not installed:
 		print('No plugins are installed.')
@@ -95,15 +95,15 @@ if options['plugin-list-installed']:
 		printstr += '[description not provided]'
 	print(printstr)
 	exit()
-if options['plugin-describe']:
+if state.options['plugin-describe']:
 	installed = os.listdir(f'{homedir}/.local/share/PyNotes/add-ons')
-	printstr = f'Description of plugin \'{options["plugin-describe"]}\' '
-	if options['plugin-describe'] in installed:
+	printstr = f'Description of plugin \'{state.options["plugin-describe"]}\' '
+	if state.options['plugin-describe'] in installed:
 		printstr += '(installed):\n'
-		if not 'fulldescription' in os.listdir(f'{homedir}/.local/share/PyNotes/add-ons/{options["plugin-describe"]}'):
+		if not 'fulldescription' in os.listdir(f'{homedir}/.local/share/PyNotes/add-ons/{state.options["plugin-describe"]}'):
 			printstr += '[Not provided]'
 		else:
-			printstr += open(f'{homedir}/.local/share/PyNotes/add-ons/{options["plugin-describe"]}/fulldescription', 'r').read()
+			printstr += open(f'{homedir}/.local/share/PyNotes/add-ons/{state.options["plugin-describe"]}/fulldescription', 'r').read()
 	else:
 		printstr += '(not installed):\n'
 		try:
@@ -113,25 +113,25 @@ if options['plugin-describe']:
 			error = str(error)
 			print(f'error in downloading plugin list: {error}')
 			exit(1)
-		if not options['plugin-describe'] in plgns:
-			print(f'error: plugin \'{options["plugin-describe"]}\' is not installed and does not exist on the PyNotes GitHub.')
+		if not state.options['plugin-describe'] in plgns:
+			print(f'error: plugin \'{state.options["plugin-describe"]}\' is not installed and does not exist on the PyNotes GitHub.')
 			exit(1)
-		printstr += fulldescplgns[plgns.index(options['plugin-describe'])]
+		printstr += fulldescplgns[plgns.index(state.options['plugin-describe'])]
 	print(printstr)
 	exit()
-if options['plugin-install']:
+if state.options['plugin-install']:
 	try:
 		plgns = urllib.request.urlopen('https://raw.githubusercontent.com/rafugafu/PyNotes/main/Plugins/list').read().decode().split('\n')
 	except Exception as error:
 		error = str(error)
 		print(f'error in downloading plugin list: {error}')
 		exit(1)
-	if not options['plugin-install'] in plgns:
-		print(f'error: cannot find plugin \'{options["plugin-install"]}\'')
+	if not state.options['plugin-install'] in plgns:
+		print(f'error: cannot find plugin \'{state.options["plugin-install"]}\'')
 		exit(1)
 	print('downloading plugin...', end = '')
 	try:
-		plgn = urllib.request.urlopen(f'https://raw.githubusercontent.com/rafugafu/PyNotes/main/Plugins/{options["plugin-install"].replace(" ", "%20")}.zip').read()
+		plgn = urllib.request.urlopen(f'https://raw.githubusercontent.com/rafugafu/PyNotes/main/Plugins/{state.options["plugin-install"].replace(" ", "%20")}.zip').read()
 	except Exception as error:
 		error = str(error)
 		print(f'\nerror in downloading plugin: {error}')
@@ -146,31 +146,18 @@ if options['plugin-install']:
 		print(f'\nerror in extracting plugin: {error}')
 		exit(1)
 	print(' done\n')
-	print(f'Installed plugin \'{options["plugin-install"]}\'.')
+	print(f'Installed plugin \'{state.options["plugin-install"]}\'.')
 	exit()
-if options['plugin-remove']:
+if state.options['plugin-remove']:
 	installed = os.listdir(f'{homedir}/.local/share/PyNotes/add-ons')
-	if not options['plugin-remove'] in installed:
-		print(f'error: plugin \'{options["plugin-remove"]}\' is not installed')
+	if not state.options['plugin-remove'] in installed:
+		print(f'error: plugin \'{state.options["plugin-remove"]}\' is not installed')
 		exit(1)
-	shutil.rmtree(f'{homedir}/.local/share/PyNotes/add-ons/{options["plugin-remove"]}')
-	print(f'Removed plugin \'{options["plugin-remove"]}\'.')
+	shutil.rmtree(f'{homedir}/.local/share/PyNotes/add-ons/{state.options["plugin-remove"]}')
+	print(f'Removed plugin \'{state.options["plugin-remove"]}\'.')
 	exit()
-if options['help']:
-	print('''\
-This is help only for the command line arguments given to PyNotes. For help on PyNotes functions and features, open Help from within PyNotes itself.
---version: Print the current PyNotes version number.
---changes: Print the current PyNotes version's changelog.
---plugin-list-github: List the plugins on the PyNotes GitHub with a one line description for each.
---plugin-list-installed: List the currently installed plugins with a one line description for each if provided.
---plugin-install "name": Installs the given plugin from the PyNotes GitHub if present.
---plugin-remove "name": Uninstalls the given plugin if installed.
---plugin-describe "name": Give a full description of the given plugin if installed and provided, fallback to checking in the PyNotes GitHub if not.
---no-load-pycode: Start PyNotes without loading your PyCode configuration until you open and close PyCode yourself.
---no-load-plugins: Start PyNotes without loading any plugins.
---pycode-exec "string": Execute the given string as PyCode after loading your normal configuration.
---command-exec "string": Execute the given string as Alt-X commands.\
-''')
+if state.options['help']:
+	print('\x1b[33mThis is help only for the command line interface of PyNotes. For help on PyNotes functions and features, open Help from within PyNotes itself.\x1b[0m\n' + claht + '\n' + clcht)
 	exit()
 import subprocess
 from tkinter import messagebox as mb
@@ -192,12 +179,27 @@ except Exception:
 		exit(1)
 	mb.showinfo('Info', 'Restarting PyNotes.')
 	os.execv(sys.executable, [sys.executable] + sys.argv)
+state.stdout = os.fdopen(os.dup(1), 'w')
+state.stderr = os.fdopen(os.dup(2), 'w')
+devnullfd = os.open(os.devnull, os.O_WRONLY)
+os.dup2(devnullfd, 1)
+os.dup2(devnullfd, 2)
+os.close(devnullfd)
+state.consoleq = queue.Queue()
+state.started = threading.Event()
+if not state.options['wait-start']:
+	state.started.set()
+threading.Thread(target = start_console, args = (state.consoleq,)).start()
+if not state.options['wait-start']:
+	time.sleep(0.05)
+	print('start\n\x1b[32mstarting pynotes.\x1b[0m\n> ', end = '', file = state.stdout)
+state.started.wait()
 if platform.system() != 'Linux':
 	fd = easytk.fd
 from python_scope_build import _PYTHON_BUILTIN_MEMBERS, _PYTHON_BUILTIN_CALLABLE_PARAMS, _PYTHON_BUILTIN_CALLABLE_NAMES, _PYTHON_BUILTIN_NAMES, _PYTHON_BUILTIN_METHOD_RETURNS, _PythonScanCancelled, _PythonScopeBuilder, _python_method_has_implicit_first_param, _python_c3_linearize, _python_partial_target, _python_unwrap_descriptor, _python_import_fromlist_is_nonempty, _python_static_value_kind, _python_inspect_ast_members, _PythonModuleSpec, _python_resolve_toplevel_fs, _python_module_src_path, _python_relative_import_target
 init.ensure_dependencies()
 file, new, defaultdefs = init.load_or_create_defs()
-init_plugin, first_plugin, last_plugin = init.load_plugins(options['no-load-plugins'])
+init_plugin, first_plugin, last_plugin = init.load_plugins(state.options['no-load-plugins'])
 vars(state).update(globals())
 for code in init_plugin:
 	try:
@@ -205,60 +207,21 @@ for code in init_plugin:
 	except Exception as error:
 		error = str(error)
 		info('Error!', f'There was an error in initializing the plugin "{os.path.basename(os.path.normpath(code[0]))}":\n{error}')
-try:
-	import tika
-	from tika import parser
-except Exception:
-	pass
-try:
-	import pdfplumber
-except Exception:
-	pass
-try:
-	import pyttsx3 as stt
-except Exception:
-	pass
-try:
-	import matplotlib.pyplot as plt
-except Exception:
-	pass
-try:
-	import sympy
-except Exception:
-	pass
-try:
-	import sounddevice as sd
-except Exception:
-	pass
-try:
-	import speech_recognition as sr
-except Exception:
-	pass
-try:
-	import numpy as np
-except Exception:
-	pass
-try:
-	from tklinenums import TkLineNumbers
-except Exception:
-	pass
-try:
-	import ziamath
-except Exception:
-	pass
-try:
-	import cairosvg
-except Exception:
-	pass
-try:
-	from PIL import Image
-except Exception:
-	pass
-try:
-	from watchdog.observers import Observer
-	from watchdog.events import FileSystemEventHandler
-except Exception:
-	pass
+import tika
+from tika import parser
+import pdfplumber
+import pyttsx3 as stt
+import matplotlib.pyplot as plt
+import sympy
+import sounddevice as sd
+import speech_recognition as sr
+import numpy as np
+from tklinenums import TkLineNumbers
+import ziamath
+import cairosvg
+from PIL import Image
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 if platform.system() != 'Linux':
 	from winpty import PtyProcess
 import buffer
@@ -396,38 +359,68 @@ if state.defs[3] in state.root.themes():
 else:
 	state.root.style('bootstrap-light')
 vars(state).update(globals())
-if not options['no-load-pycode']:
-	try:
-		pycodestartupcdt = pcread(open(f'{homedir}/.pynotes', 'r', encoding = 'utf-8').read())
-	except Exception:
-		pass
-	else:
-		for line in pycodestartupcdt.split('\n'):
-			try:
-				exec(line, vars(state))
-			except Exception as error:
-				error = str(error)
-				state.root.error('Error', f'Error in PyCode: {error}')
-if options['pycode-exec']:
-	givenpcstartuplines = pcread(options['pycode-exec']).split('\n')
-	for line in givenpcstartuplines:
+pycode = ''
+if not state.options['no-load-pycode']:
+	pycode += open(f'{homedir}/.pynotes', 'r', encoding = 'utf-8').read()
+if state.options['pycode-exec']:
+	if pycode:
+		pycode += ';'
+	pycode += state.options['pycode-exec']
+try:
+	pycodestartupcdt = pcread(pycode)
+except Exception:
+	pass
+else:
+	for line in pycodestartupcdt.split('\n'):
 		try:
 			exec(line, vars(state))
 		except Exception as error:
 			error = str(error)
 			state.root.error('Error', f'Error in PyCode: {error}')
-if options['command-exec']:
-	cmdrun(options['command-exec'])
+if state.options['command-exec']:
+	cmdrun(state.options['command-exec'])
 for code in last_plugin:
 	try:
 		exec(code[1], vars(state))
 	except Exception as error:
 		error = str(error)
 		state.root.error('Error!', f'There was an error in the last part of the plugin "{os.path.basename(os.path.normpath(code[0]))}":\n{error}')
-if files_to_open:
-	state.all_buffers[0].ld(files_to_open.pop(0))
-for file in files_to_open:
+if state.files_to_open:
+	state.all_buffers[0].ld(state.files_to_open.pop(0))
+for file in state.files_to_open:
 	neweditor(file)
 if new:
 	prf()
+def consoleexec(task):
+	if task[0] == 'command-exec':
+		cmdrun(task[1])
+	elif task[0] == 'pycode-eval':
+		try:
+			translated = pycode.pycodeindex(task[1])
+			if translated:
+				exec(translated, vars(state))
+			else:
+				utils.show('invalid pycode expression')
+				return
+		except Exception as error:
+			error = str(error)
+			state.root.error('Error', f'Error in PyCode: {error}')
+		utils.show('evaluated pycode expression')
+	elif task[0] == 'open-file':
+		neweditor(task[1])
+	elif task[0] == 'close':
+		ext()
+	state.root.update()
+	if hasattr(state.active, 'keypress'):
+		state.active.keypress()
+def consoleqempty():
+	while True:
+		try:
+			task = state.consoleq.get_nowait()
+			consoleexec(task)
+			state.consoleq.task_done()
+		except Exception:
+			break
+	state.consoleqafter = state.root.after(200, consoleqempty)
+state.consoleqafter = state.root.after(200, consoleqempty)
 state.root.show()

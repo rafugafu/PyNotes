@@ -252,7 +252,7 @@ class Editor(Buffer):
 		pycode.pcrun(state.pycode_keybindings_cdt)
 	def _disconnect(self):
 		if self.view_children:
-			window._promote_new_master(self)
+			_promote_new_master(self)
 			self.view_children = []
 			old_type = self.type_
 			old_ln = self.ln
@@ -342,7 +342,7 @@ class Editor(Buffer):
 		self.fileinfoconfig(filename = 'Untitled', filetype = 'Plain Text (*.*)', filesize = '0 bytes', filesaved = 'Untitled File')
 	def _detach_before_close(self):
 		if self.view_children:
-			window._promote_new_master(self)
+			_promote_new_master(self)
 			self.view_children = []
 		if self.view_master is not None:
 			master = self.view_master
@@ -3607,6 +3607,33 @@ class Editor(Buffer):
 			self.hapyshell()
 			self._shell_setview_after_id = self.sf.after(50, shell_setview)
 		self._shell_setview_after_id = self.sf.after(50, shell_setview)
+def _promote_new_master(old_master):
+	children = list(old_master.view_children)
+	if not children:
+		return
+	new_master, rest = children[0], children[1:]
+	carried_values = dict((name, value) for name, value in old_master.__dict__.items() if name not in Editor._PER_PANE_ATTRS and name not in Editor._TK_INTERNAL_ATTRS)
+	new_master.view_master = None
+	for name, value in carried_values.items():
+		setattr(new_master, name, value)
+	new_master._file_watch_prompt_pending = False
+	new_master.view_children = rest
+	for child in rest:
+		child.view_master = new_master
+	new_master.m = state.root.menu()
+	for label, menu in state.all_editor_menus.items():
+		new_master.m.add_cascade(label = label, menu = menu)
+	for child in rest:
+		child.m = new_master.m
+	if new_master.hmode == 'python':
+		new_master.sethmenu('python')
+	elif new_master.hmode == 'latex':
+		new_master.sethmenu('latex')
+	if new_master.title:
+		new_master.clt(new_master.title)
+	if state.active is old_master:
+		state.active = new_master
+	return new_master
 def _init_hl_tags():
 	for buffer in state.all_buffers:
 		if isinstance(buffer, Editor):

@@ -14,33 +14,6 @@ def find_open_editor(abspath):
 			continue
 		if buffer.view_master is None and buffer.title == abspath and not buffer.hmode in ('png', 'pdf', 'epub'):
 			return buffer
-def _promote_new_master(old_master):
-	children = list(old_master.view_children)
-	if not children:
-		return
-	new_master, rest = children[0], children[1:]
-	carried_values = dict((name, value) for name, value in old_master.__dict__.items() if name not in editor.Editor._PER_PANE_ATTRS and name not in editor.Editor._TK_INTERNAL_ATTRS)
-	new_master.view_master = None
-	for name, value in carried_values.items():
-		setattr(new_master, name, value)
-	new_master._file_watch_prompt_pending = False
-	new_master.view_children = rest
-	for child in rest:
-		child.view_master = new_master
-	new_master.m = state.root.menu()
-	for label, menu in state.all_editor_menus.items():
-		new_master.m.add_cascade(label = label, menu = menu)
-	for child in rest:
-		child.m = new_master.m
-	if new_master.hmode == 'python':
-		new_master.sethmenu('python')
-	elif new_master.hmode == 'latex':
-		new_master.sethmenu('latex')
-	if new_master.title:
-		new_master.clt(new_master.title)
-	if state.active is old_master:
-		state.active = new_master
-	return new_master
 def setactive(newindex = None, force = False):
 	if newindex is None:
 		newindex = state.buffindex + 1
@@ -163,6 +136,10 @@ def ext():
 		except Exception:
 			pass
 		sys.stderr = open(os.devnull, 'w')
+		try:
+			state.root.after_cancel(state.consoleqafter)
+		except Exception:
+			pass
 		for buffer in state.all_buffers:
 			try:
 				if hasattr(buffer, '_cancel_all_after_ids'):
