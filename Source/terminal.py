@@ -179,6 +179,7 @@ class Terminal(easytk.ttk.Text):
 		self._focus_reporting = False
 		self._autowrap = True
 		self._app_cursor = False
+		self._alternate_scroll = True
 		self._mouse_mode = 0
 		self._mouse_sgr = False
 		self._mouse_last_pos = None
@@ -465,6 +466,7 @@ class Terminal(easytk.ttk.Text):
 		self._focus_reporting = False
 		self._autowrap = True
 		self._app_cursor = False
+		self._alternate_scroll = True
 		self._mouse_mode = 0
 		self._mouse_sgr = False
 		self._mouse_last_pos = None
@@ -477,6 +479,18 @@ class Terminal(easytk.ttk.Text):
 		self._term_start_process()
 	def _is_default_colour(self, colour, default_rgb):
 		return colour is None or self.winfo_rgb(colour) == default_rgb
+	def _term_erase_fill_tag(self):
+		if self.nocolor:
+			return None
+		fg, bg = _term_sgr_resolve(self._sgr_state, self._term_default_fg, self._term_default_bg)
+		if self._is_default_colour(bg, self._default_bg_rgb):
+			return None
+		name = 'sgrbg_' + bg.replace('#', '')
+		if name not in self._sgr_tags_done:
+			self.tag_configure(name, background = bg)
+			self.tag_lower(name, 'sel')
+			self._sgr_tags_done.add(name)
+		return name
 	def _start_blink(self):
 		if self._blink_after_id is None:
 			self._blink_after_id = self.after(500, self._blink_tick)
@@ -860,14 +874,20 @@ class Terminal(easytk.ttk.Text):
 									self._term_insert(f'{ln}.0', ' ' * self._GRID_COLS)
 								self.mark_set('insert', f'{ln}.{gcol}')
 							else:
+								_efill = self._term_erase_fill_tag()
 								if p[0] == 0:
 									self.delete('insert', f'{ln}.end')
+									if _efill is not None:
+										self.insert('insert', ' ' * (self._GRID_COLS - int(col)), _efill)
+										self.mark_set('insert', f'{ln}.{col}')
 								elif p[0] == 1:
 									self.delete(f'{ln}.0', f'{ln}.{int(col) + 1}')
-									self.insert(f'{ln}.0', ' ' * (int(col) + 1))
+									self.insert(f'{ln}.0', ' ' * (int(col) + 1), _efill if _efill is not None else '')
 									self.mark_set('insert', f'{ln}.{col}')
 								else:
 									self.delete(f'{ln}.0', f'{ln}.end')
+									if _efill is not None:
+										self.insert(f'{ln}.0', ' ' * self._GRID_COLS, _efill)
 									self._term_goto(int(ln), int(col))
 						elif cmd == 'J':
 							if self._alt_mode:
@@ -891,6 +911,7 @@ class Terminal(easytk.ttk.Text):
 								cur_col = int(col)
 								_bb = self.screen_top + self._VT_ROWS - 1
 								_last = int(self.index('end').split('.')[0]) - 1
+								_efill = self._term_erase_fill_tag()
 								if _last > _bb:
 									self.delete(f'{_bb}.end', 'end - 1 char')
 									_last = _bb
@@ -898,7 +919,9 @@ class Terminal(easytk.ttk.Text):
 									self.insert('end', '\n' * (_bb - _last))
 								for _er in range(self.screen_top, _bb + 1):
 									self.delete(f'{_er}.0', f'{_er}.end')
-								if cur_col > 0:
+									if _efill is not None:
+										self.insert(f'{_er}.0', ' ' * self._GRID_COLS, _efill)
+								if _efill is None and cur_col > 0:
 									self.insert(f'{self._cur_line}.0', ' ' * cur_col)
 								self.mark_set('insert', f'{self._cur_line}.{cur_col}')
 							elif p[0] == 3:
@@ -911,17 +934,28 @@ class Terminal(easytk.ttk.Text):
 							elif p[0] == 1:
 								_il = int(ln)
 								_ic = int(col)
+								_efill = self._term_erase_fill_tag()
 								for _er in range(self.screen_top, _il):
 									self.delete(f'{_er}.0', f'{_er}.end')
+									if _efill is not None:
+										self.insert(f'{_er}.0', ' ' * self._GRID_COLS, _efill)
 								self.delete(f'{_il}.0', f'{_il}.{_ic + 1}')
-								self.insert(f'{_il}.0', ' ' * (_ic + 1))
+								self.insert(f'{_il}.0', ' ' * (_ic + 1), _efill if _efill is not None else '')
 								self.mark_set('insert', f'{_il}.{_ic}')
 							elif p[0] == 0:
 								_bb = self.screen_top + self._VT_ROWS - 1
+								_efill = self._term_erase_fill_tag()
+								_ec = int(self.index('insert').split('.')[1])
 								self.delete('insert', f'{self._cur_line}.end')
+								if _efill is not None:
+									_eins = self.index('insert')
+									self.insert('insert', ' ' * (self._GRID_COLS - _ec), _efill)
+									self.mark_set('insert', _eins)
 								_last = int(self.index('end').split('.')[0]) - 1
 								for _er in range(self._cur_line + 1, min(_bb, _last) + 1):
 									self.delete(f'{_er}.0', f'{_er}.end')
+									if _efill is not None:
+										self.insert(f'{_er}.0', ' ' * self._GRID_COLS, _efill)
 								if _last < _bb:
 									_ins = self.index('insert')
 									self.insert('end', '\n' * (_bb - _last))
@@ -1030,12 +1064,45 @@ class Terminal(easytk.ttk.Text):
 								if self._scroll_top <= r0 <= self._scroll_bot:
 									self._grid_scroll_region(r0, self._scroll_bot, -(p[0] or 1))
 									self.mark_set('insert', f'{r0}.0')
+							else:
+								_bot = self.screen_top + self._VT_ROWS - 1
+								if self.screen_top <= self._cur_line <= _bot:
+									_n = min(p[0] or 1, _bot - self._cur_line + 1)
+									_last = int(self.index('end').split('.')[0]) - 1
+									_lfill = self._term_erase_fill_tag()
+									if _last < _bot:
+										_lpad = self.index('insert')
+										self.insert('end', '\n' * (_bot - _last))
+										self.mark_set('insert', _lpad)
+									self.delete(f'{_bot - _n + 1}.0 - 1 char', f'{_bot}.end')
+									self.insert(f'{self._cur_line}.0', '\n' * _n)
+									if _lfill is not None:
+										for _bl in range(self._cur_line, self._cur_line + _n):
+											self.insert(f'{_bl}.0', ' ' * self._GRID_COLS, _lfill)
+									self.mark_set('insert', f'{self._cur_line}.0')
 						elif cmd == 'M':
 							if self._alt_mode:
 								r0 = int(ln)
 								if self._scroll_top <= r0 <= self._scroll_bot:
 									self._grid_scroll_region(r0, self._scroll_bot, (p[0] or 1))
 									self.mark_set('insert', f'{r0}.0')
+							else:
+								_bot = self.screen_top + self._VT_ROWS - 1
+								if self.screen_top <= self._cur_line <= _bot:
+									_n = min(p[0] or 1, _bot - self._cur_line + 1)
+									_last = int(self.index('end').split('.')[0]) - 1
+									_mfill = self._term_erase_fill_tag()
+									if _last < _bot:
+										_mpad = self.index('insert')
+										self.insert('end', '\n' * (_bot - _last))
+										self.mark_set('insert', _mpad)
+									self.delete(f'{self._cur_line}.0', f'{self._cur_line + _n}.0')
+									self.insert('end', '\n' * _n)
+									if _mfill is not None:
+										_mlast = int(self.index('end').split('.')[0]) - 1
+										for _bl in range(_mlast - _n + 1, _mlast + 1):
+											self.insert(f'{_bl}.0', ' ' * self._GRID_COLS, _mfill)
+									self.mark_set('insert', f'{self._cur_line}.0')
 						elif cmd == 'S':
 							if self._alt_mode:
 								self._grid_scroll_region(self._scroll_top, self._scroll_bot, (p[0] or 1))
@@ -1118,6 +1185,8 @@ class Terminal(easytk.ttk.Text):
 								self._mouse_mode = p[0]
 							elif p[0] == 1006:
 								self._mouse_sgr = True
+							elif p[0] == 1007:
+								self._alternate_scroll = True
 						elif cmd == 'l' and _private:
 							if p[0] in (1049, 1047, 47):
 								self._leave_alt_screen()
@@ -1147,6 +1216,8 @@ class Terminal(easytk.ttk.Text):
 								self._mouse_mode = 0
 							elif p[0] == 1006:
 								self._mouse_sgr = False
+							elif p[0] == 1007:
+								self._alternate_scroll = False
 						i += len(m.group(0))
 					else:
 						_ctl, _clean, _consumed, _status = self._csi_embedded(rest)
@@ -1274,6 +1345,7 @@ class Terminal(easytk.ttk.Text):
 					self._autowrap = True
 					self._origin_mode = False
 					self._app_cursor = False
+					self._alternate_scroll = True
 					self._saved_cursor = None
 					self._saved_sgr = None
 					self._term_reset_tabs()
@@ -1707,6 +1779,11 @@ class Terminal(easytk.ttk.Text):
 		elif getattr(event, 'delta', 0) > 0:
 			button = 64
 		if self._term_send_mouse(button, event):
+			return 'break'
+		if self._alt_mode and self._alternate_scroll and self.running and not (event.state & 0x1):
+			_seq = (b'\x1bOB' if self._app_cursor else b'\x1b[B') if button == 65 else (b'\x1bOA' if self._app_cursor else b'\x1b[A')
+			for _ in range(3):
+				self._write(_seq)
 			return 'break'
 		self.after_idle(self._term_update_follow)
 	def _term_update_follow(self):
