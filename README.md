@@ -9,9 +9,11 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 * **Alt-X Commands** - Powerful Emacs `M-x` like commands inside PyNotes!  
 * **Plugins** - Powerful extensions that seamlessly integrate with PyNotes! Very easy to make and install!  
 * **PyCode** - Full programming language inside PyNotes to customize it even beyond plugins! You can make and change your own keyboard shortcuts, functions, Alt-X commands, event hooks, startup code, etc! Optional graphical programming options to use without knowing PyCode syntax!  
+* **Terminal Console** - Live terminal console which can interact with and control PyNotes as it runs! Control PyNotes fully through the launching terminal!  
+* **Wait Start** - Option to delay PyNotes launching to queue commands and actions before it starts!  
 * **Infinite Length Chord Keys** - Infinite length chord keys like Emacs possible to define in PyCode!  
 * **Emacs-like Buffers** - Emacs-like buffers (editors) to edit multiple files at once!  
-* **Terminal** - Full 256-color/truecolor supporting terminal using a PTY inside PyNotes!  
+* **Terminal** - Full 256-color/truecolor supporting vttest-passing terminal using a PTY inside PyNotes!  
 * **Python Shell / REPL** - Full Python shell / REPL using a PTY inside PyNotes!  
 * **HModes** - Major Modes like Emacs for different purposes! Changes syntax highlighting, running code, menus, tabs, etc.  
 * **Preferences** - Fully customize your syntax highlighting and options easily in the preferences!  
@@ -112,7 +114,9 @@ This script works on both Linux and Windows. Run the `pynotes_plugin_installer.p
 ## Manual Installation  
 Download the plugins from the `Plugins/` folder. You can also make your own or get them from somewhere else. Then extract them if they are compressed, and move the folder to `~/.local/share/PyNotes/add-ons/` on Linux, and `C:/Users/{Your Username}/.local/share/PyNotes/add-ons` on Windows.  
 **Note:** Be careful in downloading plugins from other sources, as they will have full access to your system and be able to run any commands.  
-# Command Line Arguments  
+# Command Line Interface  
+You can also use `pynotes --help` for a list of the following arguments and console commands.  
+## Arguments  
 These are the command line arguments PyNotes accepts except for the plugin management ones:  
 * `--version` - Prints the current PyNotes version.  
 * `--changes` - Prints the current PyNotes version's changelog.  
@@ -120,7 +124,20 @@ These are the command line arguments PyNotes accepts except for the plugin manag
 * `--no-load-plugins` - Starts PyNotes without loading any plugins.  
 * `--pycode-exec "string"` - Executes the given string as PyCode after loading your normal configuration.  
 * `--command-exec "string"` - Executes the given string as Alt-X commands after loading your normal configuration.  
-You can also use `pynotes --help` for a complete list.  
+* `--wait-start` - Delays PyNotes launch until the `start` console command is used, allowing you to queue commands and actions till start.  
+## Console  
+These are the commands currently accepted by the terminal console:  
+* `start` - Finally shows the PyNotes window if the --wait-start option was used.  
+* `command-exec {command}` - Runs the given command as an Alt-X command after 'start' is done.  
+* `pycode-eval {command}` - Directly takes and evaluates a single PyCode expression after 'start' is done.  
+* `extra-pycode` - If the --wait-start option was used, take normal PyCode code as if it was passed to `--pycode-exec` at the start until exactly 'DONE' or 'CANCEL' is typed on a new line before `start` is done. If 'CANCEL' is typed, it cancels the whole command.  
+* `open-file {optional filename}` - Prompts for a filename if not given directly and opens it in a new editor after 'start' is done.  
+* `type {optional text}` - If text is given directly, types it into the main widget of the active buffer. Otherwise, takes text until exactly 'DONE' or 'CANCEL' is typed on a new line. If 'CANCEL' is typed, it cancels the whole command.  
+* `exit` / `close` - Cleanly exits PyNotes after prompting to save files and close running processes.  
+* `kill` - Forcefully kills PyNotes without saving any files or cleaning up.  
+* `run {optional command}` - Prompts for a shell command to run in the same terminal if not given directly and runs it.  
+* `clear` - Clears the terminal screen.  
+* `help` - Shows help on the PyNotes terminal console (this screen).  
 # PyCode Emacs Config  
 **Note:** This config only works on PyNotes versions 1.8 and above, as it uses chord keybindings, which did not exist before PyNotes v1.8.  
 ## What it does  
