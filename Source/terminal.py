@@ -543,6 +543,11 @@ class Terminal(easytk.ttk.Text):
 				_offfg = bg if bg else self._term_default_bg
 				self._blink_tags[name] = (_onfg, _offfg)
 			self._start_blink()
+	def insert(self, index, chars, *tags):
+		if tags:
+			super().insert(index, chars, *tags)
+		else:
+			super().insert(index, chars, '')
 	def _term_insert(self, index, ch):
 		if self._sgr_tag_cache is None:
 			self.insert(index, ch)
