@@ -102,7 +102,6 @@ class Console:
 	def __init__(self, consoleq):
 		import init
 		self.outpt = lambda *args, **kwargs: print(*args, **kwargs, file = state.stdout, flush = True)
-		self.inpt = lambda *args, **kwargs: [self.outpt(*args, **kwargs, end = ''), input()][1]
 		self.dialoglock = threading.Lock()
 		self.q = consoleq
 		self.requestq = queue.Queue()
@@ -304,7 +303,7 @@ class Console:
 					expc = ''
 					while True:
 						self.n += 1
-						nl = self.inpt('extra-pycode> ').strip()
+						nl = self._read_console_line('extra-pycode> ').strip()
 						if nl == 'DONE':
 							break
 						elif nl == 'CANCEL':
@@ -318,17 +317,20 @@ class Console:
 						state.options['pycode-exec'] += ';' + expc
 					else:
 						state.options['pycode-exec'] = expc
+					self.n += 1
 					self.outpt('\x1b[32madded extra pycode to run on pynotes start.\x1b[0m')
 				elif command == 'open-file':
 					if commandinput:
 						filetoopen = commandinput
 					else:
-						filetoopen = self.inpt('file to open: ')
+						self.n = 1
+						filetoopen = self._read_console_line('file to open: ')
 						self.outpt('\r\x1b[A\x1b[K', end = '')
 					if not filetoopen:
 						self.outpt('\x1b[33mcancelled.\x1b[0m')
 						continue
 					self.outpt(f'\x1b[A\x1b[K> open-file {filetoopen}')
+					self.n = 0
 					filetoopen = os.path.abspath(os.path.expanduser(filetoopen))
 					if not os.path.exists(filetoopen):
 						self.outpt(f'\x1b[33mfile \'\x1b[3m{filetoopen}\x1b[23m\' does not exist, creating file.\x1b[0m')
@@ -351,11 +353,12 @@ class Console:
 					if commandinput:
 						self.outpt(f'\x1b[31merror: input given to \x1b[3mkill\x1b[23m command.\x1b[0m')
 						continue
-					userinput = (self.inpt('\x1b[33mkill pynotes? (y/n): \x1b[0m').strip() + 'g')[0].lower()
+					self.n = 1
+					userinput = (self._read_console_line('\x1b[33mkill pynotes? (y/n): \x1b[0m').strip() + 'g')[0].lower()
 					if not userinput in ('y', 'n'):
 						for i in range(2):
 							self.outpt('\r\x1b[A\x1b[K', end = '')
-							userinput = (self.inpt(f'\x1b[31m[invalid input ({i + 2}/3)]\x1b[0m \x1b[33mkill pynotes? (y/n): \x1b[0m').strip() + 'g')[0].lower()
+							userinput = (self._read_console_line(f'\x1b[31m[invalid input ({i + 2}/3)]\x1b[0m \x1b[33mkill pynotes? (y/n): \x1b[0m').strip() + 'g')[0].lower()
 							if userinput in ('y', 'n'):
 								break
 							else:
@@ -370,7 +373,8 @@ class Console:
 					if commandinput:
 						torun = commandinput
 					else:
-						torun = self.inpt('command to run: ').strip()
+						self.n = 1
+						torun = self._read_console_line('command to run: ').strip()
 					if not torun:
 						self.outpt('\r\x1b[A\x1b[K\x1b[33mcancelled.\x1b[0m')
 						continue
@@ -387,7 +391,7 @@ class Console:
 					self.helping = True
 					self.outpt('\x1b[?1049h', end = '')
 					self.outpt(clcht)
-					self.inpt('\x1b[33m\x1b[1m[PRESS ENTER TO CONTINUE]\x1b[0m')
+					self._read_console_line('\x1b[33m\x1b[1m[PRESS ENTER TO CONTINUE]\x1b[0m')
 					self.outpt('\x1b[?1049l', end = '')
 					self.helping = False
 					self.outpt('\x1b[32m\x1b[3mhelp text shown\x1b[0m')
