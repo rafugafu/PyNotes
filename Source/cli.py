@@ -34,7 +34,7 @@ PyNotes has a live cli console in the launching terminal which can interact with
 '\x1b[31m\x1b[3mkill\x1b[0m' - Forcefully kills PyNotes without saving any files or cleaning up.
 '\x1b[3mrun {optional command}\x1b[0m' - Prompts for a shell command to run in the same terminal if not given directly and runs it.
 '\x1b[3mclear\x1b[0m' - Clears the terminal screen.
-'\x1b[3mhelp\x1b[0m'- Shows help on the PyNotes terminal console (this screen).\
+'\x1b[3mhelp\x1b[0m' - Shows help on the PyNotes terminal console (this screen).\
 '''
 def argparse(options, args):
 	options = {key: (item if item != [True] else []) for key, item in options.copy().items()}
