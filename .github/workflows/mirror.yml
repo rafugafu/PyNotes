@@ -43,8 +43,8 @@ jobs:
 
       - name: Mirror to SourceForge
         run: |
-          git clone --mirror https://github.com/${{ github.repository }}.git sourceforge_mirror
-          cd sourceforge_mirror
+          git clone --mirror https://github.com/${{ github.repository }}.git git_mirror
+          cd git_mirror
           git remote add sourceforge ssh://rafugafu@git.code.sf.net/p/pynotespython/code
           git push --mirror sourceforge
 
@@ -68,6 +68,6 @@ jobs:
 
       - name: Mirror to Launchpad
         run: |
-          cd sourceforge_mirror
+          cd git_mirror
           git remote add launchpad git+ssh://rafugafu@git.launchpad.net/~rafugafu/+git/pynotes
           git push --mirror launchpad
