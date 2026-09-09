@@ -181,7 +181,7 @@ class Console:
 			if self.helping:
 				moveback = '\x1b[H'
 			text = '\n'.join(line.ljust(width) for line in text.split('\n'))
-			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\x1b[0m\x1b8\x1b[{text.count("\n") + 2}B'.replace('\n', '\n\x1b[L'), end = '')
+			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\x1b[0m\x1b8\x1b[{text.count("\n") + 2}B'.replace('\n', f'\x1b[49m\n\x1b[L\x1b[{color}'), end = '')
 	def ask(self, title, question, options, color = '100m', cancel_event = None):
 		with self.dialoglock:
 			import textwrap
@@ -213,7 +213,7 @@ class Console:
 			optionspacing = ' ' * ((width - optiontotalwidth) // ((len(row) - 1) or 1))
 			current = optionspacing.join(row)
 			optionstext += current + ' ' * max(0, width - len(current.split('\n')[-1].replace('\x1b[7m', '').replace('\x1b[1m', '').replace('\x1b[22m', '').replace('\x1b[27m', ''))) + '\n'
-			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n{optionstext}\x1b[0m'.replace('\n', '\n\x1b[L'), end = '')
+			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n{optionstext}\x1b[0m'.replace('\n', f'\x1b[49m\n\x1b[L\x1b[{color}'), end = '')
 			options = range(1, optioni + 2)
 			optionpromptslash = '/'.join(map(str, options))
 			restore = lambda: self.outpt(f'\x1b8\x1b[{optionstext.count("\n") + text.count("\n") + 3}B', end = '')
@@ -254,7 +254,7 @@ class Console:
 			if self.helping:
 				moveback = '\x1b[H'
 			text = '\n'.join(line.ljust(width) for line in text.split('\n'))
-			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n\x1b[0m'.replace('\n', '\n\x1b[L'), end = '')
+			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n\x1b[0m'.replace('\n', f'\x1b[49m\n\x1b[L\x1b[{color}'), end = '')
 			gotinput = self._cancellable_inpt(f'\x1b[7m\x1b[1mprompt:\x1b[0m ', cancel_event)
 			self.outpt(f'\x1b8\x1b[{text.count("\n") + 3}B', end = '')
 			if gotinput is _CANCELLED:
