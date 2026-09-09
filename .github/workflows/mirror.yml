@@ -47,3 +47,27 @@ jobs:
           cd sourceforge_mirror
           git remote add sourceforge ssh://rafugafu@git.code.sf.net/p/pynotespython/code
           git push --mirror sourceforge
+
+      - name: Setup Launchpad SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "${{ secrets.LAUNCHPAD_SSH_KEY }}" > ~/.ssh/launchpad_key
+
+          chmod 600 ~/.ssh/launchpad_key
+
+          cat > ~/.ssh/config <<EOF
+          Host git.launchpad.net
+            HostName git.launchpad.net
+            User rafugafu
+            IdentityFile ~/.ssh/launchpad_key
+            IdentitiesOnly yes
+          EOF
+
+          ssh-keyscan git.launchpad.net >> ~/.ssh/known_hosts
+
+      - name: Mirror to Launchpad
+        run: |
+          cd sourceforge_mirror
+          git remote add launchpad git+ssh://rafugafu@git.launchpad.net/~rafugafu/+git/pynotes
+          git push --mirror launchpad
