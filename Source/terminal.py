@@ -8,10 +8,10 @@ import threading
 import time
 import easytk
 import state
-from init import monospace
+from init import monospace, DEBOUNCE_TIME
 if platform.system() != 'Linux':
 	from winpty import PtyProcess
-from buffer import Buffer, DEBOUNCE_TIME
+from buffer import Buffer
 from utils import bindrecur
 import pycode
 import utils

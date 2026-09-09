@@ -1,7 +1,12 @@
 from init import exit
 import state
 import os
+import sys
+import select
+import queue
 import subprocess
+import shutil
+import threading
 claht = '''\
 \x1b[1mCommand line arguments:\x1b[0m
 \x1b[3m--version\x1b[0m: Print the current PyNotes version number.
@@ -86,30 +91,181 @@ def argparse(options, args):
 		elif options[option] == True:
 			options[option] = None
 	return options, files_to_open
+_CANCELLED = object()
+class _ConsoleRequest:
+	def __init__(self, kind, args):
+		self.kind = kind
+		self.args = args
+		self.cancel = threading.Event()
+		self.resultq = queue.Queue()
 class Console:
 	def __init__(self, consoleq):
 		import init
 		self.outpt = lambda *args, **kwargs: print(*args, **kwargs, file = state.stdout, flush = True)
 		self.inpt = lambda *args, **kwargs: [self.outpt(*args, **kwargs, end = ''), input()][1]
+		self.dialoglock = threading.Lock()
 		self.q = consoleq
+		self.requestq = queue.Queue()
 		self.outpt('\x1b[H\x1b[2J', end = '')
 		self.outpt(f'\x1b[1mPyNotes terminal console. PyNotes v{init.v}.\x1b[0m')
-	def show(self, text):
-		if not (text := text.strip()):
+	def _cancellable_inpt(self, prompt_text, cancel_event = None):
+		self.outpt(prompt_text, end = '')
+		while True:
+			ready, _, _ = select.select([sys.stdin], [], [], 0.15)
+			if ready:
+				line = sys.stdin.readline()
+				if line == '':
+					raise EOFError
+				return line.rstrip('\n')
+			if cancel_event is not None and cancel_event.is_set():
+				return _CANCELLED
+	def _read_console_line(self, prompt_text):
+		self.outpt(prompt_text, end = '')
+		while True:
+			ready, _, _ = select.select([sys.stdin], [], [], 0.15)
+			if ready:
+				line = sys.stdin.readline()
+				if line == '':
+					raise EOFError
+				return line.rstrip('\n')
+			if not self.requestq.empty():
+				self._service_one_request()
+	def _service_one_request(self):
+		try:
+			request = self.requestq.get_nowait()
+		except queue.Empty:
 			return
-		if self.n:
-			moveback = f'\x1b[{self.n}B'
+		if request.cancel.is_set():
+			request.resultq.put(None)
+			return
+		if request.kind == 'ask':
+			title, question, options, color = request.args
+			result = self.ask(title, question, options, color, request.cancel)
 		else:
-			moveback = ''
-		if self.helping:
-			moveback = '\x1b[H'
-		self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[7mmessage: \x1b[3m{text}\x1b[0m\x1b8\x1b[B', end = '')
+			title, text, color = request.args
+			result = self.prompt(title, text, color, request.cancel)
+		request.resultq.put(None if result is _CANCELLED else result)
+	def ask_async(self, title, question, options, color = '100m'):
+		request = _ConsoleRequest('ask', (title, question, list(options), color))
+		self.requestq.put(request)
+		return request
+	def prompt_async(self, title, text, color = '100m'):
+		request = _ConsoleRequest('prompt', (title, text, color))
+		self.requestq.put(request)
+		return request
+	def cancel_request(self, request):
+		request.cancel.set()
+	def show(self, text):
+		with self.dialoglock:
+			if not (text := text.strip()):
+				return
+			if self.n:
+				moveback = f'\x1b[{self.n}B'
+			else:
+				moveback = ''
+			if self.helping:
+				moveback = '\x1b[H'
+			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[7mmessage: \x1b[3m{text}\x1b[0m\x1b8\x1b[B', end = '')
+	def dialog(self, title, message, color = '100m'):
+		with self.dialoglock:
+			import textwrap
+			width = min(shutil.get_terminal_size()[0], 80)
+			if len(title) > width:
+				title = title[: width - 3] + '...'
+			text = textwrap.fill(message, width = width) + '\n'
+			spacing = ' ' * ((width - len(title)) // 2)
+			if self.n:
+				moveback = f'\x1b[{self.n}B'
+			else:
+				moveback = ''
+			if self.helping:
+				moveback = '\x1b[H'
+			text = '\n'.join(line.ljust(width) for line in text.split('\n'))
+			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\x1b[0m\x1b8\x1b[{text.count("\n") + 2}B'.replace('\n', '\n\x1b[L'), end = '')
+	def ask(self, title, question, options, color = '100m', cancel_event = None):
+		with self.dialoglock:
+			import textwrap
+			width = min(shutil.get_terminal_size()[0], 80)
+			if len(title) > width:
+				title = title[: width - 3] + '...'
+			text = textwrap.fill(question, width = width) + '\n'
+			spacing = ' ' * ((width - len(title)) // 2)
+			if self.n:
+				moveback = f'\x1b[{self.n}B'
+			else:
+				moveback = ''
+			if self.helping:
+				moveback = '\x1b[H'
+			text = '\n'.join(line.ljust(width) for line in text.split('\n'))
+			optionstext = ''
+			optiontotalwidth = 0
+			row = []
+			for optioni in range(len(options)):
+				option = textwrap.fill(f'{optioni + 1}. {options[optioni]}', width = width)
+				if optiontotalwidth + len(option) > width:
+					optionspacing = ' ' * ((width - optiontotalwidth) // ((len(row) - 1) or 1))
+					current = optionspacing.join(row)
+					optionstext += current + ' ' * max(0, width - len(current.split('\n')[-1].replace('\x1b[7m', '').replace('\x1b[1m', '').replace('\x1b[22m', '').replace('\x1b[27m', ''))) + '\n' + ' ' * width + '\n'
+					optiontotalwidth = 0
+					row = []
+				optiontotalwidth += len(option)
+				row.append(f'\x1b[7m\x1b[1m{option}\x1b[22m\x1b[27m')
+			optionspacing = ' ' * ((width - optiontotalwidth) // ((len(row) - 1) or 1))
+			current = optionspacing.join(row)
+			optionstext += current + ' ' * max(0, width - len(current.split('\n')[-1].replace('\x1b[7m', '').replace('\x1b[1m', '').replace('\x1b[22m', '').replace('\x1b[27m', ''))) + '\n'
+			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n{optionstext}\x1b[0m'.replace('\n', '\n\x1b[L'), end = '')
+			options = range(1, optioni + 2)
+			optionpromptslash = '/'.join(map(str, options))
+			restore = lambda: self.outpt(f'\x1b8\x1b[{optionstext.count("\n") + text.count("\n") + 3}B', end = '')
+			gotinput = self._cancellable_inpt(f'\x1b[7m\x1b[1mselect ({optionpromptslash}):\x1b[0m ', cancel_event)
+			if gotinput is _CANCELLED:
+				restore()
+				return _CANCELLED
+			gotinput = gotinput.strip().lower()
+			try:
+				gotinput = int(gotinput)
+			except Exception:
+				pass
+			if not gotinput in options:
+				while not gotinput in options:
+					gotinput = self._cancellable_inpt(f'\x1b[A\r\x1b[K\x1b[7m\x1b[1m\x1b[31m[invalid input]\x1b[39m select ({optionpromptslash}):\x1b[0m ', cancel_event)
+					if gotinput is _CANCELLED:
+						restore()
+						return _CANCELLED
+					gotinput = gotinput.strip().lower()
+					try:
+						gotinput = int(gotinput)
+					except Exception:
+						pass
+			restore()
+			return gotinput
+	def prompt(self, title, text, color = '100m', cancel_event = None):
+		with self.dialoglock:
+			import textwrap
+			width = min(shutil.get_terminal_size()[0], 80)
+			if len(title) > width:
+				title = title[: width - 3] + '...'
+			text = textwrap.fill(text, width = width) + '\n'
+			spacing = ' ' * ((width - len(title)) // 2)
+			if self.n:
+				moveback = f'\x1b[{self.n}B'
+			else:
+				moveback = ''
+			if self.helping:
+				moveback = '\x1b[H'
+			text = '\n'.join(line.ljust(width) for line in text.split('\n'))
+			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n\x1b[0m'.replace('\n', '\n\x1b[L'), end = '')
+			gotinput = self._cancellable_inpt(f'\x1b[7m\x1b[1mprompt:\x1b[0m ', cancel_event)
+			self.outpt(f'\x1b8\x1b[{text.count("\n") + 3}B', end = '')
+			if gotinput is _CANCELLED:
+				return _CANCELLED
+			return gotinput
 	def loop(self):
 		while True:
 			try:
 				self.n = 0
 				self.helping = False
-				command, commandinput = (self.inpt('> ').strip() + ' ').split(' ', 1)
+				command, commandinput = (self._read_console_line('> ').strip() + ' ').split(' ', 1)
 				command = command.strip()
 				commandinput = commandinput.strip()
 				if not command:
@@ -223,7 +379,7 @@ class Console:
 					if commandinput:
 						self.outpt('\x1b[31merror: input given to \x1b[3mclear\x1b[23m command.\x1b[0m')
 						continue
-					self.outpt('\x1b[H\x1b[2J\x1b[3J', end = '', flush = True)
+					self.outpt('\x1b[H\x1b[2J\x1b[3J', end = '')
 				elif command == 'help':
 					if commandinput:
 						self.outpt('\x1b[31merror: input given to \x1b[3mhelp\x1b[23m command.\x1b[0m')

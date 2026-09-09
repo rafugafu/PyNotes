@@ -1,13 +1,181 @@
 import os
 import sys
 import shutil
+import queue
+import textwrap
+import ttkbootstrap as ttk
 import state
-from init import homedir, rootdir
+from init import homedir, rootdir, DEBOUNCE_TIME
 import editor
-from buffer import DEBOUNCE_TIME, saveforclose
 import dialogs
 import pycode
 import utils
+import easytk
+_MSG_ICONS = {'info': ('info-circle-fill', 'info'), 'warning': ('exclamation-triangle-fill', 'warning'), 'error': ('x-circle-fill', 'danger')}
+_MSG_ICON_SIZE = 30
+_ASK_PRESETS = {('yes', 'no'): {'Yes': True, 'No': False, None: None}, ('ok', 'cancel'): {'OK': True, 'Cancel': False, None: None}, ('yes', 'no', 'cancel'): {'Yes': True, 'No': False, 'Cancel': None, None: None}, ('retry', 'cancel'): {'Retry': True, 'Cancel': False, None: None}}
+_ASK_PRESET_LABELS = {('yes', 'no'): ['No', 'Yes'], ('ok', 'cancel'): ['Cancel', 'OK'], ('yes', 'no', 'cancel'): ['Cancel', 'No', 'Yes'], ('retry', 'cancel'): ['Cancel', 'Retry']}
+class pynoteswindow(easytk.win):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+	def _build_message_dialog(self, kind, title, message, button_labels, default_label = None, alert = False):
+		self.update_idletasks()
+		top = ttk.Toplevel(transient = self, title = title or ' ', resizable = (False, False), minsize = (250, 15), window_type = 'dialog', iconify = True)
+		top.withdraw()
+		state_ = {'result': None}
+		def press(label):
+			state_['result'] = label
+			top.after_idle(lambda: top.destroy() if top.winfo_exists() else None)
+		def close_dialog():
+			if top.winfo_exists():
+				top.destroy()
+		body = ttk.Frame(top, padding = (20, 20))
+		if kind in _MSG_ICONS:
+			name, color = _MSG_ICONS[kind]
+			icon_img = ttk.Icon(name, _MSG_ICON_SIZE, color)
+			ttk.Label(body, image = icon_img).pack(side = 'left', anchor = 'center', padx = (0, 5))
+		msg_frame = ttk.Frame(body)
+		for line in message.split('\n'):
+			wrapped = '\n'.join(textwrap.wrap(line, width = 50))
+			ttk.Label(msg_frame, text = wrapped).pack(pady = (0, 3), fill = 'x', anchor = 'n')
+		msg_frame.pack(side = 'left', fill = 'x', expand = True, anchor = 'center')
+		body.pack(fill = 'x', expand = True)
+		buttonframe = ttk.Frame(top, padding = (5, 5))
+		default_label = default_label or button_labels[-1]
+		buttons = []
+		initial_focus = None
+		for label in reversed(button_labels):
+			is_default = label == default_label
+			btn = ttk.Button(buttonframe, bootstyle = 'primary' if is_default else 'default', text = label)
+			btn.configure(command = lambda l = label: press(l))
+			btn.pack(padx = 2, side = 'right')
+			btn.lower()
+			btn.bind('<Return>', lambda e, b = btn: b.invoke())
+			btn.bind('<KP_Enter>', lambda e, b = btn: b.invoke())
+			buttons.append(btn)
+			if is_default:
+				initial_focus = btn
+		for i, btn in enumerate(buttons):
+			if i > 0:
+				btn.bind('<Right>', lambda e, b = buttons[i - 1]: b.focus_set())
+			if i < len(buttons) - 1:
+				btn.bind('<Left>', lambda e, b = buttons[i + 1]: b.focus_set())
+		ttk.Separator(top).pack(fill = 'x')
+		buttonframe.pack(side = 'bottom', fill = 'x', anchor = 's')
+		top.bind('<Escape>', lambda e: close_dialog())
+		top.protocol('WM_DELETE_WINDOW', close_dialog)
+		top.update_idletasks()
+		w, h = top.winfo_reqwidth(), top.winfo_reqheight()
+		top.geometry(f'{w}x{h}')
+		x = self.winfo_rootx() + (self.winfo_width() - w) // 2
+		y = self.winfo_rooty() + (self.winfo_height() - h) // 2
+		top.geometry(f'+{max(0, x)}+{max(0, y)}')
+		top.deiconify()
+		if alert:
+			top.bell()
+		initial_focus.focus_force()
+		return top, state_
+	def _build_query_dialog(self, title, prompt):
+		self.update_idletasks()
+		top = ttk.Toplevel(transient = self, title = title or ' ', resizable = (False, False), minsize = (250, 15), window_type = 'dialog', iconify = True)
+		top.withdraw()
+		state_ = {'result': None}
+		body = ttk.Frame(top, padding = (20, 20))
+		for line in prompt.split('\n'):
+			wrapped = '\n'.join(textwrap.wrap(line, width = 65))
+			ttk.Label(body, text = wrapped).pack(pady = (0, 5), fill = 'x', anchor = 'n')
+		entry = ttk.Entry(body)
+		entry.pack(pady = (0, 5), fill = 'x')
+		body.pack(fill = 'x', expand = True)
+		def submit(*_):
+			state_['result'] = entry.get()
+			if top.winfo_exists():
+				top.destroy()
+		def cancel(*_):
+			if top.winfo_exists():
+				top.destroy()
+		entry.bind('<Return>', submit)
+		entry.bind('<KP_Enter>', submit)
+		entry.bind('<Escape>', cancel)
+		top.bind('<Escape>', cancel)
+		buttonframe = ttk.Frame(top, padding = (5, 10))
+		submitbtn = ttk.Button(buttonframe, bootstyle = 'primary', text = 'Submit', command = submit)
+		submitbtn.pack(padx = 2, side = 'right')
+		submitbtn.lower()
+		cancelbtn = ttk.Button(buttonframe, text = 'Cancel', command = cancel)
+		cancelbtn.pack(padx = 2, side = 'right')
+		cancelbtn.lower()
+		ttk.Separator(top).pack(fill = 'x')
+		buttonframe.pack(side = 'bottom', fill = 'x', anchor = 's')
+		top.protocol('WM_DELETE_WINDOW', cancel)
+		top.update_idletasks()
+		w, h = top.winfo_reqwidth(), top.winfo_reqheight()
+		top.geometry(f'{w}x{h}')
+		x = self.winfo_rootx() + (self.winfo_width() - w) // 2
+		y = self.winfo_rooty() + (self.winfo_height() - h) // 2
+		top.geometry(f'+{max(0, x)}+{max(0, y)}')
+		top.deiconify()
+		entry.focus_force()
+		return top, state_
+	def _race_console(self, request, top, state_):
+		top.grab_set()
+		def poll():
+			try:
+				value = request.resultq.get_nowait()
+			except queue.Empty:
+				if top.winfo_exists():
+					top.after(50, poll)
+				return
+			state_['console_result'] = ('console', value)
+			if top.winfo_exists():
+				top.destroy()
+		top.after(50, poll)
+		top.wait_window()
+		if 'console_result' in state_:
+			return state_['console_result'][1]
+		state.console.cancel_request(request)
+		return state_['result']
+	def _resolve_clicked(self, clicked, button_labels):
+		if isinstance(clicked, int):
+			return button_labels[clicked - 1] if 1 <= clicked <= len(button_labels) else None
+		return clicked
+	def ask(self, title, question, options):
+		options_tuple = tuple(options)
+		button_labels = _ASK_PRESET_LABELS.get(options_tuple, list(options))
+		request = state.console.ask_async(title, question, button_labels)
+		top, state_ = self._build_message_dialog(None, title, question, button_labels)
+		clicked = self._resolve_clicked(self._race_console(request, top, state_), button_labels)
+		return _ASK_PRESETS[options_tuple].get(clicked, None) if options_tuple in _ASK_PRESETS else clicked
+	def askstring(self, title, prompt):
+		request = state.console.prompt_async(title, prompt)
+		top, state_ = self._build_query_dialog(title, prompt)
+		return self._race_console(request, top, state_)
+	def _notice_with_buttons(self, kind, title, message, buttons, alert):
+		color = '43m' if kind == 'warning' else ('41m' if kind == 'error' else '100m')
+		button_labels = list(buttons)
+		request = state.console.ask_async(title, message, button_labels, color = color)
+		top, state_ = self._build_message_dialog(kind, title, message, button_labels, alert = alert)
+		return self._resolve_clicked(self._race_console(request, top, state_), button_labels)
+	def info(self, title, message, buttons = None, **kwargs):
+		if buttons:
+			return self._notice_with_buttons('info', title, message, buttons, alert = False)
+		state.console.dialog(title, message)
+		return super().info(title, message, **kwargs)
+	def error(self, title, message, buttons = None, **kwargs):
+		if buttons:
+			return self._notice_with_buttons('error', title, message, buttons, alert = True)
+		state.console.dialog(title, message, color = '41m')
+		return super().error(title, message, **kwargs)
+	def warning(self, title, message, buttons = None, **kwargs):
+		if buttons:
+			return self._notice_with_buttons('warning', title, message, buttons, alert = True)
+		state.console.dialog(title, message, color = '43m')
+		return super().warning(title, message, **kwargs)
+def saveforclose():
+	for buffer in state.all_buffers:
+		if hasattr(buffer, 'saveforclose') and not buffer.saveforclose():
+			return False
+	return True
 def find_open_editor(abspath):
 	for buffer in state.all_buffers:
 		if not isinstance(buffer, editor.Editor):

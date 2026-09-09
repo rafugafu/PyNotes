@@ -1,6 +1,5 @@
 import easytk
 import state
-DEBOUNCE_TIME = 300
 class Buffer(easytk.ttk.Frame):
 	for code in state.buffer_init_functions:
 		try:
@@ -23,8 +22,3 @@ class Buffer(easytk.ttk.Frame):
 		import window
 		self.wanttitle = title
 		window.settitle()
-def saveforclose():
-	for buffer in state.all_buffers:
-		if hasattr(buffer, 'saveforclose') and not buffer.saveforclose():
-			return False
-	return True

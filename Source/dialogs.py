@@ -4,6 +4,7 @@ import platform
 import getpass
 import subprocess
 import time
+import queue
 import state
 from init import homedir, monospace
 import utils
@@ -43,17 +44,80 @@ def fileautocompletefunc(typed):
 				completion += '/'
 			autocompletelist += (completion,)
 		return autocompletelist
+def _race_console_box(title, prompttext, defaultinput):
+	request = state.console.prompt_async(title, prompttext)
+	winner = {}
+	def poll():
+		if 'result' in winner:
+			return
+		try:
+			value = request.resultq.get_nowait()
+		except queue.Empty:
+			state.root.after(50, poll)
+			return
+		winner['result'] = value or ''
+		state.prompting = False
+	state.root.after(50, poll)
+	fn = utils.prompt(prompttext, fileautocompletefunc, defaultinput)
+	if 'result' not in winner:
+		winner['result'] = fn
+	state.console.cancel_request(request)
+	return winner['result']
+def _race_console_graphical(title, prompttext, zenity_args, native_dialog_call):
+	request = state.console.prompt_async(title, prompttext)
+	winner = {}
+	if platform.system() == 'Linux':
+		proc = subprocess.Popen(zenity_args, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL, text = True)
+		while 'result' not in winner:
+			try:
+				value = request.resultq.get(timeout = 0.1)
+			except queue.Empty:
+				value = None
+			else:
+				winner['result'] = value or ''
+				if proc.poll() is None:
+					proc.terminate()
+					proc.wait()
+				break
+			if proc.poll() is not None:
+				out, _ = proc.communicate()
+				winner['result'] = out.strip()
+				break
+	else:
+		before = set(state.root.winfo_children())
+		def poll():
+			if 'result' in winner:
+				return
+			try:
+				value = request.resultq.get_nowait()
+			except queue.Empty:
+				state.root.after(50, poll)
+				return
+			winner['result'] = value or ''
+			for w in set(state.root.winfo_children()) - before:
+				try:
+					w.destroy()
+				except Exception:
+					pass
+		state.root.after(50, poll)
+		fn = native_dialog_call()
+		if 'result' not in winner:
+			winner['result'] = fn or ''
+	state.console.cancel_request(request)
+	return winner['result']
 def openfileget(filetypes = (('All Files', '*'),), prompttext = 'Open File: ', initialfile = None):
 	if not state.nographicalfiledialogs:
 		if platform.system() == 'Linux':
-			fn = subprocess.run(['zenity', '--file-selection', f'--filename={initialfile or "./"}', '--title=Open File'] + [f'--file-filter={ft[0]} | {ft[1]}' for ft in filetypes], capture_output = True, text = True).stdout.strip()
+			zenity_args = ['zenity', '--file-selection', f'--filename={initialfile or "./"}', '--title=Open File'] + [f'--file-filter={ft[0]} | {ft[1]}' for ft in filetypes]
+			fn = _race_console_graphical('Open', prompttext, zenity_args, None)
 		else:
 			import easytk
 			initialdir = os.path.dirname(initialfile)
-			initialfile = os.path.basename(initialfile)
-			fn = easytk.fd.askopenfilename(title = 'Open File', filetypes = filetypes, initialfile = initialfile or '', initialdir = initialdir or '')
+			initialfilename = os.path.basename(initialfile)
+			native_dialog_call = lambda: easytk.fd.askopenfilename(title = 'Open File', filetypes = filetypes, initialfile = initialfilename or '', initialdir = initialdir or '')
+			fn = _race_console_graphical('Open', prompttext, None, native_dialog_call)
 	else:
-		fn = utils.prompt(prompttext, fileautocompletefunc, initialfile)
+		fn = _race_console_box('Open', prompttext, initialfile)
 	if not fn.strip():
 		return ''
 	fn = os.path.abspath(os.path.expanduser(fn))
@@ -67,17 +131,19 @@ def openfileget(filetypes = (('All Files', '*'),), prompttext = 'Open File: ', i
 def saveasfileget(prompttext = 'Save File: ', initialfile = None):
 	if not state.nographicalfiledialogs:
 		if platform.system() == 'Linux':
-			fn = subprocess.run(['zenity', '--file-selection', f'--filename={initialfile or "./"}', '--save', '--confirm-overwrite', '--title=Save As', '--file-filter=All Files | *'], capture_output = True, text = True).stdout.strip()
+			zenity_args = ['zenity', '--file-selection', f'--filename={initialfile or "./"}', '--save', '--confirm-overwrite', '--title=Save As', '--file-filter=All Files | *']
+			fn = _race_console_graphical('Save As', prompttext, zenity_args, None)
 		else:
 			import easytk
 			initialdir = os.path.dirname(initialfile)
-			initialfile = os.path.basename(initialfile)
-			fn = easytk.fd.asksaveasfilename(initialfile = initialfile or '', initialdir = initialdir or '')
+			initialfilename = os.path.basename(initialfile)
+			native_dialog_call = lambda: easytk.fd.asksaveasfilename(initialfile = initialfilename or '', initialdir = initialdir or '')
+			fn = _race_console_graphical('Save As', prompttext, None, native_dialog_call)
 		if not fn.strip():
 			return ''
 	else:
 		while True:
-			fn = utils.prompt(prompttext, fileautocompletefunc, initialfile)
+			fn = _race_console_box('Save As', prompttext, initialfile)
 			if not fn.strip():
 				return ''
 			fn = os.path.abspath(os.path.expanduser(fn))

@@ -19,8 +19,8 @@ from email import encoders
 import easytk
 import state
 from encrypter import encryptdecrypt
-from init import homedir, monospace
-from buffer import Buffer, DEBOUNCE_TIME
+from init import homedir, monospace, DEBOUNCE_TIME
+from buffer import Buffer
 from python_scope_build import _PYTHON_BUILTIN_MEMBERS, _PYTHON_BUILTIN_NAMES
 import python_scope_build
 import dialogs

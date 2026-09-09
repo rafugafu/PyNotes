@@ -359,15 +359,15 @@ if state.defs[3] in state.root.themes():
 else:
 	state.root.style('bootstrap-light')
 vars(state).update(globals())
-pycode = ''
+pycodecode = ''
 if not state.options['no-load-pycode']:
-	pycode += open(f'{homedir}/.pynotes', 'r', encoding = 'utf-8').read()
+	pycodecode += open(f'{homedir}/.pynotes', 'r', encoding = 'utf-8').read()
 if state.options['pycode-exec']:
-	if pycode:
-		pycode += ';'
-	pycode += state.options['pycode-exec']
+	if pycodecode:
+		pycodecode += ';'
+	pycodecode += state.options['pycode-exec']
 try:
-	pycodestartupcdt = pcread(pycode)
+	pycodestartupcdt = pcread(pycodecode)
 except Exception:
 	pass
 else:

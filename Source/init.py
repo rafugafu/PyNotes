@@ -7,6 +7,7 @@ import state
 from tkinter import messagebox as mb
 exit = sys.exit
 v = '2.2'
+DEBOUNCE_TIME = 300
 if platform.system() == 'Linux':
 	rootdir = '/usr/share/PyNotes'
 	homedir = f'/home/{getpass.getuser()}'
@@ -306,9 +307,9 @@ def _report_callback_exception(*args, **kwargs):
 	import utils
 	return utils._report_callback_exception(*args, **kwargs)
 def create_root_and_menus():
-	import easytk
+	import window
 	import utils
-	state.root = easytk.win()
+	state.root = window.pynoteswindow()
 	state.root.report_callback_exception = _report_callback_exception
 	utils.load_themes()
 	state.fm = state.root.menu()
