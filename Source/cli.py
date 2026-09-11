@@ -3,10 +3,29 @@ import state
 import os
 import sys
 import select
-import queue
 import subprocess
 import shutil
 import threading
+import platform
+if platform.system() == 'Linux':
+	import termios
+	import tty
+	fd = sys.stdin.fileno()
+	old_settings = termios.tcgetattr(fd)
+	def set_raw_mode():
+		tty.setraw(fd)
+	def unset_raw_mode():
+		termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+	def get_key():
+		return sys.stdin.read(1)
+else:
+	import msvcrt
+	def set_raw_mode():
+		pass
+	def unset_raw_mode():
+		pass
+	def get_key():
+		return msvcrt.getch().decode('utf-8', errors = 'ignore')
 claht = '''\
 \x1b[1mCommand line arguments:\x1b[0m
 \x1b[3m--version\x1b[0m: Print the current PyNotes version number.
@@ -91,69 +110,102 @@ def argparse(options, args):
 		elif options[option] == True:
 			options[option] = None
 	return options, files_to_open
-_CANCELLED = object()
-class _ConsoleRequest:
-	def __init__(self, kind, args):
-		self.kind = kind
-		self.args = args
-		self.cancel = threading.Event()
-		self.resultq = queue.Queue()
 class Console:
 	def __init__(self, consoleq):
 		import init
-		self.outpt = lambda *args, **kwargs: print(*args, **kwargs, file = state.stdout, flush = True)
 		self.dialoglock = threading.Lock()
 		self.q = consoleq
-		self.requestq = queue.Queue()
+		self.curinput = {'command': '', 'dialog': ''}
+		self.cursors = {'command': 0, 'dialog': 0}
+		self.curecho = {'command': True, 'dialog': True}
+		self.curdoneevents = {}
+		self.curresults = {}
+		self.curactiveinput = 'command'
+		threading.Thread(target = self.inputloop, daemon = True).start()
 		self.outpt('\x1b[H\x1b[2J', end = '')
 		self.outpt(f'\x1b[1mPyNotes terminal console. PyNotes v{init.v}.\x1b[0m')
-	def _cancellable_inpt(self, prompt_text, cancel_event = None):
-		self.outpt(prompt_text, end = '')
+	def outpt(self, string, end = '\n', *args, **kwargs):
+		string += end
+		string = string.replace('\n', '\n\r')
+		return print(string, end = '', file = state.stdout, flush = True, *args, **kwargs)
+	def inputloop(self):
 		while True:
-			ready, _, _ = select.select([sys.stdin], [], [], 0.15)
-			if ready:
-				line = sys.stdin.readline()
-				if line == '':
-					raise EOFError
-				return line.rstrip('\n')
-			if cancel_event is not None and cancel_event.is_set():
-				return _CANCELLED
-	def _read_console_line(self, prompt_text):
-		self.outpt(prompt_text, end = '')
-		while True:
-			ready, _, _ = select.select([sys.stdin], [], [], 0.15)
-			if ready:
-				line = sys.stdin.readline()
-				if line == '':
-					raise EOFError
-				return line.rstrip('\n')
-			if not self.requestq.empty():
-				self._service_one_request()
-	def _service_one_request(self):
-		try:
-			request = self.requestq.get_nowait()
-		except queue.Empty:
-			return
-		if request.cancel.is_set():
-			request.resultq.put(None)
-			return
-		if request.kind == 'ask':
-			title, question, options, color = request.args
-			result = self.ask(title, question, options, color, request.cancel)
-		else:
-			title, text, color = request.args
-			result = self.prompt(title, text, color, request.cancel)
-		request.resultq.put(None if result is _CANCELLED else result)
-	def ask_async(self, title, question, options, color = '100m'):
-		request = _ConsoleRequest('ask', (title, question, list(options), color))
-		self.requestq.put(request)
-		return request
-	def prompt_async(self, title, text, color = '100m'):
-		request = _ConsoleRequest('prompt', (title, text, color))
-		self.requestq.put(request)
-		return request
-	def cancel_request(self, request):
-		request.cancel.set()
+			key = get_key()
+			user = self.curactiveinput
+			buf = self.curinput[user]
+			cursor = self.cursors[user]
+			echo = self.curecho[user]
+			if key == '\r':
+				doneevent = self.curdoneevents.get(user)
+				self.curresults[user] = buf
+				self.curinput[user] = ''
+				self.cursors[user] = 0
+				self.outpt('')
+				if doneevent:
+					doneevent.set()
+			elif key in ('\x7f', '\x08'):
+				if cursor == 0:
+					continue
+				if echo:
+					self.outpt('\x1b[D\x1b[P', end = '')
+				self.curinput[user] = buf[:cursor - 1] + buf[cursor:]
+				self.cursors[user] = cursor - 1
+			elif key == '\x1b':
+				second = None
+				third = None
+				while not second:
+					second = get_key()
+				while not third:
+					third = get_key()
+				if second + third == '[D':
+					if cursor == 0:
+						continue
+					self.cursors[user] = cursor - 1
+					if echo:
+						self.outpt('\x1b[D', end = '')
+				elif second + third == '[C':
+					if cursor == len(buf):
+						continue
+					self.cursors[user] = cursor + 1
+					if echo:
+						self.outpt('\x1b[C', end = '')
+				elif second + third == '[A':
+					self.cursors[user] = 0
+					if echo:
+						self.outpt(f'\x1b[{cursor}D', end = '')
+				elif second + third == '[B':
+					self.cursors[user] = len(self.curinput[user])
+					if echo:
+						self.outpt(f'\x1b[{len(self.curinput[user]) - cursor}C', end = '')
+				elif second + third == '[3':
+					fourth = None
+					while not fourth:
+						fourth = get_key()
+					if cursor == len(buf):
+						continue
+					if echo:
+						self.outpt('\x1b[P', end = '')
+					self.curinput[user] = buf[:cursor] + buf[cursor + 1:]
+			elif key == '\t':
+				continue
+			else:
+				if echo:
+					self.outpt('\x1b[@' + key, end = '')
+				self.curinput[user] = buf[:cursor] + key + buf[cursor:]
+				self.cursors[user] = cursor + 1
+	def inpt(self, prompt, echo = True, cancel_event = None):
+		self.outpt(prompt, end = '')
+		user = self.curactiveinput
+		self.curecho[user] = echo
+		doneevent = threading.Event()
+		self.curdoneevents[user] = doneevent
+		while not doneevent.wait(timeout = 0.1):
+			if cancel_event and cancel_event.is_set():
+				self.curdoneevents.pop(user, None)
+				self.outpt('')
+				return
+		self.curdoneevents.pop(user, None)
+		return self.curresults.pop(user, '')
 	def show(self, text):
 		with self.dialoglock:
 			if not (text := text.strip()):
@@ -215,11 +267,13 @@ class Console:
 			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n{optionstext}\x1b[0m'.replace('\n', f'\x1b[49m\n\x1b[L\x1b[{color}'), end = '')
 			options = range(1, optioni + 2)
 			optionpromptslash = '/'.join(map(str, options))
-			restore = lambda: self.outpt(f'\x1b8\x1b[{optionstext.count("\n") + text.count("\n") + 3}B', end = '')
-			gotinput = self._cancellable_inpt(f'\x1b[7m\x1b[1mselect ({optionpromptslash}):\x1b[0m ', cancel_event)
-			if gotinput is _CANCELLED:
+			previnput = self.curactiveinput
+			restore = lambda: [self.outpt(f'\x1b8\x1b[{optionstext.count("\n") + text.count("\n") + 3}B', end = ''), setattr(self, 'curactiveinput', previnput)]
+			self.curactiveinput = 'dialog'
+			gotinput = self.inpt(f'\x1b[7m\x1b[1mselect ({optionpromptslash}):\x1b[0m ', cancel_event = cancel_event)
+			if gotinput is None:
 				restore()
-				return _CANCELLED
+				return
 			gotinput = gotinput.strip().lower()
 			try:
 				gotinput = int(gotinput)
@@ -227,10 +281,11 @@ class Console:
 				pass
 			if not gotinput in options:
 				while not gotinput in options:
-					gotinput = self._cancellable_inpt(f'\x1b[A\r\x1b[K\x1b[7m\x1b[1m\x1b[31m[invalid input]\x1b[39m select ({optionpromptslash}):\x1b[0m ', cancel_event)
-					if gotinput is _CANCELLED:
+					self.curactiveinput = 'dialog'
+					gotinput = self.inpt(f'\x1b[A\r\x1b[K\x1b[7m\x1b[1m\x1b[31m[invalid input]\x1b[39m select ({optionpromptslash}):\x1b[0m ', cancel_event = cancel_event)
+					if gotinput is None:
 						restore()
-						return _CANCELLED
+						return
 					gotinput = gotinput.strip().lower()
 					try:
 						gotinput = int(gotinput)
@@ -254,17 +309,23 @@ class Console:
 				moveback = '\x1b[H'
 			text = '\n'.join(line.ljust(width) for line in text.split('\n'))
 			self.outpt(f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n\x1b[0m'.replace('\n', f'\x1b[49m\n\x1b[L\x1b[{color}'), end = '')
-			gotinput = self._cancellable_inpt(f'\x1b[7m\x1b[1mprompt:\x1b[0m ', cancel_event)
-			self.outpt(f'\x1b8\x1b[{text.count("\n") + 3}B', end = '')
-			if gotinput is _CANCELLED:
-				return _CANCELLED
+			previnput = self.curactiveinput
+			self.curactiveinput = 'dialog'
+			restore = lambda: [self.outpt(f'\x1b8\x1b[{text.count("\n") + 3}B', end = ''), setattr(self, 'curactiveinput', previnput)]
+			gotinput = self.inpt(f'\x1b[7m\x1b[1mprompt:\x1b[0m ', cancel_event = cancel_event)
+			if gotinput is None:
+				restore()
+				return
+			restore()
 			return gotinput
 	def loop(self):
-		while True:
-			try:
+		try:
+			set_raw_mode()
+			while True:
 				self.n = 0
 				self.helping = False
-				command, commandinput = (self._read_console_line('> ').strip() + ' ').split(' ', 1)
+				commandline = self.inpt('> ')
+				command, commandinput = (commandline.strip() + ' ').split(' ', 1)
 				command = command.strip()
 				commandinput = commandinput.strip()
 				if not command:
@@ -303,7 +364,8 @@ class Console:
 					expc = ''
 					while True:
 						self.n += 1
-						nl = self._read_console_line('extra-pycode> ').strip()
+						self.curactiveinput = 'command'
+						nl = self.inpt('extra-pycode> ').strip()
 						if nl == 'DONE':
 							break
 						elif nl == 'CANCEL':
@@ -324,7 +386,8 @@ class Console:
 						filetoopen = commandinput
 					else:
 						self.n = 1
-						filetoopen = self._read_console_line('file to open: ')
+						self.curactiveinput = 'command'
+						filetoopen = self.inpt('file to open: ').strip()
 						self.outpt('\r\x1b[A\x1b[K', end = '')
 					if not filetoopen:
 						self.outpt('\x1b[33mcancelled.\x1b[0m')
@@ -348,17 +411,21 @@ class Console:
 					if state.started.is_set():
 						self.q.put(('close',))
 					else:
+						unset_raw_mode()
+						self.outpt('\n\x1b[H\x1b[2J', end = '')
 						os._exit(0)
 				elif command == 'kill':
 					if commandinput:
 						self.outpt(f'\x1b[31merror: input given to \x1b[3mkill\x1b[23m command.\x1b[0m')
 						continue
 					self.n = 1
-					userinput = (self._read_console_line('\x1b[33mkill pynotes? (y/n): \x1b[0m').strip() + 'g')[0].lower()
+					self.curactiveinput = 'command'
+					userinput = (self.inpt('\x1b[33mkill pynotes? (y/n): \x1b[0m').strip() + 'g')[0].lower()
 					if not userinput in ('y', 'n'):
 						for i in range(2):
 							self.outpt('\r\x1b[A\x1b[K', end = '')
-							userinput = (self._read_console_line(f'\x1b[31m[invalid input ({i + 2}/3)]\x1b[0m \x1b[33mkill pynotes? (y/n): \x1b[0m').strip() + 'g')[0].lower()
+							self.curactiveinput = 'command'
+							userinput = (self.inpt(f'\x1b[31m[invalid input ({i + 2}/3)]\x1b[0m \x1b[33mkill pynotes? (y/n): \x1b[0m').strip() + 'g')[0].lower()
 							if userinput in ('y', 'n'):
 								break
 							else:
@@ -368,13 +435,16 @@ class Console:
 						continue
 					else:
 						self.outpt('\x1b[31mkilling pynotes.\x1b[0m')
+						unset_raw_mode()
+						self.outpt('\n\x1b[H\x1b[2J', end = '')
 						os._exit(0)
 				elif command == 'run':
 					if commandinput:
 						torun = commandinput
 					else:
 						self.n = 1
-						torun = self._read_console_line('command to run: ').strip()
+						self.curactiveinput = 'command'
+						torun = self.inpt('command to run: ').strip()
 					if not torun:
 						self.outpt('\r\x1b[A\x1b[K\x1b[33mcancelled.\x1b[0m')
 						continue
@@ -391,14 +461,16 @@ class Console:
 					self.helping = True
 					self.outpt('\x1b[?1049h', end = '')
 					self.outpt(clcht)
-					self._read_console_line('\x1b[33m\x1b[1m[PRESS ENTER TO CONTINUE]\x1b[0m')
+					self.curactiveinput = 'command'
+					self.inpt('\x1b[33m\x1b[1m[PRESS ENTER TO CONTINUE]\x1b[0m', echo = False)
 					self.outpt('\x1b[?1049l', end = '')
 					self.helping = False
 					self.outpt('\x1b[32m\x1b[3mhelp text shown\x1b[0m')
 				else:
 					self.outpt(f'\x1b[31merror: invalid command \'\x1b[3m{command}\x1b[23m\'.\x1b[0m')
-			except Exception:
-				break
+		finally:
+			unset_raw_mode()
+			self.outpt('\n\x1b[H\x1b[2J', end = '')
 def start_console(consoleq):
 	state.console = Console(consoleq)
 	state.console.loop()

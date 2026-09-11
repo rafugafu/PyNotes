@@ -192,7 +192,7 @@ if not state.options['wait-start']:
 threading.Thread(target = start_console, args = (state.consoleq,)).start()
 if not state.options['wait-start']:
 	time.sleep(0.05)
-	print('start\n\x1b[32mstarting pynotes.\x1b[0m\n> ', end = '', file = state.stdout)
+	print('start\n\r\x1b[32mstarting pynotes.\x1b[0m\n\r> ', end = '', file = state.stdout)
 state.started.wait()
 if platform.system() != 'Linux':
 	fd = easytk.fd

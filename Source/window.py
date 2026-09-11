@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import queue
+import threading
 import textwrap
 import ttkbootstrap as ttk
 import state
@@ -117,11 +118,16 @@ class pynoteswindow(easytk.win):
 		top.deiconify()
 		entry.focus_force()
 		return top, state_
-	def _race_console(self, request, top, state_):
+	def _race_console(self, console_call, top, state_):
+		cancel_event = threading.Event()
+		resultq = queue.Queue()
+		def worker():
+			resultq.put(console_call(cancel_event))
+		threading.Thread(target = worker, daemon = True).start()
 		top.grab_set()
 		def poll():
 			try:
-				value = request.resultq.get_nowait()
+				value = resultq.get_nowait()
 			except queue.Empty:
 				if top.winfo_exists():
 					top.after(50, poll)
@@ -133,7 +139,7 @@ class pynoteswindow(easytk.win):
 		top.wait_window()
 		if 'console_result' in state_:
 			return state_['console_result'][1]
-		state.console.cancel_request(request)
+		cancel_event.set()
 		return state_['result']
 	def _resolve_clicked(self, clicked, button_labels):
 		if isinstance(clicked, int):
@@ -142,20 +148,20 @@ class pynoteswindow(easytk.win):
 	def ask(self, title, question, options):
 		options_tuple = tuple(options)
 		button_labels = _ASK_PRESET_LABELS.get(options_tuple, list(options))
-		request = state.console.ask_async(title, question, button_labels)
 		top, state_ = self._build_message_dialog(None, title, question, button_labels)
-		clicked = self._resolve_clicked(self._race_console(request, top, state_), button_labels)
+		console_call = lambda cancel_event: state.console.ask(title, question, button_labels, cancel_event = cancel_event)
+		clicked = self._resolve_clicked(self._race_console(console_call, top, state_), button_labels)
 		return _ASK_PRESETS[options_tuple].get(clicked, None) if options_tuple in _ASK_PRESETS else clicked
 	def askstring(self, title, prompt):
-		request = state.console.prompt_async(title, prompt)
 		top, state_ = self._build_query_dialog(title, prompt)
-		return self._race_console(request, top, state_)
+		console_call = lambda cancel_event: state.console.prompt(title, prompt, cancel_event = cancel_event)
+		return self._race_console(console_call, top, state_)
 	def _notice_with_buttons(self, kind, title, message, buttons, alert):
 		color = '43m' if kind == 'warning' else ('41m' if kind == 'error' else '100m')
 		button_labels = list(buttons)
-		request = state.console.ask_async(title, message, button_labels, color = color)
 		top, state_ = self._build_message_dialog(kind, title, message, button_labels, alert = alert)
-		return self._resolve_clicked(self._race_console(request, top, state_), button_labels)
+		console_call = lambda cancel_event: state.console.ask(title, message, button_labels, color = color, cancel_event = cancel_event)
+		return self._resolve_clicked(self._race_console(console_call, top, state_), button_labels)
 	def info(self, title, message, buttons = None, **kwargs):
 		if buttons:
 			return self._notice_with_buttons('info', title, message, buttons, alert = False)
@@ -330,6 +336,12 @@ def ext():
 				pass
 		try:
 			pycode.pcrunhook('after', 'exit-pynotes')
+		except Exception:
+			pass
+		try:
+			import cli
+			cli.unset_raw_mode()
+			print('\n\x1b[H\x1b[2J', end = '', file = state.stdout)
 		except Exception:
 			pass
 		os._exit(0)

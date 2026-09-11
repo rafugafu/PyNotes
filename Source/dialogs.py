@@ -5,6 +5,7 @@ import getpass
 import subprocess
 import time
 import queue
+import threading
 import state
 from init import homedir, monospace
 import utils
@@ -44,14 +45,18 @@ def fileautocompletefunc(typed):
 				completion += '/'
 			autocompletelist += (completion,)
 		return autocompletelist
+def _console_prompt_worker(title, prompttext, cancel_event, resultq):
+	resultq.put(state.console.prompt(title, prompttext, cancel_event = cancel_event))
 def _race_console_box(title, prompttext, defaultinput):
-	request = state.console.prompt_async(title, prompttext)
+	cancel_event = threading.Event()
+	resultq = queue.Queue()
+	threading.Thread(target = _console_prompt_worker, args = (title, prompttext, cancel_event, resultq), daemon = True).start()
 	winner = {}
 	def poll():
 		if 'result' in winner:
 			return
 		try:
-			value = request.resultq.get_nowait()
+			value = resultq.get_nowait()
 		except queue.Empty:
 			state.root.after(50, poll)
 			return
@@ -61,16 +66,18 @@ def _race_console_box(title, prompttext, defaultinput):
 	fn = utils.prompt(prompttext, fileautocompletefunc, defaultinput)
 	if 'result' not in winner:
 		winner['result'] = fn
-	state.console.cancel_request(request)
+		cancel_event.set()
 	return winner['result']
 def _race_console_graphical(title, prompttext, zenity_args, native_dialog_call):
-	request = state.console.prompt_async(title, prompttext)
+	cancel_event = threading.Event()
+	resultq = queue.Queue()
+	threading.Thread(target = _console_prompt_worker, args = (title, prompttext, cancel_event, resultq), daemon = True).start()
 	winner = {}
 	if platform.system() == 'Linux':
 		proc = subprocess.Popen(zenity_args, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL, text = True)
 		while 'result' not in winner:
 			try:
-				value = request.resultq.get(timeout = 0.1)
+				value = resultq.get(timeout = 0.1)
 			except queue.Empty:
 				value = None
 			else:
@@ -82,6 +89,7 @@ def _race_console_graphical(title, prompttext, zenity_args, native_dialog_call):
 			if proc.poll() is not None:
 				out, _ = proc.communicate()
 				winner['result'] = out.strip()
+				cancel_event.set()
 				break
 	else:
 		before = set(state.root.winfo_children())
@@ -89,7 +97,7 @@ def _race_console_graphical(title, prompttext, zenity_args, native_dialog_call):
 			if 'result' in winner:
 				return
 			try:
-				value = request.resultq.get_nowait()
+				value = resultq.get_nowait()
 			except queue.Empty:
 				state.root.after(50, poll)
 				return
@@ -103,7 +111,7 @@ def _race_console_graphical(title, prompttext, zenity_args, native_dialog_call):
 		fn = native_dialog_call()
 		if 'result' not in winner:
 			winner['result'] = fn or ''
-	state.console.cancel_request(request)
+			cancel_event.set()
 	return winner['result']
 def openfileget(filetypes = (('All Files', '*'),), prompttext = 'Open File: ', initialfile = None):
 	if not state.nographicalfiledialogs:
