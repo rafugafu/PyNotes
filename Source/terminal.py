@@ -280,6 +280,8 @@ class Terminal(easytk.ttk.Text):
 		self._cursor_shape = to
 		self._cursor_schedule_redraw()
 	def _cursor_set_color(self, color, custom = True):
+		if custom and self.nocolor:
+			return
 		self._cursor_color = color
 		self._cursor_color_custom = custom
 		self._cursor_schedule_redraw()
