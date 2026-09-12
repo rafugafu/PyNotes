@@ -1458,20 +1458,19 @@ class Terminal(easytk.ttk.Text):
 						else:
 							i += 2
 				elif nxt == ']':
-					end_osc = rest.find('\x07', 2)
-					if end_osc >= 0:
-						self._handle_osc(rest[2:end_osc])
-						i += end_osc + 1
+					end_bel = rest.find('\x07', 2)
+					end_st = rest.find('\x1b\\', 2)
+					if end_bel >= 0 and (end_st < 0 or end_bel < end_st):
+						self._handle_osc(rest[2:end_bel])
+						i += end_bel + 1
+					elif end_st >= 0:
+						self._handle_osc(rest[2:end_st])
+						i += end_st + 2
+					elif len(rest) < _PTY_MAX_PENDING_ESC:
+						self._pending_esc = rest
+						break
 					else:
-						st = rest.find('\x1b\\', 2)
-						if st >= 0:
-							self._handle_osc(rest[2:st])
-							i += st + 2
-						elif len(rest) < _PTY_MAX_PENDING_ESC:
-							self._pending_esc = rest
-							break
-						else:
-							i += len(rest)
+						i += len(rest)
 				elif nxt == 'M':
 					if self._alt_mode:
 						cl = int(self.index('insert').split('.')[0])
