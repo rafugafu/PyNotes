@@ -132,33 +132,31 @@ class ErrorHandler:
 		self.win = None
 		self.textbox = None
 	def write(self, error):
-		try:
-			if error.strip():
-				def _do_write(error = error):
-					if self.win == None or not self.win.exists:
-						self.win = state.root.subwin()
-						self.win.title('Error')
-						self.win.bind('<Escape>', lambda event: self.win.destroy())
-						self.win.bind('<Return>', lambda event: self.win.destroy())
-						scrollbar = self.win.scroll()
-						self.textbox = self.win.textbox(yscrollcommand = scrollbar.set, font = (monospace, 12), width = 60, height = 15)
-						scrollbar.config(command = self.textbox.yview)
-						scrollbar.pack(fill = 'y', side = 'right')
-						self.textbox.pack(fill = 'both', expand = True, side = 'left')
-						self.textbox.insert('end', error)
-						self.textbox.see('end')
-						self.textbox.config(state = 'disabled')
-						self.win.style(state.root.gettheme())
-						self.win.update()
-						self.win.sizablefalse()
-					else:
-						self.textbox.config(state = 'normal')
-						self.textbox.insert('end', f'\n{error}')
-						self.textbox.see('end')
-						self.textbox.config(state = 'disabled')
-				state.root.after(0, _do_write)
-		except Exception:
-			print(error, file = state.stdout)
+		if error.strip():
+			def _do_write(error = error):
+				state.console.dialog('Error', error, '41m')
+				if self.win == None or not self.win.exists:
+					self.win = state.root.subwin()
+					self.win.title('Error')
+					self.win.bind('<Escape>', lambda event: self.win.destroy())
+					self.win.bind('<Return>', lambda event: self.win.destroy())
+					scrollbar = self.win.scroll()
+					self.textbox = self.win.textbox(yscrollcommand = scrollbar.set, font = (monospace, 12), width = 60, height = 15)
+					scrollbar.config(command = self.textbox.yview)
+					scrollbar.pack(fill = 'y', side = 'right')
+					self.textbox.pack(fill = 'both', expand = True, side = 'left')
+					self.textbox.insert('end', error)
+					self.textbox.see('end')
+					self.textbox.config(state = 'disabled')
+					self.win.style(state.root.gettheme())
+					self.win.update()
+					self.win.sizablefalse()
+				else:
+					self.textbox.config(state = 'normal')
+					self.textbox.insert('end', f'\n{error}')
+					self.textbox.see('end')
+					self.textbox.config(state = 'disabled')
+			state.root.after(0, _do_write)
 	def flush(self):
 		pass
 def _report_callback_exception(exc, val, tb):
