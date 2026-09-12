@@ -70,7 +70,7 @@ def _ansi_256_hex(n):
 	v = 8 + (n - 232) * 10
 	return f'#{v:02x}{v:02x}{v:02x}'
 def _sgr_new_state():
-	return {'fg': None, 'bg': None, 'bold': False, 'italic': False, 'underline': False, 'reverse': False, 'blink': False}
+	return {'fg': None, 'bg': None, 'bold': False, 'italic': False, 'underline': False, 'reverse': False, 'blink': False, 'strike': False, 'conceal': False}
 def _sgr_apply(state, params):
 	if not params:
 		params = [0]
@@ -78,7 +78,7 @@ def _sgr_apply(state, params):
 	while i < len(params):
 		c = params[i]
 		if c == 0:
-			state.update(fg = None, bg = None, bold = False, italic = False, underline = False, reverse = False, blink = False)
+			state.update(fg = None, bg = None, bold = False, italic = False, underline = False, reverse = False, blink = False, strike = False, conceal = False)
 		elif c == 1:
 			state['bold'] = True
 		elif c == 3:
@@ -89,6 +89,10 @@ def _sgr_apply(state, params):
 			state['blink'] = True
 		elif c == 7:
 			state['reverse'] = True
+		elif c == 8:
+			state['conceal'] = True
+		elif c == 9:
+			state['strike'] = True
 		elif c == 22:
 			state['bold'] = False
 		elif c == 23:
@@ -99,6 +103,10 @@ def _sgr_apply(state, params):
 			state['blink'] = False
 		elif c == 27:
 			state['reverse'] = False
+		elif c == 28:
+			state['conceal'] = False
+		elif c == 29:
+			state['strike'] = False
 		elif 30 <= c <= 37:
 			state['fg'] = c - 30
 		elif c == 38:
@@ -137,6 +145,8 @@ def _term_sgr_resolve(state, default_fg, default_bg):
 		oldfg = fg
 		fg = bg if bg is not None else default_bg
 		bg = oldfg if oldfg is not None else default_fg
+	if state['conceal']:
+		fg = bg
 	return fg, bg
 class Terminal(easytk.ttk.Text):
 	_term_csi_keys = {'Up': 'A', 'Down': 'B', 'Right': 'C', 'Left': 'D', 'Home': 'H', 'End': 'F'}
@@ -170,6 +180,7 @@ class Terminal(easytk.ttk.Text):
 		self._saved_sgr = None
 		self._tab_stops = set()
 		self._pending_esc = ''
+		self._last_char = ''
 		self._sgr_state = _sgr_new_state()
 		self._sgr_tags_done = set()
 		self._blink_tags = {}
@@ -460,6 +471,7 @@ class Terminal(easytk.ttk.Text):
 		self._saved_sgr = None
 		self._tab_stops = set()
 		self._pending_esc = ''
+		self._last_char = ''
 		self._sgr_state = _sgr_new_state()
 		self._sgr_tag_cache = None
 		self._bracketed_paste = False
@@ -472,6 +484,7 @@ class Terminal(easytk.ttk.Text):
 		self._mouse_last_pos = None
 		self._alt_saved = None
 		self._alt_mode = False
+		self.config(insertontime = 600, insertofftime = 300, blockcursor = True)
 		import queue as _queue
 		self._out_q = _queue.Queue(maxsize = 64)
 		self._closed = False
@@ -519,7 +532,7 @@ class Terminal(easytk.ttk.Text):
 		self._blink_after_id = self.after(500, self._blink_tick)
 	def _recompute_sgr_tag(self):
 		fg, bg = _term_sgr_resolve(self._sgr_state, self._term_default_fg, self._term_default_bg)
-		if self._is_default_colour(fg, self._default_fg_rgb) and self._is_default_colour(bg, self._default_bg_rgb) and not self._sgr_state['bold'] and not self._sgr_state['italic'] and not self._sgr_state['underline'] and not self._sgr_state['blink']:
+		if self._is_default_colour(fg, self._default_fg_rgb) and self._is_default_colour(bg, self._default_bg_rgb) and not self._sgr_state['bold'] and not self._sgr_state['italic'] and not self._sgr_state['underline'] and not self._sgr_state['blink'] and not self._sgr_state['strike']:
 			self._sgr_tag_cache = None
 			return
 		name = 'sgr_' + (fg.replace('#', '') if fg else 'x') + '_' + (bg.replace('#', '') if bg else 'x')
@@ -529,11 +542,13 @@ class Terminal(easytk.ttk.Text):
 			name += '_i'
 		if self._sgr_state['underline']:
 			name += '_u'
+		if self._sgr_state['strike']:
+			name += '_st'
 		if self._sgr_state['blink']:
 			name += '_bl'
 		if name not in self._sgr_tags_done:
 			fnt = (monospace, 12, 'bold') if self._sgr_state['bold'] else ((monospace, 12, 'italic') if self._sgr_state['italic'] else (monospace, 12))
-			self.tag_configure(name, foreground = fg if fg else '', background = bg if bg else '', underline = self._sgr_state['underline'], font = fnt)
+			self.tag_configure(name, foreground = fg if fg else '', background = bg if bg else '', underline = self._sgr_state['underline'], overstrike = self._sgr_state['strike'], font = fnt)
 			self.tag_lower(name, 'sel')
 			self._sgr_tags_done.add(name)
 		self._sgr_tag_cache = name
@@ -684,16 +699,16 @@ class Terminal(easytk.ttk.Text):
 		self._cur_line = saved_curline
 		self.mark_set('insert', saved_cursor)
 		self.cursor = saved_cursor
-		self.config(insertontime = 600, insertofftime = 300)
 	def _deccolm_clear(self):
 		self._scroll_top = 1
 		self._scroll_bot = self._GRID_ROWS
 		if self._alt_mode:
+			_cfill = self._term_erase_fill_tag()
 			self.delete('1.0', 'end')
 			for _cr in range(self._GRID_ROWS):
 				if _cr:
 					self.insert('end', '\n')
-				self._term_insert('end', ' ' * self._GRID_COLS)
+				self.insert('end', ' ' * self._GRID_COLS, _cfill if _cfill is not None else '')
 			self._grid_goto(1, 0)
 		else:
 			old_last = int(self.index('end').split('.')[0]) - 1
@@ -721,7 +736,14 @@ class Terminal(easytk.ttk.Text):
 		row = int(self.index('insert').split('.')[0])
 		gcol = int(self.index('insert').split('.')[1])
 		if gcol >= self._GRID_COLS:
-			if row < self._GRID_ROWS:
+			if not self._autowrap:
+				gcol = self._GRID_COLS - 1
+				self.mark_set('insert', f'{row}.{gcol}')
+			elif row == self._scroll_bot:
+				self._grid_scroll_region(self._scroll_top, self._scroll_bot, 1)
+				gcol = 0
+				self.mark_set('insert', f'{row}.0')
+			elif row < self._GRID_ROWS:
 				row += 1
 				gcol = 0
 				self.mark_set('insert', f'{row}.0')
@@ -868,15 +890,16 @@ class Terminal(easytk.ttk.Text):
 						if cmd == 'K':
 							if self._alt_mode:
 								gcol = int(col)
+								_kfill = self._term_erase_fill_tag()
 								if p[0] == 0:
 									self.delete(f'{ln}.{gcol}', f'{ln}.end')
-									self._term_insert(f'{ln}.{gcol}', ' ' * (self._GRID_COLS - gcol))
+									self.insert(f'{ln}.{gcol}', ' ' * (self._GRID_COLS - gcol), _kfill if _kfill is not None else '')
 								elif p[0] == 1:
 									self.delete(f'{ln}.0', f'{ln}.{gcol}')
-									self._term_insert(f'{ln}.0', ' ' * gcol)
+									self.insert(f'{ln}.0', ' ' * gcol, _kfill if _kfill is not None else '')
 								else:
 									self.delete(f'{ln}.0', f'{ln}.end')
-									self._term_insert(f'{ln}.0', ' ' * self._GRID_COLS)
+									self.insert(f'{ln}.0', ' ' * self._GRID_COLS, _kfill if _kfill is not None else '')
 								self.mark_set('insert', f'{ln}.{gcol}')
 							else:
 								_efill = self._term_erase_fill_tag()
@@ -897,20 +920,29 @@ class Terminal(easytk.ttk.Text):
 						elif cmd == 'J':
 							if self._alt_mode:
 								gcol = int(col)
+								_jfill = self._term_erase_fill_tag()
 								if p[0] == 0:
 									self.delete(f'{ln}.{gcol}', f'{ln}.end')
-									self._term_insert(f'{ln}.{gcol}', ' ' * (self._GRID_COLS - gcol))
+									self.insert(f'{ln}.{gcol}', ' ' * (self._GRID_COLS - gcol), _jfill if _jfill is not None else '')
 									if int(ln) < self._GRID_ROWS:
 										self.delete(f'{int(ln) + 1}.0', 'end')
 										for _er in range(self._GRID_ROWS - int(ln)):
 											self.insert('end', '\n')
-											self._term_insert('end', ' ' * self._GRID_COLS)
+											self.insert('end', ' ' * self._GRID_COLS, _jfill if _jfill is not None else '')
+								elif p[0] == 1:
+									self.delete(f'{ln}.0', f'{ln}.{gcol + 1}')
+									self.insert(f'{ln}.0', ' ' * (gcol + 1), _jfill if _jfill is not None else '')
+									if int(ln) > 1:
+										self.delete('1.0', f'{ln}.0')
+										for _er in range(int(ln) - 1):
+											self.insert('1.0', ' ' * self._GRID_COLS, _jfill if _jfill is not None else '')
+											self.insert(f'1.{self._GRID_COLS}', '\n')
 								else:
 									self.delete('1.0', 'end')
 									for _er in range(self._GRID_ROWS):
 										if _er:
 											self.insert('end', '\n')
-										self._term_insert('end', ' ' * self._GRID_COLS)
+										self.insert('end', ' ' * self._GRID_COLS, _jfill if _jfill is not None else '')
 								self.mark_set('insert', f'{ln}.{gcol}')
 							elif p[0] == 2:
 								cur_col = int(col)
@@ -1070,8 +1102,9 @@ class Terminal(easytk.ttk.Text):
 									self._grid_scroll_region(r0, self._scroll_bot, -(p[0] or 1))
 									self.mark_set('insert', f'{r0}.0')
 							else:
-								_bot = self.screen_top + self._VT_ROWS - 1
-								if self.screen_top <= self._cur_line <= _bot:
+								_rtop = self.screen_top + self._scroll_top - 1
+								_bot = self.screen_top + self._scroll_bot - 1
+								if _rtop <= self._cur_line <= _bot:
 									_n = min(p[0] or 1, _bot - self._cur_line + 1)
 									_last = int(self.index('end').split('.')[0]) - 1
 									_lfill = self._term_erase_fill_tag()
@@ -1092,8 +1125,9 @@ class Terminal(easytk.ttk.Text):
 									self._grid_scroll_region(r0, self._scroll_bot, (p[0] or 1))
 									self.mark_set('insert', f'{r0}.0')
 							else:
-								_bot = self.screen_top + self._VT_ROWS - 1
-								if self.screen_top <= self._cur_line <= _bot:
+								_rtop = self.screen_top + self._scroll_top - 1
+								_bot = self.screen_top + self._scroll_bot - 1
+								if _rtop <= self._cur_line <= _bot:
 									_n = min(p[0] or 1, _bot - self._cur_line + 1)
 									_last = int(self.index('end').split('.')[0]) - 1
 									_mfill = self._term_erase_fill_tag()
@@ -1102,18 +1136,47 @@ class Terminal(easytk.ttk.Text):
 										self.insert('end', '\n' * (_bot - _last))
 										self.mark_set('insert', _mpad)
 									self.delete(f'{self._cur_line}.0', f'{self._cur_line + _n}.0')
-									self.insert('end', '\n' * _n)
+									self.insert(f'{_bot - _n + 1}.0', '\n' * _n)
 									if _mfill is not None:
-										_mlast = int(self.index('end').split('.')[0]) - 1
-										for _bl in range(_mlast - _n + 1, _mlast + 1):
+										for _bl in range(_bot - _n + 1, _bot + 1):
 											self.insert(f'{_bl}.0', ' ' * self._GRID_COLS, _mfill)
 									self.mark_set('insert', f'{self._cur_line}.0')
 						elif cmd == 'S':
 							if self._alt_mode:
 								self._grid_scroll_region(self._scroll_top, self._scroll_bot, (p[0] or 1))
+							else:
+								_rtop = self.screen_top + self._scroll_top - 1
+								_bot = self.screen_top + self._scroll_bot - 1
+								_n = min(p[0] or 1, _bot - _rtop + 1)
+								_last = int(self.index('end').split('.')[0]) - 1
+								_sfill = self._term_erase_fill_tag()
+								_scol = int(self.index('insert').split('.')[1])
+								if _last < _bot:
+									self.insert('end', '\n' * (_bot - _last))
+								self.delete(f'{_rtop}.0', f'{_rtop + _n}.0')
+								self.insert(f'{_bot - _n + 1}.0', '\n' * _n)
+								if _sfill is not None:
+									for _sl in range(_bot - _n + 1, _bot + 1):
+										self.insert(f'{_sl}.0', ' ' * self._GRID_COLS, _sfill)
+								self.mark_set('insert', f'{self._cur_line}.{_scol}')
 						elif cmd == 'T':
 							if self._alt_mode:
 								self._grid_scroll_region(self._scroll_top, self._scroll_bot, -(p[0] or 1))
+							else:
+								_rtop = self.screen_top + self._scroll_top - 1
+								_bot = self.screen_top + self._scroll_bot - 1
+								_n = min(p[0] or 1, _bot - _rtop + 1)
+								_last = int(self.index('end').split('.')[0]) - 1
+								_tfill = self._term_erase_fill_tag()
+								_tcol = int(self.index('insert').split('.')[1])
+								if _last < _bot:
+									self.insert('end', '\n' * (_bot - _last))
+								self.delete(f'{_bot - _n + 1}.0 - 1 char', f'{_bot}.end')
+								self.insert(f'{_rtop}.0', '\n' * _n)
+								if _tfill is not None:
+									for _sl in range(_rtop, _rtop + _n):
+										self.insert(f'{_sl}.0', ' ' * self._GRID_COLS, _tfill)
+								self.mark_set('insert', f'{self._cur_line}.{_tcol}')
 						elif cmd == 'r':
 							if len(p) >= 2:
 								self._scroll_top = min(max(1, p[0] or 1), self._GRID_ROWS)
@@ -1124,17 +1187,18 @@ class Terminal(easytk.ttk.Text):
 							self._cursor_home()
 						elif cmd == 'X':
 							mv = p[0] or 1
+							_xfill = self._term_erase_fill_tag()
 							if self._alt_mode:
 								gcol = int(col)
 								endc = min(gcol + mv, self._GRID_COLS)
 								self.delete(f'{ln}.{gcol}', f'{ln}.{endc}')
-								self._term_insert(f'{ln}.{gcol}', ' ' * (endc - gcol))
+								self.insert(f'{ln}.{gcol}', ' ' * (endc - gcol), _xfill if _xfill is not None else '')
 								self.mark_set('insert', f'{ln}.{gcol}')
 							else:
 								_x0 = int(col)
 								_xll = int(self.index(f'{ln}.end').split('.')[1])
 								self.delete(f'{ln}.{_x0}', f'{ln}.{min(_x0 + mv, _xll)}')
-								self.insert(f'{ln}.{_x0}', ' ' * mv)
+								self.insert(f'{ln}.{_x0}', ' ' * mv, _xfill if _xfill is not None else '')
 								self.mark_set('insert', f'{ln}.{_x0}')
 						elif m.group(2) == 'c' and not _private:
 							try:
@@ -1144,6 +1208,18 @@ class Terminal(easytk.ttk.Text):
 									self._write(b'\x1b[?1;2c')
 							except Exception:
 								pass
+						elif cmd == 'b':
+							if self._last_char:
+								text = text[:i] + self._last_char * (p[0] or 1) + text[i + len(m.group(0)):]
+								n = len(text)
+								continue
+						elif m.group(2) == 'q' and _prefix.endswith(' '):
+							_cs = p[0]
+							self.config(blockcursor = _cs in (0, 1, 2))
+							if _cs == 0 or _cs % 2 == 1:
+								self.config(insertofftime = 300, insertontime = 600)
+							else:
+								self.config(insertofftime = 0)
 						elif cmd == 'n':
 							if p[0] == 6:
 								cur_col = int(self.index('insert').split('.')[1])
@@ -1353,6 +1429,7 @@ class Terminal(easytk.ttk.Text):
 					self._alternate_scroll = True
 					self._saved_cursor = None
 					self._saved_sgr = None
+					self._last_char = ''
 					self._term_reset_tabs()
 					if self._reverse_screen:
 						self._reverse_screen = False
@@ -1362,7 +1439,7 @@ class Terminal(easytk.ttk.Text):
 						self._recompute_sgr_tag()
 					self.mark_set('insert', '1.0')
 					self.cursor = '1.0'
-					self.config(insertontime = 600, insertofftime = 300)
+					self.config(insertontime = 600, insertofftime = 300, blockcursor = True)
 					i += 2
 				elif nxt == '7':
 					if self._alt_mode:
@@ -1420,6 +1497,7 @@ class Terminal(easytk.ttk.Text):
 			elif ch >= ' ' and ch != '\x7f':
 				if self._alt_mode:
 					self._grid_put(ch)
+					self._last_char = ch
 					i += 1
 					continue
 				j = i
@@ -1427,6 +1505,8 @@ class Terminal(easytk.ttk.Text):
 					j += 1
 				run = text[i:j]
 				i = j
+				if run:
+					self._last_char = run[-1]
 				col = int(self.index('insert').split('.')[1])
 				if not self._autowrap:
 					if col >= self._GRID_COLS:
