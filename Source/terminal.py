@@ -6,6 +6,7 @@ import base64
 import re
 import threading
 import time
+import tkinter as tk
 import easytk
 import state
 from init import monospace, DEBOUNCE_TIME
@@ -169,7 +170,21 @@ class Terminal(easytk.ttk.Text):
 		self._term_default_fg = self.cget('foreground')
 		self._default_fg_rgb = self.winfo_rgb(self._term_default_fg)
 		self._default_bg_rgb = self.winfo_rgb(self._term_default_bg)
-		self.config(insertbackground = self._term_default_fg, blockcursor = True)
+		self.config(insertwidth = 0, insertontime = 0)
+		self._cx = 0
+		self._cursor_shape = 'block'
+		self._cursor_color = self._term_default_fg
+		self._cursor_color_custom = False
+		self._cursor_blink_enabled = False
+		self._cursor_dectcem_visible = True
+		self._cursor_blink_visible = True
+		self._cursor_blink_after_id = None
+		self._cursor_redraw_pending = False
+		self._cursor_widget = tk.Label(self, background = self._cursor_color, foreground = self._term_default_bg, text = '', font = self.cget('font'), borderwidth = 0, highlightthickness = 0, padx = 0, pady = 0, anchor = 'nw')
+		self._cursor_widget.bind('<Map>', lambda event: 'break')
+		self._cursor_widget.bind('<Unmap>', lambda event: 'break')
+		self.config(yscrollcommand = self._term_on_scroll, xscrollcommand = self._term_on_scroll)
+		self._cursor_set_blink_enabled(True)
 		self.running = True
 		self._closed = False
 		self._out_q = _queue.Queue(maxsize = 64)
@@ -261,6 +276,114 @@ class Terminal(easytk.ttk.Text):
 		import tkinter.font as _tkfont
 		f = _tkfont.Font(font = self.cget('font'))
 		return max(1, f.measure('0')), max(1, f.metrics('linespace'))
+	def setcursortype(self, to = 'block'):
+		self._cursor_shape = to
+		self._cursor_schedule_redraw()
+	def _cursor_set_color(self, color, custom = True):
+		self._cursor_color = color
+		self._cursor_color_custom = custom
+		self._cursor_schedule_redraw()
+	def _cursor_set_visible(self, visible):
+		self._cursor_dectcem_visible = visible
+		self._cursor_schedule_redraw()
+	def _cursor_set_blink_enabled(self, enabled):
+		self._cursor_blink_enabled = enabled
+		self._cursor_reset_blink_phase()
+		self._cursor_schedule_redraw()
+	def _cursor_reset_blink_phase(self):
+		self._cursor_blink_visible = True
+		if self._cursor_blink_after_id is not None:
+			self.after_cancel(self._cursor_blink_after_id)
+			self._cursor_blink_after_id = None
+		if self._cursor_blink_enabled:
+			self._cursor_blink_after_id = self.after(600, self._cursor_blink_tick)
+	def _cursor_blink_tick(self):
+		self._cursor_blink_after_id = None
+		if self._closed:
+			return
+		self._cursor_blink_visible = not self._cursor_blink_visible
+		self._cursor_redraw()
+		self._cursor_blink_after_id = self.after(600 if self._cursor_blink_visible else 300, self._cursor_blink_tick)
+	def _cursor_schedule_redraw(self):
+		if self._cursor_redraw_pending:
+			return
+		self._cursor_redraw_pending = True
+		self.after_idle(self._cursor_redraw_now)
+	def _cursor_redraw_now(self):
+		self._cursor_redraw_pending = False
+		self._cursor_redraw()
+	def _cursor_char_colors(self):
+		fg = self._term_default_fg
+		bg = self._term_default_bg
+		try:
+			for _tag in self.tag_names(f'{self._cur_line}.{self._cx}'):
+				if not _tag.startswith('sgr'):
+					continue
+				_tfg = self.tag_cget(_tag, 'foreground')
+				_tbg = self.tag_cget(_tag, 'background')
+				if _tfg:
+					fg = _tfg
+				if _tbg:
+					bg = _tbg
+		except Exception:
+			pass
+		return fg, bg
+	def _cursor_redraw(self):
+		if not self.winfo_exists():
+			return
+		if not self._cursor_dectcem_visible or (self._cursor_blink_enabled and not self._cursor_blink_visible):
+			self._cursor_widget.place_forget()
+			return
+		try:
+			_box = super().bbox(f'{self._cur_line}.{self._cx}')
+		except Exception:
+			_box = None
+		if not _box:
+			self._cursor_widget.place_forget()
+			return
+		_bx, _by, _bw, _bh = _box
+		_chrome = int(self.cget('borderwidth')) + int(self.cget('highlightthickness'))
+		_bx -= _chrome + int(self.cget('padx'))
+		_by -= _chrome + int(self.cget('pady'))
+		_charw, _charh = self._term_char_size()
+		if self._cursor_shape == 'bar':
+			self._cursor_widget.config(text = '', background = self._cursor_color)
+			self._cursor_widget.place(x = _bx, y = _by, width = 2, height = _charh)
+		elif self._cursor_shape == 'underline':
+			self._cursor_widget.config(text = '', background = self._cursor_color)
+			self._cursor_widget.place(x = _bx, y = _by + _charh - 2, width = _charw, height = 2)
+		else:
+			try:
+				_char = self.get(f'{self._cur_line}.{self._cx}', f'{self._cur_line}.{self._cx + 1}')
+			except Exception:
+				_char = ''
+			_char_fg, _char_bg = self._cursor_char_colors()
+			_cursor_bg = self._cursor_color if self._cursor_color_custom else _char_fg
+			self._cursor_widget.config(text = _char if _char and _char != '\n' else ' ', background = _cursor_bg, foreground = _char_bg)
+			self._cursor_widget.place(x = _bx, y = _by, width = _charw, height = _charh)
+	def _term_on_scroll(self, *args):
+		self._cursor_schedule_redraw()
+	def _resolve_insert(self, idx):
+		if isinstance(idx, str) and 'insert' in idx:
+			return idx.replace('insert', f'{self._cur_line}.{self._cx}')
+		return idx
+	def mark_set(self, mark, *args, **kwargs):
+		if mark != 'insert':
+			return super().mark_set(mark, *args, **kwargs)
+		_idx = super().index(self._resolve_insert(args[0]))
+		self._cur_line, self._cx = (int(_x) for _x in _idx.split('.'))
+		self._cursor_reset_blink_phase()
+		self._cursor_schedule_redraw()
+	def index(self, idx, *args, **kwargs):
+		return super().index(self._resolve_insert(idx), *args, **kwargs)
+	def delete(self, *indices):
+		super().delete(*(self._resolve_insert(_i) for _i in indices))
+	def compare(self, index1, op, index2):
+		return super().compare(self._resolve_insert(index1), op, self._resolve_insert(index2))
+	def see(self, idx):
+		return super().see(self._resolve_insert(idx))
+	def bbox(self, idx):
+		return super().bbox(self._resolve_insert(idx))
 	def _term_compute_size(self):
 		state.root.update()
 		charw, charh = self._term_char_size()
@@ -274,9 +397,18 @@ class Terminal(easytk.ttk.Text):
 	def _term_on_map(self, event):
 		if self._term_started:
 			self._term_apply_resize()
-			return
-		self._term_started = True
-		self._term_start_process()
+		else:
+			self._term_started = True
+			self._term_refresh_default_colors()
+			self._term_start_process()
+		self._cursor_schedule_redraw()
+	def _term_refresh_default_colors(self):
+		self._term_default_bg = self.cget('background')
+		self._term_default_fg = self.cget('foreground')
+		self._default_fg_rgb = self.winfo_rgb(self._term_default_fg)
+		self._default_bg_rgb = self.winfo_rgb(self._term_default_bg)
+		self.tag_configure('sel', background = self._term_default_fg, foreground = self._term_default_bg)
+		self._cursor_set_color(self._term_default_fg, custom = False)
 	def _term_reset_tabs(self):
 		self._tab_stops = set(range(8, self._GRID_COLS, 8))
 	def _term_next_tab(self, col):
@@ -332,6 +464,7 @@ class Terminal(easytk.ttk.Text):
 		cols, rows = self._term_compute_size()
 		if self._follow_bottom:
 			self._term_follow_view()
+		self._cursor_schedule_redraw()
 		if cols == self._GRID_COLS and rows == self._GRID_ROWS:
 			return
 		self._term_resize_grid(cols, rows)
@@ -371,6 +504,7 @@ class Terminal(easytk.ttk.Text):
 				os.killpg(self.proc.pid, signal.SIGWINCH)
 			except Exception:
 				pass
+		self._cursor_schedule_redraw()
 	def _term_preexec(self):
 		import fcntl
 		import termios
@@ -449,6 +583,12 @@ class Terminal(easytk.ttk.Text):
 			except Exception:
 				pass
 			self._blink_after_id = None
+		if self._cursor_blink_after_id is not None:
+			try:
+				self.after_cancel(self._cursor_blink_after_id)
+			except Exception:
+				pass
+			self._cursor_blink_after_id = None
 		try:
 			state._open_terminal_closers.remove(self._terminate_process)
 		except Exception:
@@ -484,7 +624,10 @@ class Terminal(easytk.ttk.Text):
 		self._mouse_last_pos = None
 		self._alt_saved = None
 		self._alt_mode = False
-		self.config(insertontime = 600, insertofftime = 300, blockcursor = True)
+		self.setcursortype('block')
+		self._cursor_set_blink_enabled(True)
+		self._cursor_set_visible(True)
+		self._cursor_set_color(self._term_default_fg, custom = False)
 		import queue as _queue
 		self._out_q = _queue.Queue(maxsize = 64)
 		self._closed = False
@@ -559,6 +702,7 @@ class Terminal(easytk.ttk.Text):
 				self._blink_tags[name] = (_onfg, _offfg)
 			self._start_blink()
 	def insert(self, index, chars, *tags):
+		index = self._resolve_insert(index)
 		if tags:
 			super().insert(index, chars, *tags)
 		else:
@@ -647,17 +791,17 @@ class Terminal(easytk.ttk.Text):
 		elif body.startswith('12;'):
 			_spec = body[3:]
 			if _spec == '?':
-				self._osc_colour_reply('12', self.cget('insertbackground'))
+				self._osc_colour_reply('12', self._cursor_color)
 			else:
 				_col = self._osc_parse_colour(_spec)
 				if _col:
 					try:
-						self.config(insertbackground = _col)
+						self._cursor_set_color(_col)
 					except Exception:
 						pass
 		elif body == '112' or body.startswith('112;'):
 			try:
-				self.config(insertbackground = self._term_default_fg)
+				self._cursor_set_color(self._term_default_fg, custom = False)
 			except Exception:
 				pass
 	def _enter_alt_screen(self):
@@ -1094,7 +1238,6 @@ class Terminal(easytk.ttk.Text):
 						elif cmd == '@':
 							mv = p[0] or 1
 							self.insert('insert', ' ' * mv)
-							self.mark_set('insert', f'insert-{mv}c')
 						elif cmd == 'L':
 							if self._alt_mode:
 								r0 = int(ln)
@@ -1215,11 +1358,15 @@ class Terminal(easytk.ttk.Text):
 								continue
 						elif m.group(2) == 'q' and _prefix.endswith(' '):
 							_cs = p[0]
-							self.config(blockcursor = _cs in (0, 1, 2))
-							if _cs == 0 or _cs % 2 == 1:
-								self.config(insertofftime = 300, insertontime = 600)
-							else:
-								self.config(insertofftime = 0)
+							if _cs in (0, 1, 2):
+								self.setcursortype('block')
+								self._cursor_set_blink_enabled(_cs != 2)
+							elif _cs in (3, 4):
+								self.setcursortype('underline')
+								self._cursor_set_blink_enabled(_cs == 3)
+							elif _cs in (5, 6):
+								self.setcursortype('bar')
+								self._cursor_set_blink_enabled(_cs == 5)
 						elif cmd == 'n':
 							if p[0] == 6:
 								cur_col = int(self.index('insert').split('.')[1])
@@ -1246,14 +1393,13 @@ class Terminal(easytk.ttk.Text):
 								self._origin_mode = True
 								self._cursor_home()
 							elif p[0] == 25:
-								self.config(insertontime = 600)
+								self._cursor_set_visible(True)
 							elif p[0] == 12:
-								self.config(insertofftime = 300)
-								self.mark_set('insert', self.index('insert'))
+								self._cursor_set_blink_enabled(True)
 							elif p[0] == 5:
 								if not self._reverse_screen:
 									self._reverse_screen = True
-									self.config(background = self._term_default_fg, foreground = self._term_default_bg, insertbackground = self._term_default_bg)
+									self.config(background = self._term_default_fg, foreground = self._term_default_bg)
 							elif p[0] == 2004:
 								self._bracketed_paste = True
 							elif p[0] == 1004:
@@ -1277,14 +1423,13 @@ class Terminal(easytk.ttk.Text):
 								self._origin_mode = False
 								self._cursor_home()
 							elif p[0] == 25:
-								self.config(insertontime = 0)
+								self._cursor_set_visible(False)
 							elif p[0] == 12:
-								self.config(insertofftime = 0)
-								self.mark_set('insert', self.index('insert'))
+								self._cursor_set_blink_enabled(False)
 							elif p[0] == 5:
 								if self._reverse_screen:
 									self._reverse_screen = False
-									self.config(background = self._term_default_bg, foreground = self._term_default_fg, insertbackground = self._term_default_fg)
+									self.config(background = self._term_default_bg, foreground = self._term_default_fg)
 							elif p[0] == 2004:
 								self._bracketed_paste = False
 							elif p[0] == 1004:
@@ -1433,13 +1578,16 @@ class Terminal(easytk.ttk.Text):
 					self._term_reset_tabs()
 					if self._reverse_screen:
 						self._reverse_screen = False
-						self.config(background = self._term_default_bg, foreground = self._term_default_fg, insertbackground = self._term_default_fg)
+						self.config(background = self._term_default_bg, foreground = self._term_default_fg)
 					if not self.nocolor:
 						_sgr_apply(self._sgr_state, [0])
 						self._recompute_sgr_tag()
 					self.mark_set('insert', '1.0')
 					self.cursor = '1.0'
-					self.config(insertontime = 600, insertofftime = 300, blockcursor = True)
+					self.setcursortype('block')
+					self._cursor_set_blink_enabled(True)
+					self._cursor_set_visible(True)
+					self._cursor_set_color(self._term_default_fg, custom = False)
 					i += 2
 				elif nxt == '7':
 					if self._alt_mode:
@@ -1566,6 +1714,7 @@ class Terminal(easytk.ttk.Text):
 			else:
 				i += 1
 		self.cursor = self.index('insert')
+		self._cursor_schedule_redraw()
 	def _poll(self):
 		if self._polling:
 			return
@@ -1897,24 +2046,22 @@ class Terminal(easytk.ttk.Text):
 			except Exception:
 				pass
 	def _term_on_theme_changed(self, e = None):
-		if self._alt_mode or self._reverse_screen:
-			return
 		try:
 			_bg = self.cget('background')
 			_fg = self.cget('foreground')
 		except Exception:
 			return
-		if _bg == self._term_default_bg and _fg == self._term_default_fg:
-			return
-		self._term_default_bg = _bg
-		self._term_default_fg = _fg
-		self._default_fg_rgb = self.winfo_rgb(_fg)
-		self._default_bg_rgb = self.winfo_rgb(_bg)
-		self.tag_configure('sel', background = _fg, foreground = _bg)
-		if not self._alt_mode:
-			self.config(insertbackground = _fg)
-		if not self.nocolor:
-			self._recompute_sgr_tag()
+		if not self._alt_mode and not self._reverse_screen:
+			if _bg != self._term_default_bg or _fg != self._term_default_fg:
+				self._term_default_bg = _bg
+				self._term_default_fg = _fg
+				self._default_fg_rgb = self.winfo_rgb(_fg)
+				self._default_bg_rgb = self.winfo_rgb(_bg)
+				self.tag_configure('sel', background = _fg, foreground = _bg)
+				if not self.nocolor:
+					self._recompute_sgr_tag()
+		if not self._cursor_color_custom:
+			self._cursor_set_color(_fg, custom = False)
 class TerminalBuffer(Buffer):
 	def __init__(self, master, command, title, endmessage, *args, **kwargs):
 		super().__init__(master, *args, **kwargs)

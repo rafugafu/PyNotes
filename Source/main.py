@@ -37,7 +37,7 @@ del _m
 from cli import argparse, start_console
 from tkinter import messagebox as mb
 state.options, state.files_to_open = argparse({'version': False, 'changes': False, 'plugin-list-github': False, 'plugin-list-installed': False, 'no-load-pycode': False, 'no-load-plugins': False, 'pycode-exec': True, 'command-exec': True, 'help': False, 'plugin-install': True, 'plugin-remove': True, 'plugin-describe': True, 'wait-start': False}, sys.argv[1:])
-changelist = ['Added a live cli console inside the starting terminal which can interact with and control PyNotes while it runs! (See pynotes --help)\nNow PyNotes will run with Terminal=true even on linux.', 'Added reverse search and separated forward search from search from beginning.', 'Added setattr and getattr commands to PyCode.', 'Added a PyCode evaluator Alt-X command.', 'Fixed many bugs and implemented new ANSI codes and features in the terminal.', 'Fixed upgrading ttkbootstrap from 1.x failing.', 'Fixed some bugs.']
+changelist = ['Added a live cli console inside the starting terminal which can interact with and control PyNotes while it runs! (See pynotes --help)\nNow PyNotes will run with Terminal=true even on linux.', 'Added reverse search and separated forward search from search from beginning.', 'Added setattr and getattr commands to PyCode.', 'Added a PyCode evaluator Alt-X command.', 'Added support for different types of cursors in the terminal.', 'Fixed many bugs and implemented new ANSI codes and features in the terminal.', 'Fixed upgrading ttkbootstrap from 1.x failing.', 'Fixed some bugs.']
 state.changestr = ''
 for i in range(len(changelist) - 1):
 	state.changestr += f'{i + 1}. {changelist[i]}\n\n'

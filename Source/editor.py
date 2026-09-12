@@ -3548,7 +3548,7 @@ class Editor(Buffer):
 				if not self.shellcmd.get(f'{i}.0', f'{i}.{lenprompt}') in {'>>> ', '... '}:
 					continue
 				self.shellcmd.tag_add('prompt', f'{i}.0', f'{i}.{lenprompt}')
-			self.shellcmd.tag_config('prompt', foreground = 'green', font = (monospace, 14, 'bold'))
+			self.shellcmd.tag_config('prompt', foreground = 'green', font = (monospace, 12, 'bold'))
 		def _schedule_hl():
 			if not _hl_pending[0]:
 				_hl_pending[0] = True
