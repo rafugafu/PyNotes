@@ -1770,6 +1770,8 @@ class Terminal(easytk.ttk.Text):
 		self._unpost_menu()
 		if not self.running:
 			return 'break'
+		self._cursor_reset_blink_phase()
+		self._cursor_schedule_redraw()
 		sym = event.keysym
 		ch = event.char
 		if ch or sym in ('Return', 'BackSpace', 'Delete', 'Up', 'Down', 'Left', 'Right', 'Tab', 'ISO_Left_Tab', 'Home', 'End', 'Prior', 'Next', 'Insert'):
@@ -1825,6 +1827,8 @@ class Terminal(easytk.ttk.Text):
 		self._unpost_menu()
 		if not self.running:
 			return 'break'
+		self._cursor_reset_blink_phase()
+		self._cursor_schedule_redraw()
 		self._clear_selection()
 		sym = event.keysym
 		ch = event.char
