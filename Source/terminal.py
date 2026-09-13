@@ -177,6 +177,7 @@ class Terminal(easytk.ttk.Text):
 		self._cursor_color_custom = False
 		self._cursor_blink_enabled = False
 		self._cursor_dectcem_visible = True
+		self._cursor_has_focus = True
 		self._cursor_blink_visible = True
 		self._cursor_blink_after_id = None
 		self._cursor_redraw_pending = False
@@ -333,7 +334,7 @@ class Terminal(easytk.ttk.Text):
 	def _cursor_redraw(self):
 		if not self.winfo_exists():
 			return
-		if not self._cursor_dectcem_visible or (self._cursor_blink_enabled and not self._cursor_blink_visible):
+		if not self._cursor_dectcem_visible or not self._cursor_has_focus or (self._cursor_blink_enabled and not self._cursor_blink_visible):
 			self._cursor_widget.place_forget()
 			return
 		try:
@@ -2035,12 +2036,17 @@ class Terminal(easytk.ttk.Text):
 			self.see(f'{self.screen_top + self._VT_ROWS - 1}.0')
 			self.see(f'{self.screen_top}.0')
 	def _focus_in(self, e):
+		self._cursor_has_focus = True
+		self._cursor_reset_blink_phase()
+		self._cursor_schedule_redraw()
 		if self._focus_reporting and self.running:
 			try:
 				self._write(b'\x1b[I')
 			except Exception:
 				pass
 	def _focus_out(self, e):
+		self._cursor_has_focus = False
+		self._cursor_schedule_redraw()
 		if self._focus_reporting and self.running:
 			try:
 				self._write(b'\x1b[O')
