@@ -2,6 +2,7 @@ import os
 import sys
 import platform
 import subprocess
+import threading
 import webbrowser
 import state
 from init import homedir, rootdir, monospace
@@ -45,7 +46,7 @@ def show(text):
 	state.cmdentry.unbind('<Escape>')
 	state.cmdentry.config(state = 'disabled')
 	state.cmdautocomplete.pack_forget()
-	state.console.show(text)
+	threading.Thread(target = state.console.show, args = (text,), daemon = True).start()
 def prompt(text, autocompletefunc = None, defaultinput = None):
 	def check_edit(event, text, promptend):
 		state.cmdentry.delete('1.0', promptend)
@@ -134,7 +135,7 @@ class ErrorHandler:
 	def write(self, error):
 		if error.strip():
 			def _do_write(error = error):
-				state.console.dialog('Error', error, '41m')
+				threading.Thread(target = state.console.dialog, args = ('Error', error, '41m'), daemon = True).start()
 				if self.win == None or not self.win.exists:
 					self.win = state.root.subwin()
 					self.win.title('Error')

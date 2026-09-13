@@ -165,17 +165,17 @@ class pynoteswindow(easytk.win):
 	def info(self, title, message, buttons = None, **kwargs):
 		if buttons:
 			return self._notice_with_buttons('info', title, message, buttons, alert = False)
-		state.console.dialog(title, message)
+		threading.Thread(target = state.console.dialog, args = (title, message), daemon = True).start()
 		return super().info(title, message, **kwargs)
 	def error(self, title, message, buttons = None, **kwargs):
 		if buttons:
 			return self._notice_with_buttons('error', title, message, buttons, alert = True)
-		state.console.dialog(title, message, color = '41m')
+		threading.Thread(target = state.console.dialog, args = (title, message, '41m'), daemon = True).start()
 		return super().error(title, message, **kwargs)
 	def warning(self, title, message, buttons = None, **kwargs):
 		if buttons:
 			return self._notice_with_buttons('warning', title, message, buttons, alert = True)
-		state.console.dialog(title, message, color = '43m')
+		threading.Thread(target = state.console.dialog, args = (title, message, '43m'), daemon = True).start()
 		return super().warning(title, message, **kwargs)
 def saveforclose():
 	for buffer in state.all_buffers:
