@@ -8,7 +8,6 @@ import copy
 import codecs
 import base64
 import smtplib
-import webbrowser
 import keyword
 import wave
 import re
