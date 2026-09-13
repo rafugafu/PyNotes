@@ -360,7 +360,8 @@ class Terminal(easytk.ttk.Text):
 				_char = ''
 			_char_fg, _char_bg = self._cursor_char_colors()
 			_cursor_bg = self._cursor_color if self._cursor_color_custom else _char_fg
-			self._cursor_widget.config(text = _char if _char and _char != '\n' else ' ', background = _cursor_bg, foreground = _char_bg)
+			_cursor_fg = self._term_default_bg if self._cursor_color_custom else _char_bg
+			self._cursor_widget.config(text = _char if _char and _char != '\n' else ' ', background = _cursor_bg, foreground = _cursor_fg)
 			self._cursor_widget.place(x = _bx, y = _by, width = _charw, height = _charh)
 	def _term_on_scroll(self, *args):
 		self._cursor_schedule_redraw()
