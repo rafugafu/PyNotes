@@ -346,23 +346,32 @@ class Terminal(easytk.ttk.Text):
 		_chrome = int(self.cget('borderwidth')) + int(self.cget('highlightthickness'))
 		_bx -= _chrome + int(self.cget('padx'))
 		_by -= _chrome + int(self.cget('pady'))
-		_charw, _charh = self._term_char_size()
+		try:
+			_char = self.get(f'{self._cur_line}.{self._cx}', f'{self._cur_line}.{self._cx + 1}')
+		except Exception:
+			_char = ''
+		if _char:
+			_charw = _bw
+		elif self._cx > 0:
+			try:
+				_prev_box = super().bbox(f'{self._cur_line}.{self._cx - 1}')
+			except Exception:
+				_prev_box = None
+			_charw = _prev_box[2] if _prev_box else self._term_char_size()[0]
+		else:
+			_charw = self._term_char_size()[0]
 		if self._cursor_shape == 'bar':
 			self._cursor_widget.config(text = '', background = self._cursor_color)
-			self._cursor_widget.place(x = _bx, y = _by, width = 2, height = _charh)
+			self._cursor_widget.place(x = _bx, y = _by, width = 2, height = _bh)
 		elif self._cursor_shape == 'underline':
 			self._cursor_widget.config(text = '', background = self._cursor_color)
-			self._cursor_widget.place(x = _bx, y = _by + _charh - 2, width = _charw, height = 2)
+			self._cursor_widget.place(x = _bx, y = _by + _bh - 2, width = _charw, height = 2)
 		else:
-			try:
-				_char = self.get(f'{self._cur_line}.{self._cx}', f'{self._cur_line}.{self._cx + 1}')
-			except Exception:
-				_char = ''
 			_char_fg, _char_bg = self._cursor_char_colors()
 			_cursor_bg = self._cursor_color if self._cursor_color_custom else _char_fg
 			_cursor_fg = self._term_default_bg if self._cursor_color_custom else _char_bg
 			self._cursor_widget.config(text = _char if _char and _char != '\n' else ' ', background = _cursor_bg, foreground = _cursor_fg)
-			self._cursor_widget.place(x = _bx, y = _by, width = _charw, height = _charh)
+			self._cursor_widget.place(x = _bx, y = _by, width = _charw, height = _bh)
 	def _term_on_scroll(self, *args):
 		self._cursor_schedule_redraw()
 	def _resolve_insert(self, idx):
