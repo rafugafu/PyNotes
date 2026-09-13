@@ -195,6 +195,7 @@ class Terminal(easytk.ttk.Text):
 		self._tab_stops = set()
 		self._pending_esc = ''
 		self._last_char = ''
+		self._modify_other_keys = 0
 		self._sgr_state = _sgr_new_state()
 		self._sgr_tags_done = set()
 		self._blink_tags = {}
@@ -623,6 +624,7 @@ class Terminal(easytk.ttk.Text):
 		self._tab_stops = set()
 		self._pending_esc = ''
 		self._last_char = ''
+		self._modify_other_keys = 0
 		self._sgr_state = _sgr_new_state()
 		self._sgr_tag_cache = None
 		self._bracketed_paste = False
@@ -1391,10 +1393,20 @@ class Terminal(easytk.ttk.Text):
 									self._write(b'\x1b[0n')
 								except Exception:
 									pass
-						elif cmd == 'm':
+						elif cmd == 'm' and not _private:
 							if not self.nocolor:
 								_sgr_apply(self._sgr_state, p)
 								self._recompute_sgr_tag()
+						elif m.group(2) == 'm' and _private:
+							_pp = p[0] if p else 0
+							_pv = self._modify_other_keys if _pp == 4 else 0
+							try:
+								self._write(f'\x1b[>{_pp};{_pv}m'.encode())
+							except Exception:
+								pass
+						elif m.group(2) == 'm' and _prefix.startswith('>'):
+							if p and p[0] == 4:
+								self._modify_other_keys = p[1] if len(p) > 1 else 0
 						elif cmd == 'h' and _private:
 							if p[0] in (1049, 1047, 47):
 								self._enter_alt_screen()
@@ -1585,6 +1597,7 @@ class Terminal(easytk.ttk.Text):
 					self._saved_cursor = None
 					self._saved_sgr = None
 					self._last_char = ''
+					self._modify_other_keys = 0
 					self._term_reset_tabs()
 					if self._reverse_screen:
 						self._reverse_screen = False
@@ -1786,8 +1799,11 @@ class Terminal(easytk.ttk.Text):
 		if ch or sym in ('Return', 'BackSpace', 'Delete', 'Up', 'Down', 'Left', 'Right', 'Tab', 'ISO_Left_Tab', 'Home', 'End', 'Prior', 'Next', 'Insert'):
 			self._clear_selection()
 		_kmod = 1 + (1 if event.state & 1 else 0) + (4 if event.state & 4 else 0)
+		_mok_named = {'Return': 13, 'BackSpace': 127, 'Tab': 9, 'Escape': 27}
 		try:
-			if sym == 'Return':
+			if self._modify_other_keys == 2 and _kmod > 1 and sym in _mok_named and not (sym == 'Tab' and (event.state & 1)):
+				self._write(f'\x1b[27;{_kmod};{_mok_named[sym]}~'.encode())
+			elif sym == 'Return':
 				self._write(b'\r')
 			elif sym == 'BackSpace':
 				self._write(b'\x7f')
@@ -1827,6 +1843,8 @@ class Terminal(easytk.ttk.Text):
 				self._write(b'\x1e')
 			elif (event.state & 4) and sym in ('underscore', 'slash', '7'):
 				self._write(b'\x1f')
+			elif self._modify_other_keys and _kmod > 1 and 0x20 <= event.keysym_num <= 0x7e and (self._modify_other_keys == 2 or not ch):
+				self._write(f'\x1b[27;{_kmod};{event.keysym_num}~'.encode())
 			elif ch:
 				self._write(ch.encode('utf-8'))
 		except Exception:
