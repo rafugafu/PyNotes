@@ -172,8 +172,7 @@ try:
 	assert tuple(map(int, easytk.ttk.__version__.split('.'))) >= (2, 0, 0)
 except Exception:
 	if mb.askyesno('Info', 'The module \'ttkbootstrap\' is not installed. PyNotes will not be able to run without this module. Should PyNotes install it locally?'):
-		pipdir = os.path.dirname(sys.executable)
-		subprocess.run([os.path.join(pipdir, 'pip'), 'install', '-U', 'ttkbootstrap'])
+		subprocess.run([sys.executable, '-m', 'pip', 'install', '-U', 'ttkbootstrap'])
 	else:
 		mb.showerror('Error!', 'Quitting PyNotes.')
 		exit(1)
