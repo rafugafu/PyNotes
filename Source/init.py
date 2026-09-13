@@ -320,12 +320,13 @@ def create_root_and_menus():
 	state.lm = state.root.menu()
 	state.pcm = state.root.menu()
 	state.hm = state.root.menu()
+	state.hmm = state.root.menu()
 	state.mg = state.root.menu()
 	state.plgnm = state.root.menu()
 	state.mainmenu = state.root.menu()
 	state.root.config(menu = state.mainmenu)
 	state.all_buffer_menus = {'File': state.fm, 'Options': state.om, 'PyCode': state.pcm, 'MathGod': state.mg, 'Plugins': state.plgnm, 'Help': state.hm}
-	state.all_editor_menus = {'File': state.fm, 'Edit': state.em, **state.all_buffer_menus}
+	state.all_editor_menus = {'File': state.fm, 'Edit': state.em, 'HMode': state.hmm, **state.all_buffer_menus}
 	state.all_terminal_menus = {'File': state.fm, 'Edit': state.tem, **state.all_buffer_menus}
 	os.makedirs(f'{homedir}/.local/share/PyNotes/tempfiles', exist_ok = True)
 	sys.stderr = utils.ErrorHandler()
