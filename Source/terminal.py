@@ -157,8 +157,6 @@ class Terminal(easytk.ttk.Text):
 		kwargs.setdefault('font', (monospace, 12))
 		kwargs.setdefault('wrap', 'none')
 		super().__init__(master, *args, **kwargs)
-		if not command:
-			utils.show('open pynotes terminal')
 		import queue as _queue
 		self.endmessage = endmessage
 		self.nocolor = nocolor
@@ -2102,6 +2100,8 @@ class TerminalBuffer(Buffer):
 			return answer
 		return False
 def term(command = None, title = 'Terminal', endmessage = None, blocking = False, orient = 'vertical', *args, **kwargs):
+	if not command:
+		utils.show('open pynotes terminal')
 	term = window.newbuffer(TerminalBuffer, orient, command, title, endmessage, *args, **kwargs)
 	if blocking == True:
 		while term.winfo_exists():
