@@ -29,9 +29,7 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 * **And much more!**  
 ## Screenshots  
 ![PyNotes](images/PyNotes.png)  
-![Typing Test](images/Typing_Test.png)  
-![3D Maze Game](images/3D_Maze_Game.png)  
-![Letter Invaders Game](images/Letter_Invaders_Game.png)  
+![PyNotes Dark](images/PyNotes_2.png)  
 ![Preferences](images/Preferences.png)  
 ![Python Shell](images/Python_Shell.png)  
 ![PyCode](images/PyCode.png)  
@@ -39,9 +37,12 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 ![Terminal Colours](images/Terminal_Colours.png)  
 ![Terminal Running emacs -nw](images/Terminal_Emacs_NW.png)  
 ![Terminal Running Cacafire](images/Terminal_Cacafire.png)  
-![ChessPy](images/ChessPy.png)  
 ![Opening Images in PyNotes](images/Image_in_PyNotes.png)  
 ![Write Command Example](images/Write_Command_Example.png)  
+![Typing Test](images/Typing_Test.png)  
+![3D Maze Game](images/3D_Maze_Game.png)  
+![Letter Invaders Game](images/Letter_Invaders_Game.png)  
+![ChessPy](images/ChessPy.png)
 # Installation  
 For Windows, download Python from [here](https://www.python.org/downloads/windows/).  
 Click [here](pynotes_debian_installer.sh) to download the Debian installer script, [here](pynotes_rpm_installer.sh) for the RPM installer script, and [here](pynotes_windows_installer.py) for the Windows Installer.  
