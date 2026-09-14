@@ -1018,7 +1018,7 @@ class Terminal(easytk.ttk.Text):
 				if (self._scroll_top > 1 or self._scroll_bot < self._VT_ROWS) and _srow == self._scroll_bot:
 					self._primary_scroll_up()
 					self._cur_line = self.screen_top + self._scroll_bot - 1
-					self.tag_remove('wrapcont', f'{self._cur_line}.0', f'{self._cur_line}.end')
+					self.tag_remove('wrapcont', f'{self._cur_line - 1}.end', f'{self._cur_line}.0')
 					self.mark_set('insert', f'{self._cur_line}.{c}')
 					i += 1
 					continue
@@ -1026,7 +1026,7 @@ class Terminal(easytk.ttk.Text):
 				if self._cur_line > self.screen_top + self._VT_ROWS - 1:
 					self.screen_top = self._cur_line - (self._VT_ROWS - 1)
 				self._vt_sync()
-				self.tag_remove('wrapcont', f'{self._cur_line}.0', f'{self._cur_line}.end')
+				self.tag_remove('wrapcont', f'{self._cur_line - 1}.end', f'{self._cur_line}.0')
 				self._term_goto(self._cur_line, c)
 				i += 1
 			elif ch == '\x1b':
@@ -1735,7 +1735,7 @@ class Terminal(easytk.ttk.Text):
 					else:
 						self.insert(f'{self._cur_line}.{col}', chunk, self._sgr_tag_cache)
 					if wrapped:
-						self.tag_add('wrapcont', f'{self._cur_line}.0', f'{self._cur_line}.1')
+						self.tag_add('wrapcont', f'{self._cur_line - 1}.end', f'{self._cur_line}.0')
 					col += len(chunk)
 					self.mark_set('insert', f'{self._cur_line}.{col}')
 			else:
@@ -1891,7 +1891,7 @@ class Terminal(easytk.ttk.Text):
 			a = first if ln == start_line else f'{ln}.0'
 			b = last if ln == end_line else f'{ln}.end'
 			seg = self.get(a, b)
-			if parts and 'wrapcont' in self.tag_names(f'{ln}.0'):
+			if parts and 'wrapcont' in self.tag_names(f'{ln - 1}.end'):
 				parts[-1] += seg
 			else:
 				parts.append(seg)

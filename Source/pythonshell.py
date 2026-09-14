@@ -151,7 +151,7 @@ class PythonShellBuffer(Buffer):
 		wrapcont_flags = [False] * (n_real + 1)
 		for _rl in range(2, n_real + 1):
 			try:
-				if 'wrapcont' in self.shellcmd.tag_names(f'{_rl}.0'):
+				if 'wrapcont' in self.shellcmd.tag_names(f'{_rl - 1}.end'):
 					wrapcont_flags[_rl] = True
 			except Exception:
 				pass
