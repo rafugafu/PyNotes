@@ -221,6 +221,8 @@ class Terminal(easytk.ttk.Text):
 		self._resize_after_id = None
 		self._last_term_size = (0, 0)
 		self._term_started = False
+		self.charwidth = None
+		self.charheight = None
 		self._polling = False
 		self._read_generation = 0
 		self._follow_bottom = True
@@ -272,10 +274,6 @@ class Terminal(easytk.ttk.Text):
 		self.bind('<Destroy>', lambda e: self._terminate_process())
 		self.realbind = self.bind
 		self.bind = lambda *_, **__: None
-	def _term_char_size(self):
-		import tkinter.font as _tkfont
-		f = _tkfont.Font(font = self.cget('font'))
-		return max(1, f.measure('0')), max(1, f.metrics('linespace'))
 	def setcursortype(self, to = 'block'):
 		self._cursor_shape = to
 		self._cursor_schedule_redraw()
@@ -333,7 +331,7 @@ class Terminal(easytk.ttk.Text):
 	def _cursor_redraw(self):
 		if not self.winfo_exists():
 			return
-		if not self._cursor_dectcem_visible or not self._cursor_has_focus or (self._cursor_blink_enabled and not self._cursor_blink_visible):
+		if self.charwidth is None or not self._cursor_dectcem_visible or not self._cursor_has_focus or (self._cursor_blink_enabled and not self._cursor_blink_visible):
 			self._cursor_widget.place_forget()
 			return
 		try:
@@ -347,32 +345,23 @@ class Terminal(easytk.ttk.Text):
 		_chrome = int(self.cget('borderwidth')) + int(self.cget('highlightthickness'))
 		_bx -= _chrome + int(self.cget('padx'))
 		_by -= _chrome + int(self.cget('pady'))
+		_charw, _charh = self.charwidth, self.charheight
 		try:
 			_char = self.get(f'{self._cur_line}.{self._cx}', f'{self._cur_line}.{self._cx + 1}')
 		except Exception:
 			_char = ''
-		if _char:
-			_charw = _bw
-		elif self._cx > 0:
-			try:
-				_prev_box = super().bbox(f'{self._cur_line}.{self._cx - 1}')
-			except Exception:
-				_prev_box = None
-			_charw = _prev_box[2] if _prev_box else self._term_char_size()[0]
-		else:
-			_charw = self._term_char_size()[0]
 		if self._cursor_shape == 'bar':
 			self._cursor_widget.config(text = '', background = self._cursor_color)
-			self._cursor_widget.place(x = _bx, y = _by, width = 2, height = _bh)
+			self._cursor_widget.place(x = _bx, y = _by, width = 2, height = _charh)
 		elif self._cursor_shape == 'underline':
 			self._cursor_widget.config(text = '', background = self._cursor_color)
-			self._cursor_widget.place(x = _bx, y = _by + _bh - 2, width = _charw, height = 2)
+			self._cursor_widget.place(x = _bx, y = _by + _charh - 2, width = _charw, height = 2)
 		else:
 			_char_fg, _char_bg = self._cursor_char_colors()
 			_cursor_bg = self._cursor_color if self._cursor_color_custom else _char_fg
 			_cursor_fg = self._term_default_bg if self._cursor_color_custom else _char_bg
 			self._cursor_widget.config(text = _char if _char and _char != '\n' else ' ', background = _cursor_bg, foreground = _cursor_fg)
-			self._cursor_widget.place(x = _bx, y = _by, width = _charw, height = _bh)
+			self._cursor_widget.place(x = _bx, y = _by, width = _charw, height = _charh)
 	def _term_on_scroll(self, *args):
 		self._cursor_schedule_redraw()
 	def _resolve_insert(self, idx):
@@ -398,7 +387,7 @@ class Terminal(easytk.ttk.Text):
 		return super().bbox(self._resolve_insert(idx))
 	def _term_compute_size(self):
 		state.root.update()
-		charw, charh = self._term_char_size()
+		charw, charh = self.charwidth, self.charheight
 		_chrome = int(self.cget('borderwidth')) + int(self.cget('highlightthickness'))
 		_pad_w = 2 * (_chrome + int(self.cget('padx')))
 		_pad_h = 2 * (_chrome + int(self.cget('pady')))
@@ -428,7 +417,22 @@ class Terminal(easytk.ttk.Text):
 		if _cands:
 			return min(min(_cands), self._GRID_COLS - 1)
 		return self._GRID_COLS - 1
+	def _term_measure_char_size(self):
+		if self.charwidth is not None:
+			return
+		super().insert('1.0', ' ')
+		box = super().bbox('1.0')
+		super().delete('1.0', '1.1')
+		if box:
+			self.charwidth = max(1, box[2])
+			self.charheight = max(1, box[3])
+		else:
+			import tkinter.font as _tkfont
+			f = _tkfont.Font(font = self.cget('font'))
+			self.charwidth = max(1, f.measure(' '))
+			self.charheight = max(1, f.metrics('linespace'))
 	def _term_start_process(self):
+		self._term_measure_char_size()
 		self._GRID_COLS, self._GRID_ROWS = self._term_compute_size()
 		self._VT_ROWS = self._GRID_ROWS
 		self._scroll_top = 1
