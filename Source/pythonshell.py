@@ -130,6 +130,8 @@ class PythonShellBuffer(Buffer):
 		killshell.pack(anchor = 'sw', side = 'left', padx = 10, pady = 10)
 		self.shellcmd = _make_shellcmd()
 		def shell_setview():
+			if not self.winfo_exists():
+				return
 			self.hapyshell()
 			self._shell_setview_after_id = self.after(50, shell_setview)
 		self._shell_setview_after_id = self.after(50, shell_setview)

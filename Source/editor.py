@@ -2503,6 +2503,8 @@ class Editor(Buffer):
 		except Exception:
 			utils.show('nothing to redo')
 	def _main_poll(self):
+		if not self.winfo_exists():
+			return
 		try:
 			while True:
 				task = self._main_queue.get_nowait()
@@ -2511,6 +2513,8 @@ class Editor(Buffer):
 			pass
 		self._main_poll_after_id = self._own_type.after(10, self._main_poll)
 	def type_setview(self):
+		if not self.winfo_exists():
+			return
 		new_region = self.type_getvisible()
 		if new_region != self._prev_visible_region:
 			self._prev_visible_region = new_region
@@ -2520,6 +2524,8 @@ class Editor(Buffer):
 			self.type_top, self.type_bottom = new_region
 		self._type_setview_after_id = self.mf.after(10, self.type_setview)
 	def do_backup(self):
+		if not self.winfo_exists():
+			return
 		if all((not self.hmode in ['png', 'pdf', 'epub'], state.bfr, self.title)):
 			open(os.path.join(os.path.dirname(os.path.splitext(self.title)[0]), '.' + os.path.basename(os.path.splitext(self.title)[0]) + 'backpynotes' + os.path.splitext(self.title)[1]), 'w+', encoding = 'utf-8').write(self.type_.get('1.0', 'end'))
 			utils.show('saved backup')

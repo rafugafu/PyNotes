@@ -236,6 +236,8 @@ class EmailBuffer(Buffer):
 		self.emailsetup('memory')
 		self._add_switch_account_loginframe()
 	def _email_login_poll(self):
+		if not self.winfo_exists():
+			return
 		if not self._email_logged_in and self._email_session_active():
 			self._email_tab_reload()
 		self._email_login_poll_after_id = self.after(2000, self._email_login_poll)
