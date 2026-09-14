@@ -1878,6 +1878,7 @@ class Terminal(easytk.ttk.Text):
 			first = self.index('sel.first')
 			last = self.index('sel.last')
 		except Exception:
+			utils.show('no text is selected')
 			return 'break'
 		start_line = int(first.split('.')[0])
 		end_line = int(last.split('.')[0])
@@ -1894,6 +1895,7 @@ class Terminal(easytk.ttk.Text):
 		if sel:
 			self.clipboard_clear()
 			self.clipboard_append(sel)
+		utils.show('copy text')
 		return 'break'
 	def _paste_clipboard(self, e = None):
 		if not self.running:
@@ -1901,6 +1903,7 @@ class Terminal(easytk.ttk.Text):
 		try:
 			data = self.clipboard_get()
 		except Exception:
+			utils.show('no text is on clipboard')
 			return 'break'
 		if data:
 			data = data.replace('\r\n', '\r').replace('\n', '\r')
@@ -1910,11 +1913,13 @@ class Terminal(easytk.ttk.Text):
 			try:
 				self._write(payload)
 				self._clear_selection()
+				utils.show('paste text')
 			except Exception:
 				pass
 		return 'break'
 	def _select_all(self, e = None):
 		self.tag_add('sel', '1.0', 'end-1c')
+		utils.show('select all text')
 		return 'break'
 	def _unpost_menu(self):
 		if self._menu_posted:
