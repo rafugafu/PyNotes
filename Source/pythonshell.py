@@ -15,7 +15,7 @@ class PythonShellBuffer(Buffer):
 		self.m = state.root.menu()
 		for label, menu in state.all_pythonshell_menus.items():
 			self.m.add_cascade(label = label, menu = menu)
-		self.setwanttitle(f'PyNotes - *Python Shell*')
+		self.setwanttitle(f'*Python Shell*')
 		self.fileinfoconfig(buffertype = '*Python Shell*', interpreter = state.pythonexecutable)
 		self.hmode = 'python'
 		self._shell_setview_after_id = None
