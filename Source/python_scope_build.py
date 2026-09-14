@@ -1,5 +1,7 @@
 import os
 import sys
+import re
+import keyword
 import ast
 import threading
 import warnings
@@ -3299,3 +3301,12 @@ def _python_resolve_dotted_module(buf, dotted):
 			continue
 		return None
 	return cur
+_PYTHON_KW_PAT = re.compile(r'(?<!\.)\b(?:' + '|'.join(re.escape(k) for k in keyword.kwlist) + r')\b')
+_PYTHON_OP_PAT = re.compile(r'\*\*=|//=|<<=|>>=|:=|==|!=|<=|>=|\+=|-=|\*=|/=|%=|&=|\|=|\^=|@=|->|\*\*|//|<<|>>|[+\-*/%@&|^~=<>]')
+def _python_bytecol_to_charcol(line_str, bytecol):
+	if bytecol <= 0:
+		return bytecol
+	encoded = line_str.encode('utf-8')
+	if bytecol >= len(encoded):
+		return len(line_str)
+	return len(encoded[:bytecol].decode('utf-8', 'ignore'))

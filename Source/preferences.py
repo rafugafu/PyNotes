@@ -7,6 +7,7 @@ import utils
 def svprf():
 	global colours
 	import editor
+	import pythonshell
 	file = open(f'{homedir}/.local/share/PyNotes/defs', 'w+', encoding = 'utf-8')
 	font = state.defs[2]
 	state.theme = colours.get('1.0', 'end-1c').replace('\n', '').replace('orgfont', 'type_.cget(\'font\')[:-3].strip(\'{}\')')
@@ -14,7 +15,7 @@ def svprf():
 	file.close()
 	exec('theme = {' + state.theme + '}', vars(state))
 	editor._init_hl_tags()
-	editor._init_pythonshell_hl_tags()
+	pythonshell._init_pythonshell_hl_tags()
 	editor._init_plugin_tags()
 	for buffer in state.all_buffers:
 		if hasattr(buffer, 'keypress'):

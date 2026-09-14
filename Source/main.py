@@ -7,7 +7,6 @@ import shutil
 import copy
 import codecs
 import base64
-import smtplib
 import keyword
 import wave
 import re
@@ -17,13 +16,7 @@ import ast
 import warnings
 import io
 import time
-import math as mathmod
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
 import state
-from encrypter import encryptdecrypt
 import urllib.request
 import zipfile
 import init
@@ -36,7 +29,7 @@ del _m
 from cli import argparse, start_console
 from tkinter import messagebox as mb
 state.options, state.files_to_open = argparse({'version': False, 'changes': False, 'plugin-list-github': False, 'plugin-list-installed': False, 'no-load-pycode': False, 'no-load-plugins': False, 'pycode-exec': True, 'command-exec': True, 'help': False, 'plugin-install': True, 'plugin-remove': True, 'plugin-describe': True, 'wait-start': False}, sys.argv[1:])
-changelist = ['Added a live cli console inside the starting terminal which can interact with and control PyNotes while it runs! (See pynotes --help)\nNow PyNotes will run with Terminal=true even on linux.', 'Added reverse search and separated forward search from search from beginning.', 'Added setattr and getattr commands to PyCode.', 'Added a PyCode evaluator Alt-X command.', 'Added support for different types of cursors in the terminal.', 'Fixed many bugs and implemented new ANSI codes and features in the terminal.', 'Fixed upgrading ttkbootstrap from 1.x failing.', 'Fixed some bugs.']
+changelist = ['Added a live cli console inside the starting terminal which can interact with and control PyNotes while it runs! (See pynotes --help)\nNow PyNotes will run with Terminal=true even on linux.', 'Removed tabs in the editor and made the Python shell and Email separate buffers.\nRemoved the Email HMode.\nCommands now make these new buffers or switch to already existing ones.', 'Added reverse search and separated forward search from search from beginning.', 'Added setattr and getattr commands to PyCode.', 'Added a PyCode evaluator Alt-X command.', 'Added support for different types of cursors in the terminal.', 'Fixed many bugs and implemented new ANSI codes and features in the terminal.', 'Fixed upgrading ttkbootstrap from 1.x failing.', 'Fixed some bugs.']
 state.changestr = ''
 for i in range(len(changelist) - 1):
 	state.changestr += f'{i + 1}. {changelist[i]}\n\n'
@@ -226,12 +219,14 @@ import buffer
 import speech
 import editor
 import terminal
+import pythonshell
+import pynotesemail
 import command
 import pycode
 import window
 import help
 import preferences
-for _m in (buffer, speech, editor, terminal, command, pycode, window, help, preferences):
+for _m in (buffer, speech, editor, terminal, pythonshell, pynotesemail, command, pycode, window, help, preferences):
 	globals().update({_k: _v for _k, _v in vars(_m).items() if not _k.startswith('__')})
 del _m
 init.create_root_and_menus()
@@ -284,7 +279,6 @@ state.hmm.add_command(label = 'Python → Alt + X - hmode:py', command = lambda:
 state.hmm.add_command(label = 'LaTeX → Alt + X - hmode:la', command = lambda: pchmode('latex'))
 state.hmm.add_command(label = 'Markdown → Alt + X - hmode:md', command = lambda: pchmode('markdown'))
 state.hmm.add_command(label = 'HTML → Alt + X - hmode:html', command = lambda: pchmode('html'))
-state.hmm.add_command(label = 'Email → Alt + X - hmode:em', command = lambda: pchmode('email'))
 state.hmm.add_separator()
 for hmode in state.plgnhmodes:
 	state.hmm.add_command(label = hmode + ' → Alt + X - hmode:' + hmode, command = lambda: pchmode(hmode))
@@ -319,8 +313,6 @@ state.om.add_separator()
 state.om.add_command(label = 'Command → Alt + X', command = cmd)
 state.om.add_command(label = 'PyCode → Alt + X - pc', command = pc)
 state.om.add_separator()
-state.om.add_command(label = 'Speech to Text → Alt + X - st', command = st)
-state.em.add_separator()
 state.em.add_command(label = 'Find → Ctrl + F / Alt + X - f', command = lambda: state.active.f())
 state.em.add_command(label = 'Find & Replace → Ctrl + Shift + F / Alt + X - fr', command = lambda: state.active.fr())
 state.emailwordlist = []
@@ -332,7 +324,11 @@ except Exception as error:
 	error = str(error)
 	state.root.error('Error', error)
 state.om.add_command(label = 'Terminal → Alt + X - t', command = term)
+state.om.add_command(label = 'Python Shell → Alt + X - pyshell', command = openpythonshell)
 state.om.add_separator()
+state.om.add_command(label = 'Email → Alt + X - sendemail', command = openemailbuf)
+state.om.add_separator()
+state.om.add_command(label = 'Speech to Text → Alt + X - st', command = st)
 state.om.add_command(label = 'Speak Text → Alt + X - sp', command = lambda: state.active.spk())
 state.root.protocol('WM_DELETE_WINDOW', ext)
 state.mg.add_command(label = 'Start', command = mathgod)

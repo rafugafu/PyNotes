@@ -8,6 +8,8 @@ import editor
 from utils import unbindrecur
 import help
 import terminal
+import pythonshell
+import pynotesemail
 import utils
 import window
 def pcprompt(text, autocompletefunc = None, defaultinput = None):
@@ -524,30 +526,8 @@ def pcmovecursor(index):
 	if not isinstance(state.active, editor.Editor):
 		return
 	_pcmovecursor(index)
-def pcswitchemailtab():
-	if not isinstance(state.active, editor.Editor):
-		utils.show('not an editor')
-		return
-	if state.active.hmode == 'email':
-		pcrunhook('before', 'switch-to-email-tab')
-		state.active.tabs.select(state.active.ef)
-		utils.show('switched to email tab')
-		pcrunhook('after', 'switch-to-email-tab')
-	else:
-		utils.show('not in email hmode')
-def pcpyshell():
-	if not isinstance(state.active, editor.Editor):
-		utils.show('not an editor')
-		return
-	if state.active.hmode == 'python':
-		pcrunhook('before', 'switch-to-python-shell-tab')
-		state.active.tabs.select(state.active.sf)
-		state.active.shellcmd.focus()
-		utils.show('switch to python shell')
-		state.active.keypress()
-		pcrunhook('after', 'switch-to-python-shell-tab')
-	else:
-		utils.show('not in python hmode')
+def pcopenemailbuf():
+	pynotesemail.openemailbuf()
 def _pcpyresolve(commandinput):
 	if state.active.hmode != 'python':
 		utils.show('not in python hmode')
@@ -645,16 +625,6 @@ def pcgodef(commandinput):
 	_pcmovecursor(f'{target_line}.end')
 	state.active.keypress()
 	utils.show(f'jumped to definition of \'{name}\'')
-def pcswitchedittab():
-	if not isinstance(state.active, editor.Editor):
-		utils.show('not an editor')
-		return
-	pcrunhook('before', 'switch-to-editor-tab')
-	state.active.tabs.select(state.active.mf)
-	state.active.type_.focus()
-	utils.show('switch to editor')
-	state.active.keypress()
-	pcrunhook('after', 'switch-to-editor-tab')
 def pccmdwrite(text, n):
 	if not isinstance(state.active, editor.Editor):
 		utils.show('not an editor')
@@ -788,7 +758,7 @@ def pcunindentselection():
 		utils.show('unindent selection')
 		state.active.keypress()
 		pcrunhook('after', 'unindent-region', (start, end))
-pycodetopythoncommands = {'aboutpynotes': 'abt', 'ask': 'pcask', 'balancebuffers': 'balance', 'cleareditor': 'pccleareditor', 'closebuffer': 'pcclosebuff', 'cmdrun': 'cmdrun', 'color': 'pccolor', 'commentregion': 'pccommentregion', 'commentselection': 'pccommentselection', 'copy': 'pccopy', 'copytext': 'pccopytext', 'cut': 'pccut', 'delete': 'pcdelete', 'dictate': 'st', 'downloadplugins': 'dp', 'fileinfoconfig': 'active.fileinfoconfig', 'findreplace': 'pcfindreplace', 'findtext': 'pcfindtext', 'fullscreen': 'pcfullscreen', 'get': 'pcget', 'getattr': 'getattr', 'getselection': 'pcgetselection', 'gotoline': 'pcgotoline', 'hmode': 'pchmode', 'indentregion': 'pcindentregion', 'indentselection': 'pcindentselection', 'insert': 'pcinsert', 'killquit': 'pckillexit', 'mark': 'pcmark', 'markselection': 'pcmarkselection', 'mathgod': 'mathgod', 'maximize': 'pcmax', 'minimize': 'pcmin', 'movecursor': 'pcmovecursor', 'neweditor': 'neweditor', 'newfile': 'pcnewfile', 'openfile': 'pcopenfile', 'openfilenewedit': 'pcneweditfile', 'openhelp': 'pcopenhelp', 'openplugindir': 'op', 'openpycode': 'pc', 'openterm': 'term', 'pageback': 'pcpageback', 'pageforw': 'pcpageforw', 'pass': 'pass', 'paste': 'pcpaste', 'preferences': 'prf', 'prompt': 'pcprompt', 'pynotessourcecode': 'ss', 'pyshell': 'pcpyshell', 'pythongoendof': 'pcpyendof', 'pythongostartof': 'pcpystartof', 'pythongodef': 'pcgodef', 'quit': 'ext', 'redo': 'pcredo', 'repeatxcommand': 'pcrepeatx', 'removeselectionpoint': 'pcremoveselectionpoint', 'return': 'return', 'runcode': 'pcruncode', 'saveasfile': 'pcsaveasfile', 'savefile': 'pcsavefile', 'say': 'say', 'selall': 'pcselall', 'select': 'pcselecttext', 'setattr': 'setattr', 'setselectionpoint': 'pcsetselectionpoint', 'setvar': 'pcsetvar', 'setwingeometry': 'root.geometry', 'setwintitle': 'pcgosettitle', 'show': 'show', 'speaktext': 'pcspeaktext', 'spliteditor': 'pcsplitedit', 'switchbuffer': 'setactive', 'switcheditortab': 'pcswitchedittab', 'switchemailtab': 'pcswitchemailtab', 'tag': 'pctag', 'termexec': 'pctermexec', 'tkindex': 'pctkindex', 'toggleselectionpoint': 'pctoggleselectionpoint', 'typecommand': 'cmd', 'uncommentregion': 'pcuncommentregion', 'uncommentselection': 'pcuncommentselection', 'undo': 'pcundo', 'unfullscreen': 'pcunfullscreen', 'unindentregion': 'pcunindentregion', 'unindentselection': 'pcunindentselection', 'unmark': 'pcunmark', 'unmarkall': 'pcunmarkall', 'unmaximize': 'pcunmax', 'unsetwintitle': 'pcunsettitle', 'untag': 'pcuntag', 'wait': 'time.sleep', 'write': 'pccmdwrite'}
+pycodetopythoncommands = {'aboutpynotes': 'abt', 'ask': 'pcask', 'balancebuffers': 'balance', 'cleareditor': 'pccleareditor', 'closebuffer': 'pcclosebuff', 'cmdrun': 'cmdrun', 'color': 'pccolor', 'commentregion': 'pccommentregion', 'commentselection': 'pccommentselection', 'copy': 'pccopy', 'copytext': 'pccopytext', 'cut': 'pccut', 'delete': 'pcdelete', 'dictate': 'st', 'downloadplugins': 'dp', 'fileinfoconfig': 'active.fileinfoconfig', 'findreplace': 'pcfindreplace', 'findtext': 'pcfindtext', 'fullscreen': 'pcfullscreen', 'get': 'pcget', 'getattr': 'getattr', 'getselection': 'pcgetselection', 'gotoline': 'pcgotoline', 'hmode': 'pchmode', 'indentregion': 'pcindentregion', 'indentselection': 'pcindentselection', 'insert': 'pcinsert', 'killquit': 'pckillexit', 'mark': 'pcmark', 'markselection': 'pcmarkselection', 'mathgod': 'mathgod', 'maximize': 'pcmax', 'minimize': 'pcmin', 'movecursor': 'pcmovecursor', 'neweditor': 'neweditor', 'newfile': 'pcnewfile', 'openfile': 'pcopenfile', 'openfilenewedit': 'pcneweditfile', 'openhelp': 'pcopenhelp', 'openplugindir': 'op', 'openpycode': 'pc', 'openterm': 'term', 'pageback': 'pcpageback', 'pageforw': 'pcpageforw', 'pass': 'pass', 'paste': 'pcpaste', 'preferences': 'prf', 'prompt': 'pcprompt', 'pynotessourcecode': 'ss', 'pyshell': 'pythonshell.openpythonshell', 'pythongoendof': 'pcpyendof', 'pythongostartof': 'pcpystartof', 'pythongodef': 'pcgodef', 'quit': 'ext', 'redo': 'pcredo', 'repeatxcommand': 'pcrepeatx', 'removeselectionpoint': 'pcremoveselectionpoint', 'return': 'return', 'runcode': 'pcruncode', 'saveasfile': 'pcsaveasfile', 'savefile': 'pcsavefile', 'say': 'say', 'selall': 'pcselall', 'select': 'pcselecttext', 'setattr': 'setattr', 'setselectionpoint': 'pcsetselectionpoint', 'setvar': 'pcsetvar', 'setwingeometry': 'root.geometry', 'setwintitle': 'pcgosettitle', 'show': 'show', 'speaktext': 'pcspeaktext', 'spliteditor': 'pcsplitedit', 'switchbuffer': 'setactive', 'openemailbuf': 'pcopenemailbuf', 'tag': 'pctag', 'termexec': 'pctermexec', 'tkindex': 'pctkindex', 'toggleselectionpoint': 'pctoggleselectionpoint', 'typecommand': 'cmd', 'uncommentregion': 'pcuncommentregion', 'uncommentselection': 'pcuncommentselection', 'undo': 'pcundo', 'unfullscreen': 'pcunfullscreen', 'unindentregion': 'pcunindentregion', 'unindentselection': 'pcunindentselection', 'unmark': 'pcunmark', 'unmarkall': 'pcunmarkall', 'unmaximize': 'pcunmax', 'unsetwintitle': 'pcunsettitle', 'untag': 'pcuntag', 'wait': 'time.sleep', 'write': 'pccmdwrite'}
 pycodecommands = sorted(list(pycodetopythoncommands))
 pythoncommands = [pycodetopythoncommands[x] for x in pycodecommands]
 def finddelimitedspans(s, opener, closer):
@@ -1364,7 +1334,7 @@ def edit(widget, editfrom):
 	elif editfrom == '"':
 		widget.insert('insert', '"')
 		widget.mark_set('insert', 'insert-1c')
-pchookevents = ['new-file-current-editor', 'new-file-new-editor', 'open-file-current-editor', 'open-file-new-editor', 'save-file', 'save-as-file', 'exit-pynotes', 'close-buffer', 'switch-buffer', 'run-code', 'mark-region', 'unmark-region', 'comment-region', 'uncomment-region', 'indent-region', 'unindent-region', 'open-mathgod', 'term-exec', 'alt-x-command', 'pycode-command', 'undo', 'redo', 'show-pynotes-source-code', 'open-terminal', 'open-preferences', 'next-page', 'previous-page', 'copy-text', 'paste-text', 'cut-text', 'fullscreen', 'un-fullscreen', 'maximize-window', 'unmaximize-window', 'minimize-window', 'clear-editor', 'open-pycode', 'change-hmode', 'switch-to-editor-tab', 'switch-to-python-shell-tab', 'switch-to-email-tab', 'resize-window']
+pchookevents = ['new-file-current-editor', 'new-file-new-editor', 'open-file-current-editor', 'open-file-new-editor', 'save-file', 'save-as-file', 'exit-pynotes', 'close-buffer', 'switch-buffer', 'run-code', 'mark-region', 'unmark-region', 'comment-region', 'uncomment-region', 'indent-region', 'unindent-region', 'open-mathgod', 'term-exec', 'alt-x-command', 'pycode-command', 'undo', 'redo', 'show-pynotes-source-code', 'open-terminal', 'open-preferences', 'next-page', 'previous-page', 'copy-text', 'paste-text', 'cut-text', 'fullscreen', 'un-fullscreen', 'maximize-window', 'unmaximize-window', 'minimize-window', 'clear-editor', 'open-pycode', 'change-hmode', 'open-python-shell', 'open-email-buffer', 'resize-window']
 def pc():
 	pcrunhook('before', 'open-pycode')
 	utils.show('open pycode')

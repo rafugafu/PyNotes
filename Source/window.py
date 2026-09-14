@@ -267,7 +267,7 @@ def neweditor(file = None, orient = 'horizontal'):
 	hookevent = 'open-file-new-editor' if file else 'new-file-new-editor'
 	pycode.pcrunhook('before', hookevent, file)
 	match = find_open_editor(os.path.abspath(file)) if file else None
-	newedit = newbuffer(editor.Editor, orient, file = None if match else file, view_master = match, padding = 10)
+	newedit = newbuffer(editor.Editor, orient, file = None if match else file, view_master = match)
 	pycode.pcrunhook('after', hookevent, file)
 	return newedit
 def _on_root_resize(event):

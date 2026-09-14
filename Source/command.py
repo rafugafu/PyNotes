@@ -5,6 +5,7 @@ import editor
 import dialogs
 import help
 import pycode
+import pythonshell
 import speech
 import terminal
 import utils
@@ -315,7 +316,7 @@ def cmdrun(fullcommand):
 		if commandinput:
 			utils.show(f'error: command \'{command}\' does not take input')
 			return
-		pycode.pcswitchemailtab()
+		pycode.pcopenemailbuf()
 	elif command == 'unma' or command == 'unmarkall':
 		if commandinput:
 			utils.show(f'error: command \'{command}\' does not take input')
@@ -344,10 +345,13 @@ def cmdrun(fullcommand):
 			return
 		pycode.pcuncommentselection()
 	elif command == 'pyshell' or command == 'ps':
-		if commandinput:
-			utils.show(f'error: command \'{command}\' does not take input')
+		if commandinput and not commandinput in ('h', 'horiz', 'horizontal'):
+			utils.show(f'error: invalid input \'{commandinput}\' to python shell command')
 			return
-		pycode.pcpyshell()
+		if commandinput:
+			pythonshell.openpythonshell('horizontal')
+		else:
+			pythonshell.openpythonshell()
 	elif command == 'fullup':
 		if commandinput:
 			utils.show(f'error: command \'{command}\' does not take input')
@@ -366,11 +370,6 @@ def cmdrun(fullcommand):
 			return
 		state.active.type_.mark_set('insert', 'end-1c')
 		state.active.type_.see('end-1c')
-	elif command == 'editor' or command == 'ed':
-		if commandinput:
-			utils.show(f'error: command \'{command}\' does not take input')
-			return
-		pycode.pcswitchedittab()
 	elif command == 'h' or command == 'help':
 		if not commandinput:
 			utils.show(f'error: no input given to command \'{command}\'')
@@ -631,7 +630,7 @@ def cmdrun(fullcommand):
 		if not commandinput:
 			utils.show(f'error: no input given to command \'{command}\'')
 			return
-		if not (commandinput in ('python', 'py', 'latex', 'la', 'normal', 'norm', 'email', 'em', 'html', 'markdown', 'md') or commandinput in state.plgnhmodes):
+		if not (commandinput in ('python', 'py', 'latex', 'la', 'normal', 'norm', 'html', 'markdown', 'md') or commandinput in state.plgnhmodes):
 			utils.show(f'hmode \'{commandinput}\' does not exist')
 			return
 		if not isinstance(state.active, editor.Editor):
@@ -660,7 +659,7 @@ def cmdrun(fullcommand):
 		utils.show(text = f'error: invalid command \'{command}\'')
 	pycode.pcrunhook('after', f'alt-x-command:{command}', commandinput)
 def cmdallhmodenames():
-	return ['python', 'latex', 'normal', 'email', 'html', 'markdown'] + list(state.plgnhmodes)
+	return ['python', 'latex', 'normal', 'html', 'markdown'] + list(state.plgnhmodes)
 def cmdpynavvalues(currentinput):
 	if state.active is None or state.active.hmode != 'python':
 		return []
@@ -702,14 +701,13 @@ cmdregister(('changes', 'ch'))
 cmdregister(('run',), hmodes = ('python', 'latex', 'html'), buffertypes = (editor.Editor,))
 cmdregister(('ms', 'mark', 'markset', 'mark-selection'))
 cmdregister(('unms', 'unmark', 'unmark-selection'))
-cmdregister(('sendemail', 'sendmail'), hmodes = ('email',), buffertypes = (editor.Editor,))
+cmdregister(('sendemail', 'sendmail'))
 cmdregister(('unma', 'unmarkall'))
 cmdregister(('comment', 'cr', 'comment-region'), hmodes = ('python', 'latex', 'html', 'markdown'), buffertypes = (editor.Editor,))
 cmdregister(('uncomment', 'uncr', 'uncomment-region'), hmodes = ('python', 'latex', 'html', 'markdown'), buffertypes = (editor.Editor,))
-cmdregister(('pyshell', 'ps'), hmodes = ('python',), buffertypes = (editor.Editor,))
+cmdregister(('pyshell', 'ps'), inputs = [None, 'h', 'horiz', 'horizontal'])
 cmdregister(('fullup',))
 cmdregister(('fulldown',))
-cmdregister(('editor', 'ed'))
 cmdregister(('h', 'help'), inputs = ['x', 'commands', 'em', 'email', 'pc', 'pycode', 'mg', 'mathgod', 'pl', 'plugins'])
 cmdregister(('st', 'speech-to-text'))
 cmdregister(('opd', 'openplugindir'))
@@ -751,7 +749,7 @@ cmdregister(('ab', 'abt', 'about', 'pynotes'))
 cmdregister(('pynavstart', 'pyjumpstart', 'python-jump-startof'), hmodes = ('python',), inputs = cmdpynavvalues, buffertypes = (editor.Editor,))
 cmdregister(('pynavend', 'pyjumpend', 'python-jump-endof'), hmodes = ('python',), inputs = cmdpynavvalues, buffertypes = (editor.Editor,))
 cmdregister(('pygodef', 'python-go-definition'), hmodes = ('python',), inputs = cmdpygodefvalues, buffertypes = (editor.Editor,))
-cmdregister(('hmode',), hmodes = cmdallhmodenames, inputs = ['python', 'py', 'latex', 'la', 'normal', 'norm', 'email', 'em', 'html', 'markdown', 'md'] + list(state.plgnhmodes), buffertypes = (editor.Editor,))
+cmdregister(('hmode',), hmodes = cmdallhmodenames, inputs = ['python', 'py', 'latex', 'la', 'normal', 'norm', 'html', 'markdown', 'md'] + list(state.plgnhmodes), buffertypes = (editor.Editor,))
 def cmdregistryentry(name):
 	return cmdregistry.get(name, {'hmodes': None, 'inputs': None, 'buffertypes': None})
 def cmdbuffertypeavailable(buffertypes):

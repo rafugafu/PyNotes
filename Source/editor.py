@@ -3,25 +3,17 @@ import platform
 import subprocess
 import shutil
 import codecs
-import smtplib
-import keyword
 import re
 import threading
 import queue
 import ast
 import warnings
 import io
-import math as mathmod
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
 import easytk
 import state
-from encrypter import encryptdecrypt
 from init import homedir, monospace, DEBOUNCE_TIME
 from buffer import Buffer
-from python_scope_build import _PYTHON_BUILTIN_MEMBERS, _PYTHON_BUILTIN_NAMES
+from python_scope_build import _PYTHON_BUILTIN_MEMBERS, _PYTHON_BUILTIN_NAMES, _PYTHON_KW_PAT, _PYTHON_OP_PAT, _python_bytecol_to_charcol
 import python_scope_build
 import dialogs
 import pycode
@@ -81,7 +73,7 @@ class Editor(Buffer):
 			self._handle(event.dest_path)
 	_SHARED_STATE_ATTRS = frozenset(('unsaved', 'unsavedtext', 'hmode', 'title', 'wanttitle', 'file_editing_own', '_file_watch_prompt_pending', 'imageloaded', 'observer', '_python_scopes', '_python_call_kwargs', '_python_module_literals', '_python_literal_attrs', '_python_name_positions', '_python_def_names', '_python_typed_attrs', '_python_param_default_tags', '_python_kwarg_positions', '_python_import_dotted_lines', '_python_import_orig_name_tags', '_python_instance_name_positions', '_python_global_stmt_kind_positions', '_python_names_scan_thread', '_python_scan_after_id', '_python_edit_generation', '_python_module_spec_cache', '_python_module_members_cache', '_python_module_class_members_cache', '_python_module_func_params_cache', '_ha_running', '_ha_pending'))
 	_TK_INTERNAL_ATTRS = frozenset(('_w', '_name', 'children', 'master', 'tk', '_tclCommands', 'widgetName', '_last_child_ids'))
-	_PER_PANE_ATTRS = frozenset(('root', 'fileinfo', 'filename', 'filetype', 'filesize', 'mf', 'sf', 'lf', 'latexbold', 'latexitalic', 'latexunderline', 'latexsubscript', 'latexsuperscript', 'latexnumberlist', 'latexbulletlist', 'latexsectionvar', 'latexsection', 'latexparagraph', 'latexequation', 'latexcharvar', 'latexmath', 'ef', 'tabs', 'scrlbr', '_own_type', 'ln', 'active', 'imageload', 'm', 'view_master', 'view_children', '_selectionpoint', 'type_top', 'type_bottom', '_prev_visible_region', '_ha_after_id', '_filesize_after_id', '_unsaved_after_id', '_main_queue', '_hapyshell_running', '_pyshell_last_scan_key', '_pyshell_cached_scope_result', '_pyshell_session_names', '_pyshell_session_types', '_pyshell_session_classes', '_pyshell_session_aliases', '_pyshell_session_origins', '_pyshell_session_method_params', '_pyshell_session_accepts_any', '_pyshell_session_module_bases', '_pyshell_session_func_origins', '_pyshell_session_attr_types', '_pyshell_session_class_attr_types', '_pyshell_session_func_params', '_pyshell_session_func_accepts_any', '_pyshell_session_class_bases', '_pyshell_session_inherited', '_pyshell_session_instance_only', 'shellcmd', 'loginframe', 'email', 'password', 'server', 'port', 'entryframe', 'recipiententry', 'subjectentry', 'buttonframe', 'attachmentslist', 'attachmentslistwidget', 'emailtextbox', '_email_logged_in'))
+	_PER_PANE_ATTRS = frozenset(('root', 'fileinfo', 'filename', 'filetype', 'filesize', 'mf', 'lf', 'latexbold', 'latexitalic', 'latexunderline', 'latexsubscript', 'latexsuperscript', 'latexnumberlist', 'latexbulletlist', 'latexsectionvar', 'latexsection', 'latexparagraph', 'latexequation', 'latexcharvar', 'latexmath', 'scrlbr', '_own_type', 'ln', 'active', 'imageload', 'm', 'view_master', 'view_children', '_selectionpoint', 'type_top', 'type_bottom', '_prev_visible_region', '_ha_after_id', '_filesize_after_id', '_unsaved_after_id', '_main_queue'))
 	def __setattr__(self, name, value):
 		if name in Editor._SHARED_STATE_ATTRS and self.__dict__.get('view_master') is not None:
 			setattr(self.__dict__['view_master'], name, value)
@@ -194,8 +186,6 @@ class Editor(Buffer):
 		if master is None:
 			return
 		self.fileinfoconfig(filename = master.infos['filename'].cget('text'), filesaved = master.infos['filesaved'].cget('text'), filetype = master.infos['filetype'].cget('text'), filesize = master.infos['filesize'].cget('text'))
-		self.tabs.tab(self.sf, state = master.tabs.tab(master.sf, option = 'state'))
-		self.tabs.tab(self.ef, state = master.tabs.tab(master.ef, option = 'state'))
 		if master.hmode == 'latex':
 			self.lfouter.pack(padx = 10, pady = 10, side = 'top', fill = 'x', before = self.fileinfo)
 		else:
@@ -203,11 +193,11 @@ class Editor(Buffer):
 		if master.imageloaded:
 			self.type_.pack_forget()
 			self.ln.pack_forget()
-			self.tabs.pack_forget()
+			self.mf.pack_forget()
 		else:
 			self.ln.pack(side = 'left', fill = 'y', anchor = 'n')
 			self.type_.pack(fill = 'both', expand = True, anchor = 'n')
-			self.tabs.pack(padx = 10, pady = 10, fill = 'both', expand = True)
+			self.mf.pack(padx = 10, pady = 10, fill = 'both', expand = True)
 	def _cancel_type_after_ids(self):
 		for name in ('_main_poll_after_id', '_ha_after_id', '_filesize_after_id', '_setundo_after_id', '_unsaved_after_id', '_python_scan_after_id', '_find_apply_after_id'):
 			after_id = getattr(self, name, None)
@@ -225,7 +215,7 @@ class Editor(Buffer):
 			self._ha_apply_after_id = None
 	def _cancel_all_after_ids(self):
 		self._cancel_type_after_ids()
-		for name, widget in (('_type_setview_after_id', self.mf), ('_do_backup_after_id', self.mf), ('_email_login_poll_after_id', self.ef), ('_shell_setview_after_id', self.sf)):
+		for name, widget in (('_type_setview_after_id', self.mf), ('_do_backup_after_id', self.mf)):
 			after_id = getattr(self, name, None)
 			if after_id is not None:
 				try:
@@ -276,8 +266,6 @@ class Editor(Buffer):
 			self.type_.edit_reset()
 			python_scope_build._python_reset_scan_state(self)
 			self.resetfileinfo()
-			self.tabs.tab(self.sf, state = 'hidden')
-			self.tabs.tab(self.ef, state = 'hidden')
 			self.lfouter.pack_forget()
 			self._main_poll()
 			pycode.pcrun(state.pycode_keybindings_cdt)
@@ -334,8 +322,6 @@ class Editor(Buffer):
 			self.type_.edit_reset()
 			python_scope_build._python_reset_scan_state(self)
 			self.resetfileinfo()
-			self.tabs.tab(self.sf, state = 'hidden')
-			self.tabs.tab(self.ef, state = 'hidden')
 			self.lfouter.pack_forget()
 			pycode.pcrun(state.pycode_keybindings_cdt)
 	def resetfileinfo(self):
@@ -364,10 +350,7 @@ class Editor(Buffer):
 		self.view_master = view_master
 		self.view_children = []
 		self.resetfileinfo()
-		self.tabs = state.root.tabs(master = self)
-		self.mf = state.root.frame(master = self.tabs)
-		self.sf = state.root.frame(master = self.tabs)
-		self.ef = state.root.frame(master = self.tabs)
+		self.mf = state.root.frame(master = self)
 		self.lfouter = state.root.frame(master = self)
 		self.lfcanvas = easytk.ttk.Canvas(self.lfouter, highlightthickness = 0)
 		self.lfscroll = state.root.scroll(master = self.lfouter, orient = 'horizontal', command = self.lfcanvas.xview)
@@ -402,10 +385,7 @@ class Editor(Buffer):
 		self.latexcharvar = state.root.stringvar()
 		self.latexmath = state.root.dropdown(master = self.lf, stringvar = self.latexcharvar, showdefault = 'Multiplication', options = ['Multiplication', 'Division', 'Less or equal', 'More or equal', 'Not equal', 'Infinity', 'Summation', 'Integral', 'Pi', 'Theta', 'Alpha Lower', 'Alpha Upper', 'Inline Math'], command = self.mathlatex)
 		self.latexmath.grid(column = 11, row = 0, padx = 10, pady = 10)
-		self.tabs.add(self.mf, text = 'Editor')
-		self.tabs.add(self.sf, text = 'Python Shell', state = 'hidden')
-		self.tabs.add(self.ef, text = 'Email', state = 'hidden')
-		self.tabs.pack(fill = 'both', expand = True)
+		self.mf.pack(fill = 'both', expand = True)
 		self.scrlbr = state.root.scroll(master = self.mf)
 		self.scrlbr.pack(side = 'right', fill = 'y')
 		if view_master is None:
@@ -427,29 +407,8 @@ class Editor(Buffer):
 		self._prev_visible_region = None
 		self._main_poll_after_id = None
 		self._type_setview_after_id = None
-		self._email_login_poll_after_id = None
-		self._shell_setview_after_id = None
 		self._do_backup_after_id = None
 		self._main_queue = queue.Queue()
-		self._hapyshell_running = [False]
-		self._pyshell_last_scan_key = None
-		self._pyshell_cached_scope_result = None
-		self._pyshell_session_names = {}
-		self._pyshell_session_types = {}
-		self._pyshell_session_classes = {}
-		self._pyshell_session_aliases = {}
-		self._pyshell_session_origins = {}
-		self._pyshell_session_method_params = {}
-		self._pyshell_session_accepts_any = set()
-		self._pyshell_session_module_bases = {}
-		self._pyshell_session_func_origins = {}
-		self._pyshell_session_attr_types = {}
-		self._pyshell_session_class_attr_types = {}
-		self._pyshell_session_func_params = {}
-		self._pyshell_session_func_accepts_any = {}
-		self._pyshell_session_class_bases = {}
-		self._pyshell_session_inherited = {'members': set(), 'attr_types': set(), 'method_params': set()}
-		self._pyshell_session_instance_only = {}
 		self._selectionpoint = None
 		if view_master is None:
 			self.unsaved = False
@@ -488,8 +447,6 @@ class Editor(Buffer):
 		else:
 			self.m = view_master.m
 			view_master.view_children.append(self)
-		self.shellpy()
-		self.init_pythonshell_hl_tags()
 		if view_master is None:
 			self.init_hl_tags()
 			self.init_plugin_tags()
@@ -499,15 +456,12 @@ class Editor(Buffer):
 		self._main_poll()
 		if view_master is None:
 			self.do_backup()
-		self._email_logged_in = False
-		self._email_login_setup()
-		self._email_login_poll()
 		if view_master is None:
 			if file:
 				self.ld(file)
 		else:
 			self._sync_chrome()
-		self._bind_focus_recursive(self, (self._own_type,) + tuple(self.ef.winfo_children()) + ((self.imageload,) if getattr(self, 'imageload', None) else ()))
+		self._bind_focus_recursive(self, (self._own_type,) + ((self.imageload,) if getattr(self, 'imageload', None) else ()))
 		for code in state.editor_init_code:
 			try:
 				exec(code, vars(state), locals())
@@ -641,7 +595,7 @@ class Editor(Buffer):
 				self.hmode = 'normal'
 				self.ln.pack(side = 'left', fill = 'y', anchor = 'n')
 				self.type_.pack(fill = 'both', expand = True, anchor = 'n')
-				self.tabs.pack(padx = 10, pady = 10, fill = 'both', expand = True)
+				self.mf.pack(padx = 10, pady = 10, fill = 'both', expand = True)
 			self.type_.delete('1.0', 'end')
 			if os.path.dirname(nm):
 				try:
@@ -686,8 +640,6 @@ class Editor(Buffer):
 							self.clt(nm)
 							self.fileinfoconfig(filesize = str(os.path.getsize(nm)) + ' bytes', filetype = 'EPUB File (*.epub)')
 							self.sethmenu(None)
-							self.tabs.tab(self.sf, state = 'hidden')
-							self.tabs.tab(self.ef, state = 'hidden')
 							self.lfouter.pack_forget()
 							self.hmode = 'epub'
 							self.keypress()
@@ -695,15 +647,13 @@ class Editor(Buffer):
 						self.clt(nm)
 						self.fileinfoconfig(filesize = str(os.path.getsize(nm)) + ' bytes', filetype = 'PDF File (*.pdf)')
 						self.sethmenu(None)
-						self.tabs.tab(self.sf, state = 'hidden')
-						self.tabs.tab(self.ef, state = 'hidden')
 						self.lfouter.pack_forget()
 						self.hmode = 'pdf'
 						self.keypress()
 				else:
 					self.type_.pack_forget()
 					self.ln.pack_forget()
-					self.tabs.pack_forget()
+					self.mf.pack_forget()
 					self.imageload.pack(fill = 'both', expand = True)
 					self.imageloaded = True
 					self.mainwidget = self.imageload
@@ -712,8 +662,6 @@ class Editor(Buffer):
 					self.hmode = 'png'
 					self.imageload.focus_set()
 					self.sethmenu(None)
-					self.tabs.tab(self.sf, state = 'hidden')
-					self.tabs.tab(self.ef, state = 'hidden')
 					self.lfouter.pack_forget()
 					self.keypress()
 			else:
@@ -825,7 +773,7 @@ class Editor(Buffer):
 			else:
 				self.ln.pack(side = 'left', fill = 'y', anchor = 'n')
 				self.type_.pack(fill = 'both', expand = True, anchor = 'n')
-				self.tabs.pack(padx = 10, pady = 10, fill = 'both', expand = True)
+				self.mf.pack(padx = 10, pady = 10, fill = 'both', expand = True)
 			self.type_.delete('1.0', 'end')
 			self.unsavedtext = ''
 			self.clt('')
@@ -2250,18 +2198,6 @@ class Editor(Buffer):
 		exec("self._own_type.tag_config('hmq'," + state.theme['markdown:blockquotes'].replace('type_', 'self._own_type') + ')')
 		exec("self._own_type.tag_config('hmf'," + state.theme['markdown:codeblocks'].replace('type_', 'self._own_type') + ')')
 		exec("self._own_type.tag_config('marked'," + state.theme['pynotes:marked'].replace('type_', 'self._own_type') + ')')
-	def init_pythonshell_hl_tags(self):
-		exec("self.shellcmd.tag_config('hpa'," + state.theme['python:keywords'].replace('type_', 'self.shellcmd') + ')')
-		exec("self.shellcmd.tag_config('hpb'," + state.theme['python:inbuilt'].replace('type_', 'self.shellcmd') + ')')
-		exec("self.shellcmd.tag_config('hpv'," + state.theme['python:variable_names'].replace('type_', 'self.shellcmd') + ')')
-		exec("self.shellcmd.tag_config('hpi'," + state.theme['python:class_instances'].replace('type_', 'self.shellcmd') + ')')
-		exec("self.shellcmd.tag_config('hpf'," + state.theme['python:function_names'].replace('type_', 'self.shellcmd') + ')')
-		exec("self.shellcmd.tag_config('hpx'," + state.theme['python:class_names'].replace('type_', 'self.shellcmd') + ')')
-		exec("self.shellcmd.tag_config('hpfa'," + state.theme['python:function_arguments'].replace('type_', 'self.shellcmd') + ')')
-		exec("self.shellcmd.tag_config('hpm'," + state.theme['python:module_names'].replace('type_', 'self.shellcmd') + ')')
-		exec("self.shellcmd.tag_config('hpo'," + state.theme['python:operators'].replace('type_', 'self.shellcmd') + ')')
-		exec("self.shellcmd.tag_config('hpd'," + state.theme['python:strings'].replace('type_', 'self.shellcmd') + ')')
-		exec("self.shellcmd.tag_config('hpc'," + state.theme['python:comments'].replace('type_', 'self.shellcmd') + ')')
 	def init_plugin_tags(self):
 		for ft, entry in state.plugin_hl.items():
 			mapping = None
@@ -2294,10 +2230,8 @@ class Editor(Buffer):
 		self.trigger_filesize()
 		self.trigger_undo_set()
 		if self.hmode == 'python':
-			self.tabs.tab(self.sf, state = 'normal')
 			self.python_trigger_name_scan()
 		else:
-			self.tabs.tab(self.sf, state = 'hidden')
 			self.trigger_ha(self.hmode)
 		self._sync_wanttitle()
 		if self.title:
@@ -2343,43 +2277,27 @@ class Editor(Buffer):
 		[self.type_.tag_remove(tag, '1.0', 'end') for tag in self.type_.tag_names() if tag not in state._EDITOR_HL_SKIP_REMOVE_TAGS]
 		if mode == 'python' or mode == 'py':
 			self.sethmenu('python')
-			self.tabs.tab(self.sf, state = 'normal')
-			self.tabs.tab(self.ef, state = 'hidden')
 			self.lfouter.pack_forget()
 			self.hmode = 'python'
 			self.fileinfoconfig(filetype = 'Python File (*.py)')
 			self.python_trigger_name_scan()
 		elif mode == 'latex' or mode == 'la':
 			self.sethmenu('latex')
-			self.tabs.tab(self.sf, state = 'hidden')
-			self.tabs.tab(self.ef, state = 'hidden')
 			self.lfouter.pack(padx = 10, pady = 10, side = 'top', fill = 'x', before = self.fileinfo)
 			self.hmode = 'latex'
 			self.fileinfoconfig(filetype = 'LaTeX / TeX File (*.tex)')
 		elif mode == 'normal' or mode == 'norm':
 			self.sethmenu(None)
-			self.tabs.tab(self.sf, state = 'hidden')
-			self.tabs.tab(self.ef, state = 'hidden')
 			self.lfouter.pack_forget()
 			self.hmode = 'normal'
 			self.fileinfoconfig(filetype = 'Plain Text (*.*)')
-		elif mode == 'email' or mode == 'em':
-			self.sethmenu(None)
-			self.hmode = 'email'
-			self.fileinfoconfig(filetype = 'Plain Text (*.*) (Email)')
-			self.tabs.tab(self.sf, state = 'hidden')
-			self.tabs.tab(self.ef, state = 'normal')
 		elif mode == 'html':
 			self.sethmenu(None)
 			self.hmode = 'html'
 			self.fileinfoconfig(filetype = 'HTML File (*.html)')
-			self.tabs.tab(self.sf, state = 'hidden')
-			self.tabs.tab(self.ef, state = 'hidden')
 			self.lfouter.pack_forget()
 		elif mode == 'markdown' or mode == 'md':
 			self.sethmenu(None)
-			self.tabs.tab(self.sf, state = 'hidden')
-			self.tabs.tab(self.ef, state = 'hidden')
 			self.lfouter.pack_forget()
 			self.hmode = 'markdown'
 			self.fileinfoconfig(filetype = 'Markdown File (*.md)')
@@ -2606,240 +2524,6 @@ class Editor(Buffer):
 			open(os.path.join(os.path.dirname(os.path.splitext(self.title)[0]), '.' + os.path.basename(os.path.splitext(self.title)[0]) + 'backpynotes' + os.path.splitext(self.title)[1]), 'w+', encoding = 'utf-8').write(self.type_.get('1.0', 'end'))
 			utils.show('saved backup')
 		self._do_backup_after_id = self.mf.after(10000, self.do_backup)
-	def emailsetup(self, saved = None):
-		global e
-		global p
-		global s
-		global po
-		attachments = []
-		def removeattach():
-			def actualremoveattachment(attachment):
-				del self.attachmentslist[attachment]
-				del attachments[attachment]
-				self.attachmentslistwidget.config(text = 'Attachments: ' + ' , '.join(self.attachmentslist))
-				raw.destroy()
-			if self.attachmentslist:
-				raw = state.root.subwin()
-				for i in range(len(self.attachmentslist)):
-					attachment = self.attachmentslist[i]
-					raw.button(text = attachment, command = lambda i = i: actualremoveattachment(i)).grid(column = i % 5, row = mathmod.floor(i / 5), sticky = 'ew')
-		def attach():
-			fn = dialogs.openfileget(prompttext = 'Email Attachment File: ', filetypes = (('All Files', '*')))
-			if fn:
-				try:
-					with open(fn, 'rb') as attachment:
-						part = MIMEBase('application', 'octet-stream')
-						part.set_payload(attachment.read())
-						encoders.encode_base64(part)
-						part.add_header('Content-Disposition', f'attachment; filename={os.path.basename(fn)}')
-						if not os.path.basename(fn) in self.attachmentslist:
-							attachments.append(part)
-							self.attachmentslist.append(os.path.basename(fn))
-							self.attachmentslistwidget.config(text = 'Attachments: ' + ' , '.join(self.attachmentslist))
-				except Exception as error:
-					error = str(error)
-					state.root.error('Error', error)
-		def changeinfo():
-			def emailsetupother():
-				global e
-				global p
-				global s
-				global po
-				self.entryframe.pack(padx = 10, pady = 10, fill = 'x', anchor = 'n', expand = True)
-				self.buttonframe.pack(padx = 10, pady = 10, fill = 'x', anchor = 'n', expand = True)
-				self.emailtextbox.pack(fill = 'both', expand = True, padx = 10, pady = 10)
-				e = self.email.get()
-				p = self.password.get()
-				s = self.server.get()
-				po = self.port.get()
-				file = open(f'{homedir}/.pynotesemailconfig', 'w+', encoding = 'utf-8')
-				file.write(f'{e}\n{p}\n{s}\n{po}')
-				file.close()
-				encryptdecrypt(f'{homedir}/.pynotesemailconfig')
-				self.loginframe.pack_forget()
-			self.entryframe.pack_forget()
-			self.buttonframe.pack_forget()
-			self.emailtextbox.pack_forget()
-			self.loginframe = state.root.frame(master = self.ef)
-			self.loginframe.pack(expand = True)
-			state.root.text(master = self.loginframe, text = 'Email:').grid(column = 0, row = 0, padx = 10, pady = 10)
-			self.email = state.root.entry(master = self.loginframe)
-			self.email.grid(column = 1, row = 0, padx = 10, pady = 10)
-			state.root.text(master = self.loginframe, text = 'Password:').grid(column = 0, row = 1, padx = 10, pady = 10)
-			self.password = state.root.entry(master = self.loginframe, show = '*')
-			self.password.grid(column = 1, row = 1, padx = 10, pady = 10)
-			state.root.text(master = self.loginframe, text = 'Smtp Server:').grid(column = 0, row = 2, padx = 10, pady = 10)
-			self.server = state.root.entry(master = self.loginframe)
-			self.server.grid(column = 1, row = 2, padx = 10, pady = 10)
-			state.root.text(master = self.loginframe, text = 'Smtp Port:').grid(column = 0, row = 3, padx = 10, pady = 10)
-			self.port = state.root.entry(master = self.loginframe)
-			self.port.grid(column = 1, row = 3, padx = 10, pady = 10)
-			state.root.button(master = self.loginframe, text = 'Done', command = emailsetupother).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'e')
-			self._bind_focus_recursive(self.loginframe)
-		def sendemail():
-			global e
-			global p
-			global s
-			global po
-			recipients = self.recipiententry.get().split(',')
-			subject = self.subjectentry.get()
-			if not subject:
-				subject = '(No Subject)'
-			body = self.emailtextbox.get('1.0', 'end-1c')
-			for recipient in recipients:
-				if recipient:
-					message = MIMEMultipart()
-					message['From'] = e
-					message['To'] = recipient
-					message['Subject'] = subject
-					message.attach(MIMEText(body, 'plain'))
-					try:
-						for attachment in attachments:
-							message.attach(attachment)
-						with smtplib.SMTP_SSL(s, po) as server:
-							server.login(e, p)
-							server.sendmail(e, recipient, message.as_string())
-					except Exception as error:
-						error = str(error)
-						state.root.error('Error', error)
-						utils.show('email failed')
-						return
-			self.emailtextbox.delete('1.0', 'end')
-			self.recipiententry.delete(0, 'end')
-			attachments.clear()
-			self.attachmentslist.clear()
-			self.attachmentslistwidget.config(text = 'Attachments:')
-			self.subjectentry.delete(0, 'end')
-			utils.show('email sent')
-			state.root.info('Info', 'Email Sent Successfully!')
-			return 'break'
-		def spellcheck():
-			if not state.emailwordlist:
-				return
-			self.emailtextbox.tag_remove('wrong', '1.0', 'end')
-			n = '1.0'
-			search = r'\w+'
-			while True:
-				count = state.root.intvar()
-				n = self.emailtextbox.search(search, n, nocase = 1, count = count, stopindex = 'end', regexp = True)
-				if not n:
-					break
-				nn = '%s+%dc' % (n, count.get())
-				if not self.emailtextbox.get(n, nn).lower() in state.emailwordlist and len(self.emailtextbox.get(n, nn)) > 1:
-					try:
-						int(self.emailtextbox.get(n, nn))
-					except Exception:
-						self.emailtextbox.tag_add('wrong', n, nn)
-				n = nn
-			n = '1.0'
-		if not saved:
-			e = self.email.get()
-			p = self.password.get()
-			s = self.server.get()
-			po = self.port.get()
-			self.loginframe.pack_forget()
-			ans = state.root.ask('', 'Do you want PyNotes to save your email and password?', ['yes', 'no'])
-			if ans:
-				file = open(f'{homedir}/.pynotesemailconfig', 'w+', encoding = 'utf-8')
-				file.write(f'{e}\n{p}\n{s}\n{po}')
-				file.close()
-				encryptdecrypt(f'{homedir}/.pynotesemailconfig')
-		elif saved == 'file':
-			encryptdecrypt(f'{homedir}/.pynotesemailconfig')
-			file = open(f'{homedir}/.pynotesemailconfig', 'r', encoding = 'utf-8').read().split('\n')
-			encryptdecrypt(f'{homedir}/.pynotesemailconfig')
-			e = file[0]
-			p = file[1]
-			s = file[2]
-			po = file[3]
-		self._email_logged_in = True
-		self.entryframe = state.root.frame(master = self.ef)
-		self.recipiententry = state.root.entry(master = self.entryframe)
-		state.root.text(master = self.entryframe, text = 'Recipients (separate by commas):').grid(column = 0, row = 0, padx = 10, pady = 10, sticky = 'e')
-		self.recipiententry.grid(column = 1, row = 0, padx = 10, pady = 10, sticky = 'ew')
-		state.root.text(master = self.entryframe, text = 'Subject:').grid(column = 0, row = 1, padx = 10, pady = 10, sticky = 'e')
-		self.subjectentry = state.root.entry(master = self.entryframe)
-		self.subjectentry.grid(column = 1, row = 1, padx = 10, pady = 10, sticky = 'ew')
-		self.entryframe.pack(padx = 10, pady = 10, fill = 'both', anchor = 'n', expand = True)
-		self.entryframe.columnconfigure(1, weight = 1)
-		self.buttonframe = state.root.frame(master = self.ef)
-		self.buttonframe.pack(padx = 10, pady = 10, fill = 'both', anchor = 'n', expand = True)
-		state.root.button(master = self.buttonframe, text = 'Send (Ctrl + Enter)', command = sendemail).pack(fill = 'x', expand = True, padx = 10, pady = 10, side = 'left', anchor = 'n')
-		state.root.button(master = self.buttonframe, text = 'Attach', command = attach).pack(fill = 'x', expand = True, padx = 10, pady = 10, side = 'right', anchor = 'n')
-		state.root.button(master = self.buttonframe, text = 'Change Info', command = changeinfo).pack(fill = 'x', expand = True, padx = 10, pady = 10, side = 'left', anchor = 'n')
-		state.root.button(master = self.buttonframe, text = 'Remove Attachment', command = removeattach).pack(fill = 'x', expand = True, padx = 10, pady = 10, side = 'right', anchor = 'n')
-		self.attachmentslist = []
-		self.attachmentslistwidget = state.root.text(master = self.buttonframe, text = 'Attachments:')
-		self.attachmentslistwidget.pack(fill = 'x', expand = True, padx = 10, pady = 10)
-		self.emailtextbox = state.root.textbox(master = self.ef, scrolled = True, font = (monospace, 15))
-		self.emailtextbox.tag_config('wrong', underline = True, underlinefg = 'red')
-		self.emailtextbox.pack(fill = 'both', expand = True, padx = 10, pady = 10)
-		self.emailtextbox.bind('<Control-Return>', lambda event: sendemail())
-		self.emailtextbox.bind('<KeyRelease>', lambda event: spellcheck())
-		self._bind_focus_recursive(self.ef)
-	def _email_session_active(self):
-		try:
-			e, p, s, po
-		except Exception:
-			return False
-		return bool(e and p and s and po)
-	def _add_switch_account_loginframe(self):
-		self.loginframe = state.root.frame(master = self.ef)
-		self.loginframe.pack(expand = True)
-		state.root.text(master = self.loginframe, text = 'Email:').grid(column = 0, row = 0, padx = 10, pady = 10)
-		self.email = state.root.entry(master = self.loginframe)
-		self.email.grid(column = 1, row = 0, padx = 10, pady = 10)
-		state.root.text(master = self.loginframe, text = 'Password:').grid(column = 0, row = 1, padx = 10, pady = 10)
-		self.password = state.root.entry(master = self.loginframe, show = '*')
-		self.password.grid(column = 1, row = 1, padx = 10, pady = 10)
-		state.root.text(master = self.loginframe, text = 'Smtp Server:').grid(column = 0, row = 2, padx = 10, pady = 10)
-		self.server = state.root.entry(master = self.loginframe)
-		self.server.grid(column = 1, row = 2, padx = 10, pady = 10)
-		state.root.text(master = self.loginframe, text = 'Smtp Port:').grid(column = 0, row = 3, padx = 10, pady = 10)
-		self.port = state.root.entry(master = self.loginframe)
-		self.port.grid(column = 1, row = 3, padx = 10, pady = 10)
-		state.root.button(master = self.loginframe, text = 'Let\'s Go!', command = self.emailsetup).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'e')
-		self._bind_focus_recursive(self.loginframe)
-	def _email_tab_reload(self):
-		for child in self.ef.winfo_children():
-			child.destroy()
-		self.emailsetup('memory')
-		self._add_switch_account_loginframe()
-	def _email_login_poll(self):
-		if not self._email_logged_in and self._email_session_active():
-			self._email_tab_reload()
-		self._email_login_poll_after_id = self.ef.after(2000, self._email_login_poll)
-	def _email_login_setup(self):
-		if self._email_session_active():
-			self.emailsetup('memory')
-			self._add_switch_account_loginframe()
-			return
-		try:
-			open(f'{homedir}/.pynotesemailconfig', 'r', encoding = 'utf-8')
-		except Exception:
-			self.loginframe = state.root.frame(master = self.ef)
-			self.loginframe.pack(expand = True)
-			state.root.text(master = self.loginframe, text = 'Email:').grid(column = 0, row = 0, padx = 10, pady = 10)
-			self.email = state.root.entry(master = self.loginframe)
-			self.email.grid(column = 1, row = 0, padx = 10, pady = 10)
-			state.root.text(master = self.loginframe, text = 'Password:').grid(column = 0, row = 1, padx = 10, pady = 10)
-			self.password = state.root.entry(master = self.loginframe, show = '*')
-			self.password.grid(column = 1, row = 1, padx = 10, pady = 10)
-			state.root.text(master = self.loginframe, text = 'Smtp Server:').grid(column = 0, row = 2, padx = 10, pady = 10)
-			self.server = state.root.entry(master = self.loginframe)
-			self.server.grid(column = 1, row = 2, padx = 10, pady = 10)
-			state.root.text(master = self.loginframe, text = 'Smtp Port:').grid(column = 0, row = 3, padx = 10, pady = 10)
-			self.port = state.root.entry(master = self.loginframe)
-			self.port.grid(column = 1, row = 3, padx = 10, pady = 10)
-			state.root.button(master = self.loginframe, text = 'Let\'s Go!', command = self.emailsetup).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'e')
-			self._bind_focus_recursive(self.loginframe)
-		else:
-			try:
-				self.emailsetup('file')
-			except Exception:
-				state.root.error('Error', 'The saved email details are corrupted. Remaking file.')
-				os.remove(f'{homedir}/.pynotesemailconfig')
-			self._add_switch_account_loginframe()
 	def boldlatex(self):
 		try:
 			select = self.type_.get('sel.first', 'sel.last')
@@ -2975,638 +2659,6 @@ class Editor(Buffer):
 		self._set_undo_mark()
 		utils.show('insert math latex')
 		self.keypress()
-	def hapyshell(self):
-		if self._hapyshell_running[0]:
-			return
-		self._hapyshell_running[0] = True
-		try:
-			self._hapyshell_body()
-		finally:
-			self._hapyshell_running[0] = False
-	def _hapyshell_body(self):
-		lenprompt = len('>>> ')
-		full_text = self.shellcmd.get('1.0', 'end')
-		real_lines = full_text.split('\n')
-		n_real = len(real_lines)
-		wrapcont_flags = [False] * (n_real + 1)
-		for _rl in range(2, n_real + 1):
-			try:
-				if 'wrapcont' in self.shellcmd.tag_names(f'{_rl}.0'):
-					wrapcont_flags[_rl] = True
-			except Exception:
-				pass
-		stripped_lines = []
-		_shell_line_blocks = []
-		_shell_seg_map = []
-		_shell_logical_real_range = []
-		_shell_real_to_logical = {}
-		_blk = 0
-		_exec_boundary = 1
-		_rl = 1
-		while _rl <= n_real:
-			content = real_lines[_rl - 1]
-			prefix = content[:lenprompt]
-			if prefix in ('>>> ', '... '):
-				seg_text = content[lenprompt:]
-				segs = [(_rl, lenprompt, len(seg_text))]
-				_nxt = _rl + 1
-				while _nxt <= n_real:
-					_next_content = real_lines[_nxt - 1]
-					if _next_content[:lenprompt] in ('>>> ', '... '):
-						break
-					_is_autowrap_cont = wrapcont_flags[_nxt]
-					_is_pyrepl_cont = seg_text.endswith('\\')
-					if not (_is_autowrap_cont or _is_pyrepl_cont):
-						break
-					if _is_pyrepl_cont and not _is_autowrap_cont:
-						seg_text = seg_text[:-1]
-						_last_line, _last_col, _last_len = segs[-1]
-						segs[-1] = (_last_line, _last_col, _last_len - 1)
-					segs.append((_nxt, 0, len(_next_content)))
-					seg_text += _next_content
-					_nxt += 1
-				stripped_lines.append(seg_text)
-				_shell_seg_map.append(segs)
-				_shell_logical_real_range.append((_rl, _nxt - 1))
-				if prefix == '>>> ':
-					_blk += 1
-					_exec_boundary = len(stripped_lines)
-				_shell_line_blocks.append(_blk)
-				for _rr in range(_rl, _nxt):
-					_shell_real_to_logical[_rr] = len(stripped_lines)
-				_rl = _nxt
-			else:
-				stripped_lines.append('')
-				_shell_seg_map.append([])
-				_shell_logical_real_range.append((_rl, _rl))
-				_shell_line_blocks.append(0)
-				_shell_real_to_logical[_rl] = len(stripped_lines)
-				_rl += 1
-		stripped_text = '\n'.join(stripped_lines)
-		_scan_key = (stripped_text, tuple(_shell_line_blocks))
-		if _scan_key == self._pyshell_last_scan_key:
-			shell_result = self._pyshell_cached_scope_result
-		else:
-			shell_result = python_scope_build._python_build_scopes(self, stripped_text, line_blocks = _shell_line_blocks, seed_names = self._pyshell_session_names, seed_types = self._pyshell_session_types, seed_classes = self._pyshell_session_classes, seed_aliases = self._pyshell_session_aliases, seed_origins = self._pyshell_session_origins, seed_method_params = self._pyshell_session_method_params, seed_accepts_any = self._pyshell_session_accepts_any, seed_module_bases = self._pyshell_session_module_bases, seed_func_origins = self._pyshell_session_func_origins, seed_attr_types = self._pyshell_session_attr_types, seed_class_attr_types = self._pyshell_session_class_attr_types, seed_func_params = self._pyshell_session_func_params, seed_func_accepts_any = self._pyshell_session_func_accepts_any, seed_class_bases = self._pyshell_session_class_bases, seed_inherited = self._pyshell_session_inherited, seed_instance_only = self._pyshell_session_instance_only)
-			self._pyshell_last_scan_key = _scan_key
-			self._pyshell_cached_scope_result = shell_result
-		if shell_result is None:
-			shell_scopes = [{'start': 1, 'end': 1, 'parent': None, 'names': {}}]
-			shell_call_kwargs = {}
-			shell_module_aliases = {}
-			shell_local_classes = {}
-			shell_module_literals = []
-			shell_scope_var_types = {}
-			shell_literal_attrs = []
-			shell_def_names = []
-			shell_typed_attrs = []
-			shell_param_default_tags = []
-			shell_kwarg_positions = []
-			shell_import_dotted_lines = []
-			shell_import_orig_name_tags = []
-			shell_name_positions = []
-			shell_class_module_origin = {}
-			shell_local_class_method_params = {}
-			shell_local_class_accepts_any = set()
-			shell_local_class_module_origins = {}
-			shell_from_func_module = {}
-			shell_class_type_maps = {}
-			shell_class_attr_types = {}
-			shell_func_params = {}
-			shell_func_accepts_any = {}
-			shell_class_bases = {}
-			shell_inherited = {}
-			shell_module_scope_class_keys = set()
-			shell_instance_only = {}
-			shell_instance_name_positions = set()
-			shell_global_stmt_kind_positions = {}
-		else:
-			shell_scopes, shell_call_kwargs, shell_module_aliases, shell_local_classes, shell_module_literals, shell_scope_var_types, shell_literal_attrs, shell_def_names, shell_typed_attrs, shell_param_default_tags, shell_kwarg_positions, shell_import_dotted_lines, shell_import_orig_name_tags, shell_class_module_origin, shell_local_class_method_params, shell_local_class_accepts_any, shell_name_positions, shell_local_class_module_origins, shell_from_func_module, shell_class_type_maps, shell_class_attr_types, shell_func_params, shell_func_accepts_any, shell_class_bases, shell_inherited, shell_module_scope_class_keys, shell_instance_only, shell_instance_name_positions, shell_global_stmt_kind_positions = shell_result
-		for _nm, _defs in shell_scopes[0]['names'].items():
-			_exec_defs = [_d for _d in _defs if _d[0] < _exec_boundary]
-			if _exec_defs and _nm not in shell_scopes[0].get('globals', {}) and _nm not in shell_scopes[0].get('nonlocals', {}):
-				_best_def = _exec_defs[0]
-				for _d in _exec_defs:
-					if _d[0] >= _best_def[0]:
-						_best_def = _d
-				self._pyshell_session_names[_nm] = _best_def[1]
-		for _nm, _tl in shell_scope_var_types.get(0, {}).items():
-			_exec_tl = [_t for _t in _tl if _t[0] < _exec_boundary]
-			if _exec_tl:
-				_best_tl = _exec_tl[0]
-				for _t in _exec_tl:
-					if _t[0] >= _best_tl[0]:
-						_best_tl = _t
-				self._pyshell_session_types[_nm] = _best_tl[1]
-		_text_class_lines = {}
-		for _dl, _dcol, _dn, _dk in shell_def_names:
-			if _dk == 'class':
-				_text_class_lines.setdefault(_dn, []).append(_dl)
-		for _cn, _mem in shell_local_classes.items():
-			if _cn in _PYTHON_BUILTIN_MEMBERS:
-				continue
-			if _cn in _text_class_lines and _cn not in shell_module_scope_class_keys:
-				continue
-			_cls_lines = _text_class_lines.get(_cn)
-			if _cls_lines is None or _cn in self._pyshell_session_classes or any(_l < _exec_boundary for _l in _cls_lines):
-				self._pyshell_session_classes[_cn] = _mem
-		for _an, _adefs in shell_module_aliases.items():
-			_abest = None
-			for _ad in _adefs:
-				if _ad[0] < _exec_boundary and (_abest is None or _ad[0] >= _abest[0]):
-					_abest = _ad
-			if _abest is not None:
-				self._pyshell_session_aliases[_an] = _abest[1]
-		for _on, _odefs in shell_class_module_origin.items():
-			_obest = None
-			for _od in _odefs:
-				if _od[0] < _exec_boundary and (_obest is None or _od[0] >= _obest[0]):
-					_obest = _od
-			if _obest is not None:
-				self._pyshell_session_origins[_on] = _obest[1]
-		for _mpk, _mpv in shell_local_class_method_params.items():
-			if _mpk.split('.')[0] in shell_module_scope_class_keys:
-				self._pyshell_session_method_params[_mpk] = _mpv
-		for _mbk, _mbv in shell_local_class_module_origins.items():
-			self._pyshell_session_module_bases.setdefault(_mbk, [])
-			for _mbo in _mbv:
-				if _mbo not in self._pyshell_session_module_bases[_mbk]:
-					self._pyshell_session_module_bases[_mbk].append(_mbo)
-		for _ffk, _ffv in shell_from_func_module.items():
-			if _ffv and _ffk not in self._pyshell_session_func_origins:
-				_ff_best = max(_ffv, key = lambda _x: _x[0])
-				self._pyshell_session_func_origins[_ffk] = _ff_best[1]
-		for _ctk, _ctv in shell_class_type_maps.items():
-			self._pyshell_session_attr_types[_ctk] = dict(_ctv)
-		for _catk, _catv in shell_class_attr_types.items():
-			self._pyshell_session_class_attr_types[_catk] = dict(_catv)
-		for _aak in shell_local_class_accepts_any:
-			if _aak.split('.')[0] in shell_module_scope_class_keys:
-				self._pyshell_session_accepts_any.add(_aak)
-		self._pyshell_session_func_params.update(shell_func_params)
-		self._pyshell_session_func_accepts_any.update(shell_func_accepts_any)
-		self._pyshell_session_class_bases.update(shell_class_bases)
-		for _inhk in ('members', 'attr_types', 'method_params'):
-			self._pyshell_session_inherited[_inhk].update(shell_inherited.get(_inhk, ()))
-		for _iok, _iov in shell_instance_only.items():
-			self._pyshell_session_instance_only.setdefault(_iok, set()).update(_iov)
-		try:
-			shell_top = self.shellcmd.index('@0,0')
-			shell_bottom = self.shellcmd.index(f'@0,{self.shellcmd.winfo_height()}')
-		except Exception:
-			shell_top = '1.0'
-			shell_bottom = 'end'
-		try:
-			all_tags = set(self.shellcmd.tag_names())
-			def _removable(tag):
-				return tag not in state._PYTHON_SHELL_HL_SKIP_REMOVE_TAGS and (tag not in state.skiptagspythonshell or self.hmode not in state.skiptagspythonshell[tag])
-			shell_top_line_real = int(shell_top.split('.')[0])
-			shell_top_line = _shell_real_to_logical.get(shell_top_line_real, 1)
-			if shell_top_line < _exec_boundary:
-				shell_top_line = _exec_boundary
-				if 0 <= shell_top_line - 1 < len(_shell_logical_real_range):
-					_clamp_first_real = _shell_logical_real_range[shell_top_line - 1][0]
-				else:
-					_clamp_first_real = shell_top_line_real
-				shell_top = f'{_clamp_first_real}.0'
-			shell_bottom_line = len(stripped_lines)
-			shell_bottom = 'end'
-			vis_abs = list(range(shell_top_line, shell_bottom_line + 1))
-			vis_code = [stripped_lines[L - 1] if 0 <= L - 1 < len(stripped_lines) else '' for L in vis_abs]
-			visible_code = '\n'.join(vis_code)
-			line_starts = []
-			_acc = 0
-			for _l in vis_code:
-				line_starts.append(_acc)
-				_acc += len(_l) + 1
-			def widx(line, col):
-				segs = _shell_seg_map[line - 1] if 0 <= line - 1 < len(_shell_seg_map) else None
-				if not segs:
-					_fr = _shell_logical_real_range[line - 1][0] if 0 <= line - 1 < len(_shell_logical_real_range) else line
-					return f'{_fr}.{col}'
-				_cum = 0
-				for _seg_line, _seg_col, _seg_len in segs:
-					if col <= _cum + _seg_len:
-						return f'{_seg_line}.{_seg_col + (col - _cum)}'
-					_cum += _seg_len
-				_last_line, _last_col, _last_len = segs[-1]
-				return f'{_last_line}.{_last_col + _last_len}'
-			def off2lc(off):
-				lo = 0
-				for _i in range(len(line_starts)):
-					if line_starts[_i] <= off:
-						lo = _i
-					else:
-						break
-				return shell_top_line + lo, off - line_starts[lo]
-			def clear_idx(a, b):
-				for _t in all_tags:
-					if _removable(_t):
-						self.shellcmd.tag_remove(_t, a, b)
-			def add_idx(tag, a, b):
-				for _t in all_tags:
-					if _t != tag and _removable(_t):
-						self.shellcmd.tag_remove(_t, a, b)
-				self.shellcmd.tag_add(tag, a, b)
-			def add_span(tag, off_s, off_e):
-				l1, c1 = off2lc(off_s)
-				l2, c2 = off2lc(off_e)
-				add_idx(tag, widx(l1, c1), widx(l2, c2))
-			for tag in all_tags:
-				if _removable(tag):
-					self.shellcmd.tag_remove(tag, shell_top, shell_bottom)
-			for m in _PYTHON_KW_PAT.finditer(visible_code):
-				add_span('hpa', m.start(), m.end())
-			line_scope_candidates = {}
-			for line in vis_abs:
-				_cands = []
-				for k, sc in enumerate(shell_scopes):
-					if sc['start'] <= line <= sc['end']:
-						_cands.append((sc['start'], sc.get('start_col', 0), sc['end'], sc.get('end_col'), k))
-				line_scope_candidates[line] = _cands
-			def _resolve_scope_idx(line, col):
-				winner = None
-				winner_start = None
-				for _cstart, _ccol, _cend, _ecol, _ck in line_scope_candidates.get(line, ()):
-					if _cstart == line and col < _ccol:
-						continue
-					if _cend == line and _ecol is not None and col >= _ecol:
-						continue
-					if winner is None or _cstart >= winner_start:
-						winner = _ck
-						winner_start = _cstart
-				return winner
-			shell_module_literal_lines = {}
-			for lineno, _mcol, name in shell_module_literals:
-				shell_module_literal_lines.setdefault(lineno, []).append((_mcol, name))
-			shell_import_dotted_by_line = {}
-			for lineno, dcol, dotted in shell_import_dotted_lines:
-				shell_import_dotted_by_line.setdefault(lineno, []).append((dcol, dotted))
-			shell_import_orig_by_line = {}
-			for _oln, _ocol, _oname, _otag in shell_import_orig_name_tags:
-				shell_import_orig_by_line.setdefault(_oln, []).append((_ocol, _oname, _otag))
-			def _shell_same_block(l1, l2):
-				if l1 == l2:
-					return True
-				if not (0 < l1 <= len(_shell_line_blocks)) or not (0 < l2 <= len(_shell_line_blocks)):
-					return False
-				_b1 = _shell_line_blocks[l1 - 1]
-				return _b1 != 0 and _b1 == _shell_line_blocks[l2 - 1]
-			shell_name_pos_by_line = {}
-			for _nl, _ncol, _nname, _nstore in shell_name_positions:
-				shell_name_pos_by_line.setdefault(_nl, []).append((_ncol, _nname, _nstore))
-			shell_def_names_by_line = {}
-			for _dl, _dcol, _dname, _dkind in shell_def_names:
-				shell_def_names_by_line.setdefault(_dl, []).append((_dcol, _dname, _dkind))
-			shell_kind_tags = {'var': 'hpv', 'instance': 'hpi', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx', 'builtin': 'hpb'}
-			shell_literal_attr_by_line = {}
-			for _ln, _col, _attr, _tname in shell_literal_attrs:
-				shell_literal_attr_by_line.setdefault(_ln, []).append((_col, _attr, _tname))
-			shell_typed_attr_by_line = {}
-			for _tl, _tcol, _tattr, _tkind in shell_typed_attrs:
-				shell_typed_attr_by_line.setdefault(_tl, []).append((_tcol, _tattr, _tkind))
-			shell_param_default_by_line = {}
-			for _pl, _pcol, _pname, _pkind in shell_param_default_tags:
-				shell_param_default_by_line.setdefault(_pl, []).append((_pcol, _pname, _pkind))
-			shell_kwarg_pos_by_line = {}
-			for _kl, _kcol, _kname in shell_kwarg_positions:
-				shell_kwarg_pos_by_line.setdefault(_kl, []).append((_kcol, _kname))
-			_shell_active_cache = {}
-			def _shell_active_for(abs_line, scope_idx):
-				_ckey = (abs_line, scope_idx)
-				if _ckey in _shell_active_cache:
-					return _shell_active_cache[_ckey]
-				active = {}
-				prior_kinds = {}
-				bound = set()
-				innermost_scope = scope_idx
-				innermost_parent = shell_scopes[innermost_scope]['parent'] if innermost_scope is not None else None
-				on_header = innermost_scope is not None and abs_line == shell_scopes[innermost_scope]['start']
-				_redir_names = set()
-				_rsi = innermost_scope
-				while _rsi is not None:
-					_rsc = shell_scopes[_rsi]
-					_redir_names |= set(_rsc.get('globals', {}))
-					_redir_names |= set(_rsc.get('nonlocals', {}))
-					_rsi = _rsc['parent']
-				_sidx = scope_idx
-				while _sidx is not None:
-					sc = shell_scopes[_sidx]
-					if sc.get('kind') == 'class' and _sidx != innermost_scope and not (on_header and _sidx == innermost_parent):
-						_sidx = sc['parent']
-						continue
-					sc_globals = sc.get('globals', {})
-					sc_nonlocals = sc.get('nonlocals', {})
-					for name, defs in sc['names'].items():
-						if name in active or name in bound:
-							continue
-						if name in sc_globals or name in sc_nonlocals:
-							continue
-						best = None
-						second_best = None
-						latest = None
-						_guard = _sidx == innermost_scope or name in _redir_names
-						for dl, kind in defs:
-							if latest is None or dl > latest[0]:
-								latest = (dl, kind)
-							if _guard and dl > abs_line:
-								continue
-							if best is None or dl > best[0]:
-								second_best = best
-								best = (dl, kind)
-							elif second_best is None or dl > second_best[0]:
-								second_best = (dl, kind)
-						if best is None and latest is not None and _shell_same_block(latest[0], abs_line) and name not in _PYTHON_BUILTIN_NAMES:
-							best = latest
-						bound.add(name)
-						if best is not None:
-							active[name] = best[1]
-							if best[0] == abs_line and second_best is not None and second_best[1] != best[1]:
-								prior_kinds[name] = second_best[1]
-					_sidx = sc['parent']
-				_result = (active, prior_kinds)
-				_shell_active_cache[_ckey] = _result
-				return _result
-			for li, abs_line in enumerate(vis_abs):
-				line_str = vis_code[li]
-				for _ncol, _nname, _nstore in shell_name_pos_by_line.get(abs_line, []):
-					_nkind = shell_global_stmt_kind_positions.get((abs_line, _ncol))
-					if _nkind is None:
-						active, prior_kinds = _shell_active_for(abs_line, _resolve_scope_idx(abs_line, _ncol))
-						_nkind = active.get(_nname)
-						if _nkind is None:
-							if _nname not in _PYTHON_BUILTIN_NAMES:
-								continue
-							_nkind = 'builtin'
-						elif not _nstore and _nname in prior_kinds:
-							_nkind = prior_kinds[_nname]
-					_ntag = shell_kind_tags.get(_nkind)
-					if _ntag is None:
-						continue
-					if _ntag == 'hpv' and (abs_line, _ncol) in shell_instance_name_positions:
-						_ntag = 'hpi'
-					_nccol = _python_bytecol_to_charcol(line_str, _ncol)
-					s = widx(abs_line, _nccol)
-					e = widx(abs_line, _nccol + len(_nname))
-					add_idx(_ntag, s, e)
-				for _dcol, _dname, _dkind in shell_def_names_by_line.get(abs_line, []):
-					_dccol = _python_bytecol_to_charcol(line_str, _dcol)
-					s = widx(abs_line, _dccol)
-					e = widx(abs_line, _dccol + len(_dname))
-					add_idx('hpf' if _dkind == 'func' else 'hpx', s, e)
-				for _pcol, _pname, _pkind in shell_param_default_by_line.get(abs_line, []):
-					if _pkind == 'var' and (abs_line, _pcol) in shell_instance_name_positions:
-						_pkind = 'instance'
-					_pcol = _python_bytecol_to_charcol(line_str, _pcol)
-					_ptag = {'var': 'hpv', 'instance': 'hpi', 'func': 'hpf', 'func_arg': 'hpfa', 'first_param': 'hpb', 'module': 'hpm', 'class': 'hpx'}.get(_pkind)
-					if _ptag is not None:
-						s = widx(abs_line, _pcol)
-						e = widx(abs_line, _pcol + len(_pname))
-						add_idx(_ptag, s, e)
-				for _mcol, name in shell_module_literal_lines.get(abs_line, []):
-					_mccol = _python_bytecol_to_charcol(line_str, _mcol)
-					if line_str[_mccol:_mccol + len(name)] != name:
-						continue
-					add_idx('hpm', widx(abs_line, _mccol), widx(abs_line, _mccol + len(name)))
-				for dcol, dotted in shell_import_dotted_by_line.get(abs_line, []):
-					dcol = _python_bytecol_to_charcol(line_str, dcol)
-					if line_str[dcol:dcol + len(dotted)] != dotted:
-						continue
-					pos = dcol
-					for part in dotted.split('.'):
-						add_idx('hpm', widx(abs_line, pos), widx(abs_line, pos + len(part)))
-						pos += len(part) + 1
-				for _ocol, _oname, _otag in shell_import_orig_by_line.get(abs_line, []):
-					_ocol = _python_bytecol_to_charcol(line_str, _ocol)
-					if line_str[_ocol:_ocol + len(_oname)] != _oname:
-						continue
-					add_idx(_otag, widx(abs_line, _ocol), widx(abs_line, _ocol + len(_oname)))
-				for _col, _attr, _tname in shell_literal_attr_by_line.get(abs_line, []):
-					_col = _python_bytecol_to_charcol(line_str, _col)
-					_kind = _PYTHON_BUILTIN_MEMBERS[_tname].get(_attr)
-					if _kind is not None:
-						add_idx('hpf' if _kind == 'func' else 'hpv', widx(abs_line, _col), widx(abs_line, _col + len(_attr)))
-				for _tcol, _tattr, _tkind in shell_typed_attr_by_line.get(abs_line, []):
-					_tcol = _python_bytecol_to_charcol(line_str, _tcol)
-					_ttag = {'func': 'hpf', 'var': 'hpv', 'instance': 'hpi', 'module': 'hpm', 'class': 'hpx'}.get(_tkind, 'hpx')
-					add_idx(_ttag, widx(abs_line, _tcol), widx(abs_line, _tcol + len(_tattr)))
-				for _kcol, _kname in shell_kwarg_pos_by_line.get(abs_line, []):
-					_kcol = _python_bytecol_to_charcol(line_str, _kcol)
-					s = widx(abs_line, _kcol)
-					e = widx(abs_line, _kcol + len(_kname))
-					clear_idx(s, e)
-					if _kname in shell_call_kwargs.get(abs_line, set()):
-						self.shellcmd.tag_add('hpfa', s, e)
-			for m in _PYTHON_OP_PAT.finditer(visible_code):
-				add_span('hpo', m.start(), m.end())
-			shell_pre_text = '\n'.join(stripped_lines[:shell_top_line - 1])
-			if shell_pre_text:
-				shell_pre_text += '\n'
-			pre_n = len(shell_pre_text)
-			pre_i = 0
-			in_triple = False
-			triple_ch = None
-			in_single = False
-			single_ch = None
-			while pre_i < pre_n:
-				pch = shell_pre_text[pre_i]
-				if pch in ('"', "'") and pre_i + 2 < pre_n and shell_pre_text[pre_i + 1] == pch and shell_pre_text[pre_i + 2] == pch:
-					pquote = shell_pre_text[pre_i:pre_i + 3]
-					j = pre_i + 3
-					found_close = False
-					while j < pre_n:
-						if shell_pre_text[j] == '\\':
-							j += 2
-							continue
-						if shell_pre_text[j:j + 3] == pquote:
-							j += 3
-							found_close = True
-							break
-						j += 1
-					if not found_close:
-						in_triple = True
-						triple_ch = pch
-						break
-					pre_i = j
-				elif pch in ('"', "'"):
-					pquote = pch
-					j = pre_i + 1
-					closed = False
-					while j < pre_n:
-						if shell_pre_text[j] == '\\':
-							j += 2
-							continue
-						if shell_pre_text[j] == pquote:
-							j += 1
-							closed = True
-							break
-						if shell_pre_text[j] == '\n':
-							closed = True
-							break
-						j += 1
-					if not closed:
-						in_single = True
-						single_ch = pquote
-						break
-					pre_i = j
-				elif pch == '#':
-					j = pre_i + 1
-					while j < pre_n and shell_pre_text[j] != '\n':
-						j += 1
-					if j < pre_n:
-						j += 1
-					pre_i = j
-				else:
-					pre_i += 1
-			n = len(visible_code)
-			i = 0
-			if in_triple:
-				quote = triple_ch * 3
-				j = 0
-				found_close = False
-				while j < n:
-					if visible_code[j] == '\\':
-						j += 2
-						continue
-					if visible_code[j:j + 3] == quote:
-						j += 3
-						found_close = True
-						break
-					j += 1
-				if not found_close:
-					j = n
-				add_span('hpd', 0, j)
-				i = j
-			elif in_single:
-				quote = single_ch
-				j = 0
-				while j < n:
-					if visible_code[j] == '\\':
-						j += 2
-						continue
-					if visible_code[j] == quote:
-						j += 1
-						break
-					if visible_code[j] == '\n':
-						break
-					j += 1
-				if j > n:
-					j = n
-				add_span('hpd', 0, j)
-				i = j
-			while i < n:
-				ch = visible_code[i]
-				if ch in ('"', "'") and i + 2 < n and visible_code[i + 1] == ch and visible_code[i + 2] == ch:
-					quote = visible_code[i:i + 3]
-					j = i + 3
-					found_close = False
-					while j < n:
-						if visible_code[j] == '\\':
-							j += 2
-							continue
-						if visible_code[j:j + 3] == quote:
-							j += 3
-							found_close = True
-							break
-						j += 1
-					if not found_close:
-						j = n
-					add_span('hpd', i, j)
-					i = j
-				elif ch in ('"', "'"):
-					quote = ch
-					j = i + 1
-					while j < n:
-						if visible_code[j] == '\\':
-							j += 2
-							continue
-						if visible_code[j] == quote:
-							j += 1
-							break
-						if visible_code[j] == '\n':
-							break
-						j += 1
-					add_span('hpd', i, j)
-					i = j
-				elif ch == '#':
-					j = i + 1
-					while j < n and visible_code[j] != '\n':
-						j += 1
-					add_span('hpc', i, j)
-					i = j
-				else:
-					i += 1
-		except Exception:
-			pass
-	def shellpy(self):
-		lenprompt = len('>>> ')
-		_hl_pending = [False]
-		def colourprompts():
-			lines = int(self.shellcmd.index('end-1c').split('.')[0])
-			self.shellcmd.tag_remove('prompt', '1.0', 'end')
-			for i in range(1, lines + 1):
-				if not self.shellcmd.get(f'{i}.0', f'{i}.{lenprompt}') in {'>>> ', '... '}:
-					continue
-				self.shellcmd.tag_add('prompt', f'{i}.0', f'{i}.{lenprompt}')
-			self.shellcmd.tag_config('prompt', foreground = 'green', font = (monospace, 12, 'bold'))
-		def _schedule_hl():
-			if not _hl_pending[0]:
-				_hl_pending[0] = True
-				def _run_hl():
-					_hl_pending[0] = False
-					self.hapyshell()
-				self.shellcmd.after_idle(_run_hl)
-		def _on_output(event):
-			colourprompts()
-			_schedule_hl()
-		def _make_shellcmd():
-			widget = terminal.Terminal(self.sf, [state.pythonexecutable], None, nocolor = True)
-			widget.pack(fill = 'both', expand = True)
-			widget.realbind('<<TerminalStopped>>', lambda event: ks())
-			widget.realbind('<<TerminalOutputProcessed>>', _on_output)
-			return widget
-		def cs():
-			self._pyshell_last_scan_key = None
-			self._pyshell_cached_scope_result = None
-			self.shellcmd.delete('1.0', 'end')
-			self.shellcmd.focus()
-			try:
-				self.shellcmd._write(b'\x0c' if platform.system() == 'Linux' else b'\r')
-			except Exception:
-				pass
-		def ks():
-			self._pyshell_last_scan_key = None
-			self._pyshell_cached_scope_result = None
-			self._pyshell_session_names.clear()
-			self._pyshell_session_types.clear()
-			self._pyshell_session_classes.clear()
-			self._pyshell_session_module_bases.clear()
-			self._pyshell_session_func_origins.clear()
-			self._pyshell_session_attr_types.clear()
-			self._pyshell_session_class_attr_types.clear()
-			self._pyshell_session_aliases.clear()
-			self._pyshell_session_origins.clear()
-			self._pyshell_session_method_params.clear()
-			self._pyshell_session_accepts_any.clear()
-			self._pyshell_session_func_params.clear()
-			self._pyshell_session_func_accepts_any.clear()
-			self._pyshell_session_class_bases.clear()
-			for _inhk in ('members', 'attr_types', 'method_params'):
-				self._pyshell_session_inherited[_inhk].clear()
-			self._pyshell_session_instance_only.clear()
-			self.shellcmd.restart()
-			self.shellcmd.focus_set()
-		self._shellbuttons = state.root.frame(master = self.sf)
-		clearshell = state.root.button(master = self._shellbuttons, text = 'Clear Shell', command = cs)
-		killshell = state.root.button(master = self._shellbuttons, text = 'Restart Shell', command = ks)
-		self._shellbuttons.pack(side = 'bottom', fill = 'x')
-		clearshell.pack(anchor = 'sw', side = 'left', padx = 10, pady = 10)
-		killshell.pack(anchor = 'sw', side = 'left', padx = 10, pady = 10)
-		self.shellcmd = _make_shellcmd()
-		def shell_setview():
-			self.hapyshell()
-			self._shell_setview_after_id = self.sf.after(50, shell_setview)
-		self._shell_setview_after_id = self.sf.after(50, shell_setview)
 def _promote_new_master(old_master):
 	children = list(old_master.view_children)
 	if not children:
@@ -3638,10 +2690,6 @@ def _init_hl_tags():
 	for buffer in state.all_buffers:
 		if isinstance(buffer, Editor):
 			buffer.init_hl_tags()
-def _init_pythonshell_hl_tags():
-	for buffer in state.all_buffers:
-		if isinstance(buffer, Editor):
-			buffer.init_pythonshell_hl_tags()
 def _init_plugin_tags():
 	for buffer in state.all_buffers:
 		if isinstance(buffer, Editor):
@@ -3689,15 +2737,6 @@ def _find_closing_tag(text, start):
 				return i + 1
 		i += 1
 	return len(text)
-def _python_bytecol_to_charcol(line_str, bytecol):
-	if bytecol <= 0:
-		return bytecol
-	encoded = line_str.encode('utf-8')
-	if bytecol >= len(encoded):
-		return len(line_str)
-	return len(encoded[:bytecol].decode('utf-8', 'ignore'))
-_PYTHON_KW_PAT = re.compile(r'(?<!\.)\b(?:' + '|'.join(re.escape(k) for k in keyword.kwlist) + r')\b')
-_PYTHON_OP_PAT = re.compile(r'\*\*=|//=|<<=|>>=|:=|==|!=|<=|>=|\+=|-=|\*=|/=|%=|&=|\|=|\^=|@=|->|\*\*|//|<<|>>|[+\-*/%@&|^~=<>]')
 _LH_PAT = re.compile(r'(?<!\\)%[^\n]*(?:\n|$)')
 _LATEX_MATH_PAT = re.compile(r'\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$(?!\$)(?:[^$\\]|\\.)*?\$(?!\$)')
 _HC_PAT = re.compile(r'<!--.*?-->', re.DOTALL)
