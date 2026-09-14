@@ -13,7 +13,7 @@ class PythonShellBuffer(Buffer):
 	def __init__(self, master, *args, **kwargs):
 		super().__init__(master, *args, **kwargs)
 		self.m = state.root.menu()
-		for label, menu in state.all_buffer_menus.items():
+		for label, menu in state.all_pythonshell_menus.items():
 			self.m.add_cascade(label = label, menu = menu)
 		self.setwanttitle(f'PyNotes - *Python Shell*')
 		self.fileinfoconfig(buffertype = '*Python Shell*', interpreter = state.pythonexecutable)
@@ -46,6 +46,9 @@ class PythonShellBuffer(Buffer):
 		self.shellpy()
 		self.init_pythonshell_hl_tags()
 		self.mainwidget = self.shellcmd
+		self.cp = self.shellcmd._copy_selection
+		self.pst = self.shellcmd._paste_clipboard
+		self.selall = self.shellcmd._select_all
 		bindrecur(self, '<FocusIn>', lambda event, buffer = self: window.setactive(state.all_buffers.index(buffer)))
 		self.shellcmd.realbind('<FocusIn>', lambda event, buffer = self: window.setactive(state.all_buffers.index(buffer)), add = '+')
 		pycode.pcrunhook('after', 'open-python-shell')
