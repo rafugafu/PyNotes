@@ -71,6 +71,7 @@ class EmailBuffer(Buffer):
 				global po
 				self.entryframe.pack(padx = 10, pady = 10, fill = 'x', anchor = 'n', expand = True)
 				self.buttonframe.pack(padx = 10, pady = 10, fill = 'x', anchor = 'n', expand = True)
+				self.mainwidget = self.emailtextbox.text
 				self.emailtextbox.pack(fill = 'both', expand = True, padx = 10, pady = 10)
 				e = self.email.get()
 				p = self.password.get()
@@ -89,6 +90,7 @@ class EmailBuffer(Buffer):
 			state.root.text(master = self.loginframe, text = 'Email:').grid(column = 0, row = 0, padx = 10, pady = 10)
 			self.email = state.root.entry(master = self.loginframe)
 			self.email.grid(column = 1, row = 0, padx = 10, pady = 10)
+			self.mainwidget = self.email
 			state.root.text(master = self.loginframe, text = 'Password:').grid(column = 0, row = 1, padx = 10, pady = 10)
 			self.password = state.root.entry(master = self.loginframe, show = '*')
 			self.password.grid(column = 1, row = 1, padx = 10, pady = 10)
@@ -162,6 +164,7 @@ class EmailBuffer(Buffer):
 			s = self.server.get()
 			po = self.port.get()
 			self.loginframe.pack_forget()
+			self._email_logged_in = True
 			ans = state.root.ask('', 'Do you want PyNotes to save your email and password?', ['yes', 'no'])
 			if ans:
 				file = open(f'{homedir}/.pynotesemailconfig', 'w+', encoding = 'utf-8')
@@ -197,6 +200,7 @@ class EmailBuffer(Buffer):
 		self.attachmentslistwidget.pack(fill = 'x', expand = True, padx = 10, pady = 10)
 		self.emailtextbox = state.root.textbox(master = self, scrolled = True, font = (monospace, 15))
 		self.emailtextbox.tag_config('wrong', underline = True, underlinefg = 'red')
+		self.mainwidget = self.emailtextbox.text
 		self.emailtextbox.pack(fill = 'both', expand = True, padx = 10, pady = 10)
 		self.emailtextbox.bind('<Control-Return>', lambda event: sendemail())
 		self.emailtextbox.bind('<KeyRelease>', lambda event: spellcheck())
@@ -258,6 +262,7 @@ class EmailBuffer(Buffer):
 			self.port = state.root.entry(master = self.loginframe)
 			self.port.grid(column = 1, row = 3, padx = 10, pady = 10)
 			state.root.button(master = self.loginframe, text = 'Let\'s Go!', command = self.emailsetup).grid(column = 1, row = 4, padx = 10, pady = 10, sticky = 'e')
+			self.mainwidget = self.email
 			bindrecur(self.loginframe, '<FocusIn>', lambda event, buffer = self: window.setactive(state.all_buffers.index(buffer)))
 		else:
 			try:
