@@ -27,6 +27,24 @@ import pdfplumber
 from tklinenums import TkLineNumbers
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+class LineNumberWidget(TkLineNumbers):
+	def __init__(self, *args, **kwargs):
+		self.texts = []
+		super().__init__(*args, **kwargs)
+	def _get_max_width(self):
+		def _get_width(text):
+			bbox = self.bbox(text)
+			if bbox:
+				return bbox[2] - bbox[0] + 30
+			else:
+				return 1
+		if self.texts:
+			return max((_get_width(text) for text in self.texts))
+		return 1
+	def create_text(self, *args, **kwargs):
+		self.texts.append(super().create_text(*args, **kwargs))
+	def resize(self):
+		self.config(width = self._get_max_width())
 class Editor(Buffer):
 	for code in state.editor_init_functions:
 		try:
@@ -125,7 +143,7 @@ class Editor(Buffer):
 	def _wire_type(self):
 		self.scrlbr.config(command = self.type_.yview)
 		self.type_.focus_set()
-		self.ln = TkLineNumbers(self.mf, self.type_, justify = 'center')
+		self.ln = LineNumberWidget(self.mf, self.type_, justify = 'center')
 		self.type_.config(yscrollcommand = lambda *args: [self.scrlbr.set(*args), self.ln.redraw()])
 		self.ln.pack(side = 'left', fill = 'y')
 		self.type_.pack(side = 'right', fill = 'both', expand = True)
