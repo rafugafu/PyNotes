@@ -21,24 +21,12 @@ import speech
 import terminal
 import utils
 import window
-try:
-	import tika
-	from tika import parser
-except Exception:
-	pass
-try:
-	import pdfplumber
-except Exception:
-	pass
-try:
-	from tklinenums import TkLineNumbers
-except Exception:
-	pass
-try:
-	from watchdog.observers import Observer
-	from watchdog.events import FileSystemEventHandler
-except Exception:
-	pass
+import tika
+from tika import parser
+import pdfplumber
+from tklinenums import TkLineNumbers
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 class Editor(Buffer):
 	for code in state.editor_init_functions:
 		try:

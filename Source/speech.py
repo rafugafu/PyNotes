@@ -4,18 +4,9 @@ import wave
 import threading
 import easytk
 import state
-try:
-	import sounddevice as sd
-except Exception:
-	pass
-try:
-	import speech_recognition as sr
-except Exception:
-	pass
-try:
-	import numpy as np
-except Exception:
-	pass
+import sounddevice as sd
+import speech_recognition as sr
+import numpy as np
 import editor
 import utils
 def actualspk(text):
