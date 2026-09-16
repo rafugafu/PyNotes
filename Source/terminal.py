@@ -6,7 +6,6 @@ import base64
 import re
 import threading
 import time
-import tkinter as tk
 import easytk
 import state
 from init import monospace, DEBOUNCE_TIME
@@ -180,7 +179,7 @@ class Terminal(easytk.ttk.Text):
 		self._cursor_blink_visible = True
 		self._cursor_blink_after_id = None
 		self._cursor_redraw_pending = False
-		self._cursor_widget = tk.Label(self, background = self._cursor_color, foreground = self._term_default_bg, text = '', font = self.cget('font'), borderwidth = 0, highlightthickness = 0, padx = 0, pady = 0, anchor = 'nw')
+		self._cursor_widget = easytk.tk.Label(self, background = self._cursor_color, foreground = self._term_default_bg, text = '', font = self.cget('font'), borderwidth = 0, highlightthickness = 0, padx = 0, pady = 0, anchor = 'nw')
 		self._cursor_widget.bind('<Map>', lambda event: 'break')
 		self._cursor_widget.bind('<Unmap>', lambda event: 'break')
 		self.config(yscrollcommand = self._term_on_scroll, xscrollcommand = self._term_on_scroll)
