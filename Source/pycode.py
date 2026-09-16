@@ -592,7 +592,7 @@ def pcpyendof(commandinput):
 	label = 'class' if kind == 'class' else 'function'
 	_pcmovecursor(f'{endline}.end')
 	state.active.keypress()
-	utils.show(f'jumped to end of {label} {name}')
+	utils.show(f'jumped to end of {label} \'{name}\'')
 def pcgodef(commandinput):
 	if not isinstance(state.active, editor.Editor):
 		utils.show('not an editor')
