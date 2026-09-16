@@ -1811,7 +1811,7 @@ class Terminal(easytk.ttk.Text):
 					self.unbind('<Key>')
 					self.realbind('<Key>', lambda e: self._terminate_process())
 				else:
-					self._terminate_process()
+					state.root.after_idle(self._terminate_process)
 				self._polling = False
 				return
 			self._poll_after_id = self.after(_TERM_FRAME_MS if backlog else 50, self._poll)
