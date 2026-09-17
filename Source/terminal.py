@@ -1809,7 +1809,7 @@ class Terminal(easytk.ttk.Text):
 					self.insert('end', '\n\n\n' + self.endmessage)
 					self.see('end')
 					self.unbind('<Key>')
-					self.realbind('<Key>', lambda e: self._terminate_process())
+					self.realbind('<Key>', lambda e: (self._terminate_process(), 'break')[1])
 				else:
 					state.root.after_idle(self._terminate_process)
 				self._polling = False
