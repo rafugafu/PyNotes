@@ -43,8 +43,17 @@ class LineNumberWidget(TkLineNumbers):
 		return 1
 	def create_text(self, *args, **kwargs):
 		self.texts.append(super().create_text(*args, **kwargs))
+	def delete(self, what):
+		if what == 'all':
+			self.texts = []
+		elif what in self.texts:
+			self.texts.remove(what)
+		super().delete(what)
 	def resize(self):
 		self.config(width = self._get_max_width())
+	def redraw(self, *args, **kwargs):
+		super().redraw(*args, **kwargs)
+		self.resize()
 class Editor(Buffer):
 	for code in state.editor_init_functions:
 		try:
