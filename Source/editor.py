@@ -600,6 +600,7 @@ class Editor(Buffer):
 			return
 		if not nm == '':
 			self._disconnect()
+			self.hmode = 'normal'
 			try:
 				self.imageload.pack_forget()
 				self.imageloaded = False
@@ -607,7 +608,6 @@ class Editor(Buffer):
 			except Exception:
 				pass
 			else:
-				self.hmode = 'normal'
 				self.ln.pack(side = 'left', fill = 'y', anchor = 'n')
 				self.type_.pack(fill = 'both', expand = True, anchor = 'n')
 				self.mf.pack(padx = 10, pady = 10, fill = 'both', expand = True)
@@ -779,6 +779,7 @@ class Editor(Buffer):
 					return
 			pycode.pcrunhook('before', 'new-file-current-editor')
 			self._disconnect()
+			self.hmode = 'normal'
 			try:
 				self.imageload.pack_forget()
 				self.imageloaded = False
