@@ -1789,10 +1789,6 @@ class Editor(Buffer):
 						m0 = env_pat.match(region)
 						depth = 1
 						search_from = m0.end() if m0 else len(region)
-						hl_start_rel = search_from
-						nl0 = region.find('\n', hl_start_rel)
-						if nl0 != -1:
-							hl_start_rel = nl0 + 1
 						while depth > 0:
 							em2 = env_pat.search(region, search_from)
 							if not em2:
@@ -1804,9 +1800,7 @@ class Editor(Buffer):
 								depth -= 1
 							search_from = em2.end()
 						end_abs = outer_start + search_from
-						hl_start_abs = outer_start + hl_start_rel
-						if hl_start_abs < end_abs:
-							ops.append(('add', 'hlb', f'1.0+{hl_start_abs}c', f'1.0+{end_abs}c'))
+						ops.append(('add', 'hlb', f'1.0+{outer_start}c', f'1.0+{end_abs}c'))
 						scan_from = max(0, end_abs - pre_n)
 					tn = len(text)
 					for begin_m in re.finditer(r'\\begin{\s*(\w+\*?)\s*}', text[scan_from:]):
@@ -1814,10 +1808,7 @@ class Editor(Buffer):
 							continue
 						env_name = re.escape(begin_m.group(1))
 						search_from2 = scan_from + begin_m.end()
-						bstart = search_from2
-						nl1 = text.find('\n', bstart)
-						if nl1 != -1:
-							bstart = nl1 + 1
+						bstart = scan_from + begin_m.start()
 						depth2 = 1
 						env_pat2 = re.compile(r'\\(begin|end){\s*' + env_name + r'\s*}')
 						bend = tn
@@ -1831,9 +1822,8 @@ class Editor(Buffer):
 								depth2 -= 1
 							search_from2 = em3.end()
 							if depth2 == 0:
-								bend = search_from2
-						if bstart < bend:
-							ops.append(('add', 'hlb', f'{top}+{bstart}c', f'{top}+{bend}c'))
+								bend = em3.end()
+						ops.append(('add', 'hlb', f'{top}+{bstart}c', f'{top}+{bend}c'))
 					for m in re.finditer(r'\\[a-zA-Z@]+\*?', text):
 						ops.append(('add', 'hld', f'{top}+{m.start()}c', f'{top}+{m.end()}c'))
 					for i in range(len(text)):
