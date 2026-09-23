@@ -184,6 +184,22 @@ class Console:
         threading.Thread(target=self.inputloop, daemon=True).start()
         self.outpt("\x1b[H\x1b[2J", end="")
         self.outpt(f"\x1b[1mPyNotes terminal console. PyNotes v{init.v}.\x1b[0m")
+        thefiles = []
+        for file in state.files_to_open:
+            thefiles.append(f"\x1b[3m{file}\x1b[0m")
+        if thefiles:
+            self.outpt(f"\x1b[1mOpening Files:\x1b[0m {', '.join(thefiles)}")
+        theargs = []
+        for arg, val in state.options.items():
+            if val == True:
+                theargs.append(f"\x1b[3m--{arg}\x1b[0m")
+            elif val:
+                val = val.replace("\n", "")
+                if len(val) > 18:
+                    val = val[:15] + "\x1b[1m..."
+                theargs.append(f"\x1b[3m--{arg} {val}\x1b[0m")
+        if theargs:
+            self.outpt(f"\x1b[1mStarting with Arguments:\x1b[0m {', '.join(theargs)}")
 
     def outpt(self, string, end="\n", *args, **kwargs):
         """Write string (with every \\n also carriage-returned, since
