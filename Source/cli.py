@@ -204,9 +204,13 @@ class Console:
     def outpt(self, string, end="\n", *args, **kwargs):
         """Write string (with every \\n also carriage-returned, since
         the terminal is in raw mode) to the real stdout PyNotes saved
-        before redirecting sys.stdout to /dev/null."""
+        before redirecting sys.stdout to /dev/null. Also scrolls up
+        by the number of \\x1b[L in the text to prevent terminal
+        clamping text at bottom line and continuously overwriting it."""
+
         string += end
-        string = string.replace("\n", "\n\r")
+        Ln = string.count("\x1b[L")
+        string = string.replace("\n", "\n\r").replace("\x1b[L", "\x1b[S\x1b[A\x1b[L").replace("\x1b8", f"\x1b8\x1b[{Ln}A")
         return print(string, end="", file=state.stdout, flush=True, *args, **kwargs)
 
     def inputloop(self):
