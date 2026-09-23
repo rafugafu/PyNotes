@@ -743,7 +743,6 @@ def pcdelete(*args, **kwargs):
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
-    utils.show("delete text")
     state.active.type_.delete(*args, **kwargs)
 
 
@@ -1807,8 +1806,6 @@ for buffer in all_buffers: bindtype_(buffer, '<Control-v>', lambda event, editor
 for buffer in all_buffers: bindtype_(buffer, '<Control-w>', lambda event, editor = buffer: pcclosebuff(all_buffers.index(buffer)))
 for buffer in all_buffers: bindtype_(buffer, '<Control-x>', lambda event, editor = buffer: editor.cut())
 for buffer in all_buffers: bindtype_(buffer, '<KeyRelease>', lambda event, editor = buffer: editor.keypress(), break_ = False)
-for buffer in all_buffers: bindtype_(buffer, '<BackSpace>', lambda event: show('delete text'), break_ = False)
-for buffer in all_buffers: bindtype_(buffer, '<Delete>', lambda event: show('delete text'), break_ = False)
 for buffer in all_buffers: bindtype_(buffer, '<Return>', lambda event, editor = buffer: editor.indent(), break_ = False)
 for buffer in all_buffers: bindtype_(buffer, '<Alt-l>', lambda event, editor = buffer: editor.gl())
 for buffer in all_buffers: bindtype_(buffer, '<Control-p>', lambda event, editor = buffer: editor.ptf())

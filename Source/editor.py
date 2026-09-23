@@ -373,8 +373,6 @@ class Editor(Buffer):
         self.type_.bind("<Control-v>", lambda event: self.pst() or "break")
         self.type_.bind("<Control-x>", lambda event: self.cut() or "break")
         self.type_.bind("<KeyRelease>", lambda event: self.keypress())
-        self.type_.bind("<BackSpace>", lambda event: utils.show("delete text"))
-        self.type_.bind("<Delete>", lambda event: utils.show("delete text"))
         self.type_.bind("<Return>", lambda event: self.indent())
         self.type_.bind("<Alt-l>", lambda event: self.gl() or "break")
         self.type_.bind("<Control-p>", lambda event: self.ptf() or "break")
