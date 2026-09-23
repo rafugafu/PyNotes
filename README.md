@@ -12,10 +12,11 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 * **Terminal Console** - Live terminal console which can interact with and control PyNotes as it runs! Control PyNotes fully through the launching terminal!  
 * **Wait Start** - Option to delay PyNotes launching to queue commands and actions before it starts!  
 * **Infinite Length Chord Keys** - Infinite length chord keys like Emacs possible to define in PyCode!  
-* **Emacs-like Buffers** - Emacs-like buffers (editors) to edit multiple files at once!  
+* **Emacs-like Buffers** - Emacs-like non-text-only everything-is-a-buffer! Editors, terminals, custom plugin graphical buffers are all integrated buffers.  
+* **Multiple Editors** - Keep an unlimited number of editor open to edit many files at once!  
 * **Terminal** - Full 256-color/truecolor supporting vttest-passing terminal using a PTY inside PyNotes!  
 * **Python Shell / REPL** - Full Python shell / REPL using a PTY inside PyNotes!  
-* **HModes** - Major Modes like Emacs for different purposes! Changes syntax highlighting, running code, menus, tabs, etc.  
+* **HModes** - Major Modes like Emacs for different purposes! Changes syntax highlighting, running code, menus, etc.  
 * **Preferences** - Fully customize your syntax highlighting and options easily in the preferences!  
 * **Incremental Search** - Incremental search for Find and Find & Replace - Find strings without fully typing them!  
 * **Regexp Search** - Find and Find & Replace using regexp!  
