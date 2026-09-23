@@ -1,24 +1,82 @@
 import easytk
 import state
+
+
 class Buffer(easytk.ttk.Frame):
-	for code in state.buffer_init_functions:
-		try:
-			exec(code, vars(state), locals())
-		except Exception as error:
-			error = str(error)
-			state.root.error('Error', f'Error in buffer init functions:\n{error}')
-	def __init__(self, master, *args, **kwargs):
-		super().__init__(master, *args, **kwargs)
-		self.active = False
-		_, self.infos, self.fileinforelief, self.fileinfocolumn, self.fileinfoconfig = (setattr(self, 'fileinfo', state.root.frame(master = self)) or self.fileinfo).pack(padx = 10, pady = 10, fill = 'x'), {}, 0, 0, lambda relief = None, **infoconfigs: [(self.infos[info].config(text = value) if info in self.infos else (self.infos.update({info: state.root.text(master = self.fileinfo, text = value, padding = (5, 5, 5, 5), relief = relief or {0: 'sunken', 1: 'raised'}[setattr(self, 'fileinforelief', not self.fileinforelief) or self.fileinforelief])}) or self.infos[info]).grid(column = (setattr(self, 'fileinfocolumn', self.fileinfocolumn + 1) or self.fileinfocolumn), row = 0)) for info, value in infoconfigs.items()]
-		self.wanttitle = ''
-		for code in state.buffer_init_code:
-			try:
-				exec(code, vars(state), locals())
-			except Exception as error:
-				error = str(error)
-				state.root.error('Error', f'Error in buffer init code:\n{error}')
-	def setwanttitle(self, title):
-		import window
-		self.wanttitle = title
-		window.settitle()
+    """Base frame for every kind of PyNotes buffer (editor, terminal, etc).
+
+    Provides the shared file-info bar at the top of a buffer and runs any
+    plugin-supplied init functions/code against this class and its instances.
+    """
+
+    for code in state.buffer_init_functions:
+        try:
+            exec(code, vars(state), locals())
+        except Exception as error:
+            error = str(error)
+            state.root.error("Error", f"Error in buffer init functions:\n{error}")
+
+    def __init__(self, master, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.active = False
+        # fileinfoconfig is a lambda (not a def) so it can be assembled here
+        # as part of this single tuple expression; it relies on `setattr(...)
+        # or value` as an expression-only way to both mutate state and yield
+        # a value, since a lambda body cannot contain statements.
+        _, self.infos, self.fileinforelief, self.fileinfocolumn, self.fileinfoconfig = (
+            (
+                setattr(self, "fileinfo", state.root.frame(master=self))
+                or self.fileinfo
+            ).pack(padx=10, pady=10, fill="x"),
+            {},
+            0,
+            0,
+            lambda relief=None, **infoconfigs: [
+                (
+                    self.infos[info].config(text=value)
+                    if info in self.infos
+                    else (
+                        self.infos.update(
+                            {
+                                info: state.root.text(
+                                    master=self.fileinfo,
+                                    text=value,
+                                    padding=(5, 5, 5, 5),
+                                    relief=relief
+                                    or {0: "sunken", 1: "raised"}[
+                                        setattr(
+                                            self,
+                                            "fileinforelief",
+                                            not self.fileinforelief,
+                                        )
+                                        or self.fileinforelief
+                                    ],
+                                )
+                            }
+                        )
+                        or self.infos[info]
+                    ).grid(
+                        column=(
+                            setattr(self, "fileinfocolumn", self.fileinfocolumn + 1)
+                            or self.fileinfocolumn
+                        ),
+                        row=0,
+                    )
+                )
+                for info, value in infoconfigs.items()
+            ],
+        )
+        self.wanttitle = ""
+        for code in state.buffer_init_code:
+            try:
+                exec(code, vars(state), locals())
+            except Exception as error:
+                error = str(error)
+                state.root.error("Error", f"Error in buffer init code:\n{error}")
+
+    def setwanttitle(self, title):
+        """Set this buffer's requested window-title text and refresh it."""
+        import window
+
+        self.wanttitle = title
+        window.settitle()
