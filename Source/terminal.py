@@ -2191,7 +2191,18 @@ class Terminal(easytk.ttk.Text):
                     if self._alt_mode:
                         cl = int(self.index("insert").split(".")[0])
                         co = self.index("insert").split(".")[1]
-                        self.mark_set("insert", f"{max(1, cl - 1)}.{co}")
+                        if cl <= self._scroll_top:
+                            # Reverse index at the top of the scroll region
+                            # scrolls the region down instead of just
+                            # moving the cursor up.
+                            self._grid_scroll_region(
+                                self._scroll_top, self._scroll_bot, -1
+                            )
+                            self.mark_set("insert", f"{self._scroll_top}.{co}")
+                        else:
+                            self.mark_set(
+                                "insert", f"{max(self._scroll_top, cl - 1)}.{co}"
+                            )
                     else:
                         co = int(self.index("insert").split(".")[1])
                         _srow = self._cur_line - self.screen_top + 1
@@ -2219,10 +2230,16 @@ class Terminal(easytk.ttk.Text):
                     if self._alt_mode:
                         cl = int(self.index("insert").split(".")[0])
                         co = self.index("insert").split(".")[1]
-                        last_line = self._term_last_real_line()
-                        if cl + 1 > last_line:
-                            self.insert("end", "\n")
-                        self.mark_set("insert", f"{cl + 1}.{co}")
+                        if cl >= self._scroll_bot:
+                            # Index at the bottom of the scroll region
+                            # scrolls the region up instead of just
+                            # moving the cursor down.
+                            self._grid_scroll_region(
+                                self._scroll_top, self._scroll_bot, 1
+                            )
+                            self.mark_set("insert", f"{self._scroll_bot}.{co}")
+                        else:
+                            self.mark_set("insert", f"{cl + 1}.{co}")
                     else:
                         co = int(self.index("insert").split(".")[1])
                         _srow = self._cur_line - self.screen_top + 1
@@ -2243,10 +2260,13 @@ class Terminal(easytk.ttk.Text):
                 elif nxt == "E":
                     if self._alt_mode:
                         cl = int(self.index("insert").split(".")[0])
-                        last_line = self._term_last_real_line()
-                        if cl + 1 > last_line:
-                            self.insert("end", "\n")
-                        self.mark_set("insert", f"{cl + 1}.0")
+                        if cl >= self._scroll_bot:
+                            self._grid_scroll_region(
+                                self._scroll_top, self._scroll_bot, 1
+                            )
+                            self.mark_set("insert", f"{self._scroll_bot}.0")
+                        else:
+                            self.mark_set("insert", f"{cl + 1}.0")
                     else:
                         _srow = self._cur_line - self.screen_top + 1
                         if (
