@@ -258,11 +258,21 @@ class Console:
                 elif second + third == "[A":
                     self.cursors[user] = 0
                     if echo:
-                        self.outpt(f"\x1b[{cursor}D", end="")
+                        # terminals move by one even for \x1b[0D. fix
+                        # replace \x1b[0D with ""
+                        self.outpt(f"\x1b[{cursor}D".replace("\x1b[0D", ""), end="")
                 elif second + third == "[B":
                     self.cursors[user] = len(self.curinput[user])
                     if echo:
-                        self.outpt(f"\x1b[{len(self.curinput[user]) - cursor}C", end="")
+                        # terminals move by one even for \x1b[0C. fix
+                        # replace \x1b[0C with ""
+                        self.outpt(
+                            f"\x1b[{len(self.curinput[user]) - cursor}C".replace(
+                                "\x1b[0C",
+                                "",
+                            ),
+                            end="",
+                        )
                 elif second + third == "[3":
                     fourth = None
                     while not fourth:
@@ -347,7 +357,7 @@ class Console:
             text = "\n".join(line.ljust(width) for line in text.split("\n"))
             outptstring = f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\x1b[0m\x1b8\x1b[{text.count("\n") + 2}B'.replace(
                 "\n", f"\x1b[49m\n\x1b[L\x1b[{color}"
-                )
+            )
             # count number of insert lines to scroll up that many times
             # if needed
             nxlines = outptstring.count("\x1b[L")
@@ -495,8 +505,8 @@ class Console:
                 moveback = "\x1b[H"
             text = "\n".join(line.ljust(width) for line in text.split("\n"))
             outptstring = f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n\x1b[0m'.replace(
-                    "\n", f"\x1b[49m\n\x1b[L\x1b[{color}"
-                )
+                "\n", f"\x1b[49m\n\x1b[L\x1b[{color}"
+            )
             # count number of insert lines to scroll up that many times
             # if needed
             nxlines = outptstring.count("\x1b[L") + 1
