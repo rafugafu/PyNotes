@@ -204,13 +204,9 @@ class Console:
     def outpt(self, string, end="\n", *args, **kwargs):
         """Write string (with every \\n also carriage-returned, since
         the terminal is in raw mode) to the real stdout PyNotes saved
-        before redirecting sys.stdout to /dev/null. Also scrolls up
-        by the number of \\x1b[L in the text to prevent terminal
-        clamping text at bottom line and continuously overwriting it."""
-
+        before redirecting sys.stdout to /dev/null."""
         string += end
-        Ln = string.count("\x1b[L")
-        string = string.replace("\n", "\n\r").replace("\x1b[L", "\x1b[S\x1b[A\x1b[L").replace("\x1b8", f"\x1b8\x1b[{Ln}A")
+        string = string.replace("\n", "\n\r")
         return print(string, end="", file=state.stdout, flush=True, *args, **kwargs)
 
     def inputloop(self):
@@ -322,7 +318,10 @@ class Console:
             if self.helping:
                 moveback = "\x1b[H"
             self.outpt(
-                f"\x1b7{moveback}\x1b[L\r\x1b[7mmessage: \x1b[3m{text}\x1b[0m\x1b8\x1b[B",
+                # \x1bD and \x1b[A are to scroll up if needed, stopping
+                # the terminal clamping text at the bottom row and
+                # continuously overwriting it.
+                f"\x1bD\x1b[A\x1b7{moveback}\x1b[L\r\x1b[7mmessage: \x1b[3m{text}\x1b[0m\x1b8\x1b[B",
                 end="",
             )
 
@@ -346,12 +345,14 @@ class Console:
             if self.helping:
                 moveback = "\x1b[H"
             text = "\n".join(line.ljust(width) for line in text.split("\n"))
-            self.outpt(
-                f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\x1b[0m\x1b8\x1b[{text.count("\n") + 2}B'.replace(
-                    "\n", f"\x1b[49m\n\x1b[L\x1b[{color}"
-                ),
-                end="",
-            )
+            outptstring = f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\x1b[0m\x1b8\x1b[{text.count("\n") + 2}B'.replace(
+                "\n", f"\x1b[49m\n\x1b[L\x1b[{color}"
+                )
+            # count number of insert lines to scroll up that many times
+            # if needed
+            nxlines = outptstring.count("\x1b[L")
+            xlines = "\x1bD" * nxlines + "\x1b[A" * nxlines
+            self.outpt(xlines + outptstring, end="")
 
     def ask(self, title, question, options, color="100m", cancel_event=None):
         """Draw a titled question with numbered options and block for a
@@ -425,12 +426,14 @@ class Console:
                 )
                 + "\n"
             )
-            self.outpt(
-                f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n{optionstext}\x1b[0m'.replace(
-                    "\n", f"\x1b[49m\n\x1b[L\x1b[{color}"
-                ),
-                end="",
+            outptstring = f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n{optionstext}\x1b[0m'.replace(
+                "\n", f"\x1b[49m\n\x1b[L\x1b[{color}"
             )
+            # count the number of insert lines to scroll up that many times
+            # if needed
+            nxlines = outptstring.count("\x1b[L") + optionstext.count("\x1b[L")
+            xlines = "\x1bD" * nxlines + "\x1b[A" * nxlines
+            self.outpt(xlines + outptstring, end="")
             options = range(1, optioni + 2)
             optionpromptslash = "/".join(map(str, options))
             previnput = self.curactiveinput
@@ -491,12 +494,14 @@ class Console:
             if self.helping:
                 moveback = "\x1b[H"
             text = "\n".join(line.ljust(width) for line in text.split("\n"))
-            self.outpt(
-                f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n\x1b[0m'.replace(
+            outptstring = f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\n\x1b[0m'.replace(
                     "\n", f"\x1b[49m\n\x1b[L\x1b[{color}"
-                ),
-                end="",
-            )
+                )
+            # count number of insert lines to scroll up that many times
+            # if needed
+            nxlines = outptstring.count("\x1b[L") + 1
+            xlines = "\x1bD" * nxlines + "\x1b[A" * nxlines
+            self.outpt(xlines + outptstring, end="")
             previnput = self.curactiveinput
             self.curactiveinput = "dialog"
             restore = lambda: [
