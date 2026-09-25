@@ -3,7 +3,7 @@ alongside the PyNotes GUI (see main.py's start_console thread), letting
 the launching terminal show status messages, mirror dialogs, and accept
 commands (including answering dialogs/prompts before the GUI does)."""
 
-from init import exit
+import init
 import state
 import os
 import sys
@@ -46,6 +46,12 @@ else:
     def get_key():
         """Block for and return the next single character from stdin."""
         return msvcrt.getch().decode("utf-8", errors="ignore")
+
+
+def close():
+    """Clean up and close console"""
+    unset_raw_mode()
+    print("\n\x1b[H\x1b[2J", end="", file=state.stdout)
 
 
 # Help text for --help (claht) and the console's "help" command (clcht).
@@ -103,7 +109,7 @@ def argparse(options, args):
     options = {
         key: (item if item != [True] else []) for key, item in options.copy().items()
     }
-    exitwith = lambda message: [print(message), exit(1)]
+    exitwith = lambda message: [print(message), init.exit(1)]
     curarg = None
     files_to_open = []
     for arg in args:

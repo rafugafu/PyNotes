@@ -2076,7 +2076,9 @@ class Editor(Buffer):
         fresh separator once typing pauses)."""
         if self._setundo_after_id is not None:
             self._own_type.after_cancel(self._setundo_after_id)
-        self._setundo_after_id = self._own_type.after(DEBOUNCE_TIME, self._set_undo_mark)
+        self._setundo_after_id = self._own_type.after(
+            DEBOUNCE_TIME, self._set_undo_mark
+        )
 
     def _update_unsaved(self):
         """Recompute whether the buffer differs from what's on disk

@@ -339,7 +339,7 @@ state.consoleq = queue.Queue()
 state.started = threading.Event()
 if not state.options["wait-start"]:
     state.started.set()
-threading.Thread(target=start_console, args=(state.consoleq,)).start()
+threading.Thread(target=start_console, args=(state.consoleq,), daemon=True).start()
 if not state.options["wait-start"]:
     time.sleep(0.05)
     # Fake-echo "start" and its usual response, matching what the

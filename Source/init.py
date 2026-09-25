@@ -9,8 +9,9 @@ import getpass
 import subprocess
 import state
 from tkinter import messagebox as mb
+import cli
 
-exit = sys.exit
+exit = lambda *ags, **kw: [cli.close(), sys.exit(*ags, **kw)]
 v = "2.2"
 DEBOUNCE_TIME = 300
 if platform.system() == "Linux":
