@@ -551,8 +551,7 @@ def ext():
         try:
             import cli
 
-            cli.unset_raw_mode()
-            print("\n\x1b[H\x1b[2J", end="", file=state.stdout)
+            cli.close()
         except Exception:
             pass
         os._exit(0)
