@@ -7,3 +7,19 @@ A simple standalone typing game turned into a PyNotes plugin. Type the words bef
 A PyNotes plugin to check your spelling in normal HMode editors. You can add new dictionaries and words at any time by putting a plain text wordlist in ~/.local/share/PyNotes/add-ons/Simple Spellcheck/Dictionaries. Turn on or off with the Alt-X and PyCode command 'spellcheck'.
 ==========
 A simple typing test plugin which gives feedback in words in the end.
+==========
+This is a plugin which makes a full simple web browser buffer inside PyNotes, using playwright to drive the Chromium engine. Native easytk (ttkbootstrap) is used for the chrome of the browser, while websites are rendered in a tkinter canvas inside each tab. The browser currently has:
+* tabs
+* back/forward/reload/go buttons
+* address bar
+* clipboard integration with pynotes
+* local files opened with normal file://... urls.
+* native browser dropdown menus rendered by native easytk (ttkbootstrap)
+* www.google.com opening on every new tab.
+Not currently supported:
+* audio
+* file upload/download
+* settings
+* persistent cache
+==========
+A Claude Code agent plugin which lets you open Claude Code in a graphical or terminal buffer inside PyNotes.

@@ -3,3 +3,5 @@ A chess application where you can play two player or against an engine provided 
 A game where you have to type words before they fall
 A plugin which checks your spelling in normal HMode
 A typing test plugin
+A plugin which makes a full simple web browser buffer inside PyNotes
+A Claude Code agent plugin
