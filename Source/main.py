@@ -76,6 +76,10 @@ changelist = [
     "Made the filedialogs show the current path instead of assuming it.",
     "Made the save file dialog visibly highlight the active editor instead of making its first line the initial filename.",
     "Made the Alt-X command box prompts and messages wait for each other to finish instead of overwriting or running both at once.",
+    "Make <Tab> indent one level with a tab or spaces depending on the user preferences instead of inserting a literal tab.",
+    "Make <Tab> indent selection if any.",
+    "Fixed unindent command unindenting too much.",
+    "Make Python comment selection comment with # space correctly indented instead of just # at the start of the line.",
     "Fixed some bugs.",
 ]
 state.changestr = ""
@@ -301,7 +305,7 @@ from tkinter import messagebox as mb
 
 if platform.system() == "Linux":
     if rootdir not in sys.path:
-        sys.path.insert(0, rootdir)
+        sys.path.append(rootdir)
 if platform.system() == "Linux":
     os.environ["PATH"] = (
         f"{homedir}/.local/share/PyNotes/venv/bin:" + os.environ["PATH"]

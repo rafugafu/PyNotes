@@ -304,6 +304,8 @@ So, you can access PyNotes variables directly, like 'active' for the currently a
 
 ask 'prompt' - Asks an input from the user and returns the answer.
 
+backspace - Presses BackSpace in the active editor: deletes the selection, or one indentation level if only whitespace is before the cursor, or the previous character.
+
 balancebuffers 'all/horizontal/vertical' - Balance the horizontal/vertical/both buffers to make them equal size.`
 
 cleareditor - Clears the active editor.
