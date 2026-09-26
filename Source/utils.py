@@ -168,7 +168,7 @@ def prompt(text, autocompletefunc=None, defaultinput=None):
     state.cmdentry.bind(
         "<Return>", lambda event, promptend=promptend: setreturninput(promptend)
     )
-    state.cmdentry.bind("<Escape>", lambda event: show(""))
+    state.cmdentry.bind("<Escape>", lambda event: setattr(state, 'prompting', False))
     if autocompletefunc:
         state.cmdentry.bind(
             "<Tab>",
