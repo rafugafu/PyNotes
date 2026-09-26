@@ -73,6 +73,9 @@ changelist = [
     "Made the editor line number widget thinner.",
     "Made the LaTeX environment highlighting include the \\begin{env} line.",
     "Fixed a bug where the HMode would not change from PDF/PNG/Epub when opening a file or new file.",
+    "Made the filedialogs show the current path instead of assuming it.",
+    "Made the save file dialog visibly highlight the active editor instead of making its first line the initial filename.",
+    "Made the Alt-X command box prompts and messages wait for each other to finish instead of overwriting or running both at once.",
     "Fixed some bugs.",
 ]
 state.changestr = ""
@@ -341,7 +344,7 @@ if not state.options["wait-start"]:
     state.started.set()
 threading.Thread(target=start_console, args=(state.consoleq,), daemon=True).start()
 if not state.options["wait-start"]:
-    time.sleep(0.05)
+    time.sleep(0.01)
     # Fake-echo "start" and its usual response, matching what the
     # console would print if the user had actually typed it themselves.
     print("start\n\r\x1b[32mstarting pynotes.\x1b[0m\n\r> ", end="", file=state.stdout)
@@ -440,7 +443,7 @@ for _m in (
 ):
     globals().update({_k: _v for _k, _v in vars(_m).items() if not _k.startswith("__")})
 del _m
-init.create_root_and_menus()
+init.setup_app()
 init.load_config(file, defaultdefs)
 vars(state).update(globals())
 # Plugin "first" code runs now that the root window/menus/preferences
@@ -473,7 +476,7 @@ state.cmdautocomplete = state.root.textbox(
 )
 
 # Populate every shared menu (state.fm, state.em, ...) each buffer type
-# assembles its own menu bar from; see init.create_root_and_menus() and
+# assembles its own menu bar from; see init.setup_app() and
 # window.update_menus().
 state.plgnm.add_command(label="Download From PyNotes' GitHub", command=dp)
 state.plgnm.add_command(label="Open Plugins Directory", command=op)

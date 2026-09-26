@@ -439,9 +439,8 @@ def _report_callback_exception(*args, **kwargs):
     return utils._report_callback_exception(*args, **kwargs)
 
 
-def create_root_and_menus():
-    """Create the root window and the shared menu objects each buffer
-    type assembles its own menu bar from (see state.all_*_menus)."""
+def setup_app():
+    """Sets up PyNotes to start."""
     import window
     import utils
 
@@ -488,6 +487,7 @@ def create_root_and_menus():
     os.makedirs(f"{homedir}/.local/share/PyNotes/tempfiles", exist_ok=True)
     sys.stderr = utils.ErrorHandler()
     state.pcsettitle = False
+    state.prompting = False
 
 
 def load_config(file, defaultdefs):

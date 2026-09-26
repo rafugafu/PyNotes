@@ -7,6 +7,7 @@ import subprocess
 import threading
 import webbrowser
 import state
+import time
 from init import homedir, rootdir, monospace
 
 
@@ -68,7 +69,9 @@ def show(text):
     """Display text as a status message in the Alt-X command box, and
     mirror it to the console (the terminal PyNotes was launched
     from)."""
-    state.prompting = False
+    while state.prompting:
+        state.root.update()
+        time.sleep(0.01)
     state.cmdentry.config(state="normal")
     state.cmdentry.delete("1.0", "end")
     state.cmdentry.insert("end", text.replace("\n", "\\n"))
@@ -142,6 +145,9 @@ def prompt(text, autocompletefunc=None, defaultinput=None):
             )
             state.cmdautocomplete.config(state="disabled")
 
+    while state.prompting:
+        state.root.update()
+        time.sleep(0.01)
     state.prompting = True
     inputtext = ""
     state.cmdentry.config(state="normal")
@@ -175,6 +181,7 @@ def prompt(text, autocompletefunc=None, defaultinput=None):
     state.cmdentry.focus_set()
     while state.prompting:
         state.root.update()
+        time.sleep(0.01)
     state.cmdentry.delete("1.0", "end")
     state.cmdentry.unbind("<KeyPress>")
     state.cmdentry.unbind("<Return>")
