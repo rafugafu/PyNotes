@@ -11,7 +11,15 @@ import state
 from tkinter import messagebox as mb
 import cli
 
-exit = lambda *ags, **kw: [cli.close(), sys.exit(*ags, **kw)]
+
+def exit(*ags, **kw):
+    try:
+        cli.close()
+    except Exception:
+        pass
+    sys.exit(*ags, **kw)
+
+
 v = "2.2"
 DEBOUNCE_TIME = 300
 if platform.system() == "Linux":
