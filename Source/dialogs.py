@@ -211,6 +211,12 @@ def openfileget(
             )
             fn = _race_console_graphical("Open", prompttext, None, native_dialog_call)
     else:
+        if initialfile is None:
+            initialfile = os.getcwd()
+        if platform.system() == "Linux":
+            initialfile = initialfile.replace(homedir, "~") + "/"
+        else:
+            initialfile = initialfile + "\\"
         fn = _race_console_box("Open", prompttext, initialfile)
     if not fn.strip():
         return ""
@@ -258,6 +264,12 @@ def saveasfileget(prompttext="Save File: ", initialfile=None):
         if not fn.strip():
             return ""
     else:
+        if initialfile is None:
+            initialfile = os.getcwd()
+        if platform.system() == "Linux":
+            initialfile = initialfile.replace(homedir, "~") + "/"
+        else:
+            initialfile = initialfile + "\\"
         while True:
             fn = _race_console_box("Save As", prompttext, initialfile)
             if not fn.strip():

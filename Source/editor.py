@@ -1243,17 +1243,18 @@ class Editor(Buffer):
 
     def ssv(self):
         """PyCode's/Alt-X's `saveasfile` command (Save As): prompt for
-        a filename and save to it."""
+        a filename and save to it. Temporarily highlight the active
+        editor to let the user know which file is being saved instead
+        of making the first line of the editor the initial filename."""
         if self.view_master:
             return self.view_master.ssv()
         if self._file_watch_prompt_pending:
             utils.show("select 'Ignore' external changes before saving file")
             return False
-        fn = dialogs.saveasfileget(
-            initialfile=self.type_.get("1.0", "1.end")
-            .replace("/", " ")
-            .replace("\\", " ")
-        )
+        oldbg = self.type_.cget("background")
+        self.type_.config(bg="green")
+        fn = dialogs.saveasfileget()
+        self.type_.config(bg=oldbg)
         pycode.pcrunhook("before", "save-as-file", fn if fn else None)
         if fn:
             utils.show("save as file")
