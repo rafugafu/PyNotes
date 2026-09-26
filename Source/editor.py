@@ -374,6 +374,8 @@ class Editor(Buffer):
         self.type_.bind("<Control-x>", lambda event: self.cut() or "break")
         self.type_.bind("<KeyRelease>", lambda event: self.keypress())
         self.type_.bind("<Return>", lambda event: self.indent())
+        self.type_.bind("<Tab>", lambda event: self.tab() or "break")
+        self.type_.bind("<BackSpace>", lambda event: self.backspace() or "break")
         self.type_.bind("<Alt-l>", lambda event: self.gl() or "break")
         self.type_.bind("<Control-p>", lambda event: self.ptf() or "break")
         self.type_.bind("<Control-P>", lambda event: self.ptb() or "break")
@@ -3770,6 +3772,55 @@ class Editor(Buffer):
             return
         utils.show(f"run {self.hmode} code")
         pycode.pcrunhook("after", "run-code")
+
+    def tab(self):
+        """<Tab> handler for all HModes; indent one level with tabs
+        or spaces depending on the user's preferences if on start
+        of stripped line. Otherwise, insert a literal tab. If there is
+        a selection, indent the selected lines instead."""
+        if self.type_.tag_ranges("sel"):
+            pycode.pcindentselection()
+            return
+        il = self.type_.index("insert").split(".")[0]
+        onstart = not self.type_.get(il + ".0", "insert").strip()
+        if not onstart or not state.taborspace:
+            indent = "	"
+        else:
+            indent = "    "
+        self._set_undo_mark()
+        self.type_.insert(f"insert", indent)
+        self._set_undo_mark()
+
+    def backspace(self):
+        """<BackSpace> handler for all HModes, the opposite of tab():
+        delete the selection if the cursor is in it; otherwise, if only
+        whitespace is before the cursor, delete one indentation level
+        (a tab, or the spaces back to the previous multiple of 4
+        columns); otherwise delete the previous character."""
+        if (
+            self.type_.tag_ranges("sel")
+            and self.type_.compare("sel.first", "<=", "insert")
+            and self.type_.compare("insert", "<=", "sel.last")
+        ):
+            self._set_undo_mark()
+            self.type_.delete("sel.first", "sel.last")
+            self._set_undo_mark()
+            return "break"
+        before = self.type_.get("insert linestart", "insert")
+        if before and not before.strip():
+            trailing_spaces = len(before) - len(before.rstrip(" "))
+            if trailing_spaces:
+                column = len(before.expandtabs(8))
+                remove = min(trailing_spaces, column % 4 or 4)
+            else:
+                remove = 1
+            self._set_undo_mark()
+            self.type_.delete(f"insert-{remove}c", "insert")
+            self._set_undo_mark()
+        elif self.type_.compare("insert", ">", "1.0"):
+            self.type_.delete("insert-1c", "insert")
+        self.type_.see("insert")
+        return "break"
 
     def indent(self):
         """<Return> handler for Python HMode: insert a newline and

@@ -450,6 +450,14 @@ def pcsavefile(*args, **kwargs):
     return state.active.sssv(*args, **kwargs)
 
 
+def pcbackspace():
+    """PyCode's `backspace` command: what pressing BackSpace does in
+    the active editor (see Editor.backspace())."""
+    if not isinstance(state.active, editor.Editor):
+        return
+    return state.active.backspace()
+
+
 def pcselall(*args, **kwargs):
     if not isinstance(state.active, editor.Editor):
         return
@@ -492,6 +500,84 @@ def pcuntag(*args, **kwargs):
     return state.active.type_.tag_remove(*args, **kwargs)
 
 
+def pcselectionlines():
+    """The (start, end) line numbers covered by the active editor's
+    selection, leaving out a last line the selection only reaches the
+    very start of (e.g. after selecting whole lines by triple-click or
+    Shift-Down). Shows a message and returns None if nothing is
+    selected."""
+    try:
+        first = state.active.type_.index("sel.first")
+        last = state.active.type_.index("sel.last")
+    except Exception:
+        utils.show("nothing is selected")
+        return None
+    start = int(first.split(".")[0])
+    end, end_column = (int(x) for x in last.split("."))
+    if end_column == 0 and end > start:
+        end -= 1
+    return start, end
+
+
+def pccommentmarkers():
+    """The (prefix, suffix) that commenting a line adds in the active
+    editor's HMode (which must be Python / LaTeX / HTML / Markdown)."""
+    if state.active.hmode == "python":
+        return "# ", ""
+    if state.active.hmode == "latex":
+        return "%", ""
+    return "<!--", "-->"
+
+
+def pccommentlines(start, end):
+    """Comment every non-blank line from start to end. In the Python
+    HMode, the '# ' goes at the indentation shared by all the lines
+    (so the comment marks line up with the least indented line, as in
+    other editors) instead of at the start of each line."""
+    prefix, suffix = pccommentmarkers()
+    type_ = state.active.type_
+    lines = {l: type_.get(f"{l}.0", f"{l}.end") for l in range(start, end + 1)}
+    nonblank_lines = [l for l in lines if lines[l].strip()]
+    column = 0
+    if state.active.hmode == "python" and nonblank_lines:
+        column = len(
+            os.path.commonprefix(
+                [
+                    lines[l][: len(lines[l]) - len(lines[l].lstrip())]
+                    for l in nonblank_lines
+                ]
+            )
+        )
+    type_.edit_separator()
+    for l in nonblank_lines:
+        if suffix:
+            type_.insert(f"{l}.end", suffix)
+        type_.insert(f"{l}.{column}", prefix)
+    type_.edit_separator()
+
+
+def pcuncommentlines(start, end):
+    """Undo pccommentlines() on every line from start to end that has
+    the comment marker (a Python '#' loses one following space too)."""
+    prefix, suffix = pccommentmarkers()
+    type_ = state.active.type_
+    type_.edit_separator()
+    for l in range(start, end + 1):
+        line = type_.get(f"{l}.0", f"{l}.end")
+        stripped = line.lstrip()
+        if stripped.startswith(prefix.strip()):
+            a = len(line) - len(stripped)
+            b = a + len(prefix.strip())
+            if prefix.endswith(" ") and line[b : b + 1] == " ":
+                b += 1
+            type_.delete(f"{l}.{a}", f"{l}.{b}")
+        if suffix:
+            line = type_.get(f"{l}.0", f"{l}.end").rstrip()
+            if line.endswith(suffix):
+                type_.delete(f"{l}.{len(line) - len(suffix)}", f"{l}.{len(line)}")
+    type_.edit_separator()
+
+
 def pccommentregion(start, end):
     """PyCode's `commentregion` command: prefix every non-blank line
     from start to end with the active HMode's comment marker (HTML/
@@ -502,24 +588,7 @@ def pccommentregion(start, end):
     if state.active.hmode not in ("python", "latex", "html", "markdown"):
         return
     pcrunhook("before", "comment-region", (start, end))
-    ender = ""
-    if state.active.hmode == "python":
-        commentor = "#"
-    elif state.active.hmode == "latex":
-        commentor = "%"
-    elif state.active.hmode == "html" or state.active.hmode == "markdown":
-        commentor = "<!--"
-        ender = "-->"
-    l = start
-    state.active.type_.edit_separator()
-    while not l > end:
-        if not state.active.type_.get(f"{l}.0", f"{l}.end").strip():
-            l += 1
-            continue
-        state.active.type_.insert(f"{l}.0", commentor)
-        state.active.type_.insert(f"{l}.end", ender)
-        l += 1
-    state.active.type_.edit_separator()
+    pccommentlines(start, end)
     utils.show("comment region")
     state.active.keypress()
     pcrunhook("after", "comment-region", (start, end))
@@ -533,32 +602,11 @@ def pccommentselection():
         return
     if state.active.hmode not in ("python", "latex", "html", "markdown"):
         return
-    try:
-        start = int(state.active.type_.index("sel.first").split(".")[0])
-        end = int(state.active.type_.index("sel.last").split(".")[0])
-    except Exception:
-        utils.show("nothing is selected")
+    if (lines := pcselectionlines()) is None:
         return
-    else:
-        pcrunhook("before", "comment-region", (start, end))
-        ender = ""
-        if state.active.hmode == "python":
-            commentor = "#"
-        elif state.active.hmode == "latex":
-            commentor = "%"
-        elif state.active.hmode == "html" or state.active.hmode == "markdown":
-            commentor = "<!--"
-            ender = "-->"
-        l = start
-        state.active.type_.edit_separator()
-        while not l > end:
-            if not state.active.type_.get(f"{l}.0", f"{l}.end").strip():
-                l += 1
-                continue
-            state.active.type_.insert(f"{l}.0", commentor)
-            state.active.type_.insert(f"{l}.end", ender)
-            l += 1
-        state.active.type_.edit_separator()
+    start, end = lines
+    pcrunhook("before", "comment-region", (start, end))
+    pccommentlines(start, end)
     utils.show("comment selection")
     state.active.keypress()
     pcrunhook("after", "comment-region", (start, end))
@@ -573,28 +621,7 @@ def pcuncommentregion(start, end):
     if state.active.hmode not in ("python", "latex", "html", "markdown"):
         return
     pcrunhook("before", "uncomment-region", (start, end))
-    state.active.type_.edit_separator()
-    ender = ""
-    if state.active.hmode == "python":
-        commentor = "#"
-    elif state.active.hmode == "latex":
-        commentor = "%"
-    elif state.active.hmode == "html" or state.active.hmode == "markdown":
-        commentor = "<!--"
-        ender = "-->"
-    l = start
-    while not l > end:
-        stripped = state.active.type_.get(f"{l}.0", f"{l}.end").lstrip()
-        if stripped.startswith(commentor):
-            a = len(state.active.type_.get(f"{l}.0", f"{l}.end")) - len(stripped)
-            b = a + len(commentor)
-            state.active.type_.delete(f"{l}.{a}", f"{l}.{b}")
-        if ender:
-            stripped = state.active.type_.get(f"{l}.0", f"{l}.end").rstrip()
-            if stripped.endswith(ender):
-                state.active.type_.delete(f"{l}.end-{len(ender)}c", f"{l}.end")
-        l += 1
-    state.active.type_.edit_separator()
+    pcuncommentlines(start, end)
     utils.show("uncomment region")
     state.active.keypress()
     pcrunhook("after", "uncomment-region", (start, end))
@@ -608,39 +635,14 @@ def pcuncommentselection():
         return
     if state.active.hmode not in ("python", "latex", "html", "markdown"):
         return
-    try:
-        start = int(state.active.type_.index("sel.first").split(".")[0])
-        end = int(state.active.type_.index("sel.last").split(".")[0])
-    except Exception:
-        utils.show("nothing is selected")
+    if (lines := pcselectionlines()) is None:
         return
-    else:
-        pcrunhook("before", "uncomment-region", (start, end))
-        state.active.type_.edit_separator()
-        ender = ""
-        if state.active.hmode == "python":
-            commentor = "#"
-        elif state.active.hmode == "latex":
-            commentor = "%"
-        elif state.active.hmode == "html" or state.active.hmode == "markdown":
-            commentor = "<!--"
-            ender = "-->"
-        l = start
-        while not l > end:
-            stripped = state.active.type_.get(f"{l}.0", f"{l}.end").lstrip()
-            if stripped.startswith(commentor):
-                a = len(state.active.type_.get(f"{l}.0", f"{l}.end")) - len(stripped)
-                b = a + len(commentor)
-                state.active.type_.delete(f"{l}.{a}", f"{l}.{b}")
-            if ender:
-                stripped = state.active.type_.get(f"{l}.0", f"{l}.end").rstrip()
-                if stripped.endswith(ender):
-                    state.active.type_.delete(f"{l}.end-{len(ender)}c", f"{l}.end")
-            l += 1
-        state.active.type_.edit_separator()
-        utils.show("uncomment selection")
-        state.active.keypress()
-        pcrunhook("after", "uncomment-region", (start, end))
+    start, end = lines
+    pcrunhook("before", "uncomment-region", (start, end))
+    pcuncommentlines(start, end)
+    utils.show("uncomment selection")
+    state.active.keypress()
+    pcrunhook("after", "uncomment-region", (start, end))
 
 
 def pccleareditor():
@@ -939,70 +941,99 @@ def pcindentselection():
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
-    try:
-        start = int(state.active.type_.index("sel.first").split(".")[0])
-        end = int(state.active.type_.index("sel.last").split(".")[0])
-    except Exception:
-        utils.show("nothing is selected")
+    if (lines := pcselectionlines()) is None:
         return
+    start, end = lines
+    pcrunhook("before", "indent-region", (start, end))
+    if state.taborspace:
+        whitespace = "    "
     else:
-        pcrunhook("before", "indent-region", (start, end))
-        if state.taborspace:
-            whitespace = "    "
-        else:
-            whitespace = "	"
-        l = start
-        state.active.type_.edit_separator()
-        while not l == end:
-            state.active.type_.insert(f"{l}.0", whitespace)
-            l += 1
+        whitespace = "	"
+    state.active.type_.edit_separator()
+    for l in range(start, end + 1):
         state.active.type_.insert(f"{l}.0", whitespace)
-        state.active.type_.edit_separator()
-        utils.show("indent selection")
-        state.active.keypress()
-        pcrunhook("after", "indent-region", (start, end))
+    state.active.type_.edit_separator()
+    utils.show("indent selection")
+    state.active.keypress()
+    pcrunhook("after", "indent-region", (start, end))
+
+
+def pcunindentlines(start, end):
+    """Unindent every non-blank indented line from start to end by the
+    same number of columns, so their relative indentation is kept: the
+    number that moves the least indented line to the indentation of
+    the nearest line above the region that is indented less than it
+    (i.e. the block the region is in). Without such a line (e.g. at
+    the top of the file), it is the smallest gap between the region's
+    indentation levels, or a tab / 4 spaces for a single level. Tabs
+    count as reaching the next multiple of 8 columns; a tab that would
+    be cut in the middle is replaced by spaces. In the Python HMode,
+    comment-only lines are ignored when finding the amount, since they
+    are often indented differently from the code around them."""
+    type_ = state.active.type_
+    python = state.active.hmode == "python"
+
+    def leading(line):
+        return line[: len(line) - len(line.lstrip())]
+
+    def columns(line):
+        return len(leading(line).expandtabs(8))
+
+    def comment_only(line):
+        return python and line.lstrip().startswith("#")
+
+    lines = [type_.get(f"{l}.0", f"{l}.end") for l in range(start, end + 1)]
+    indented_lines = [line for line in lines if line.strip() and columns(line)]
+    measured_lines = [
+        line for line in indented_lines if not comment_only(line)
+    ] or indented_lines
+    if not measured_lines:
+        return
+    smallest = min(columns(line) for line in measured_lines)
+    amount = None
+    for l in range(start - 1, 0, -1):
+        above = type_.get(f"{l}.0", f"{l}.end")
+        if above.strip() and not comment_only(above) and columns(above) < smallest:
+            amount = smallest - columns(above)
+            break
+    if amount is None:
+        levels = sorted({columns(line) for line in measured_lines})
+        gaps = [b - a for a, b in zip(levels, levels[1:])]
+        unit = 8 if leading(measured_lines[0]).startswith("\t") else 4
+        amount = min(smallest, min(gaps, default=unit))
+    type_.edit_separator()
+    for i, line in enumerate(lines):
+        if not line.strip() or not columns(line):
+            continue
+        old = leading(line)
+        new_columns = max(0, columns(line) - amount)
+        column = 0
+        kept = 0
+        for ch in old:
+            next_column = (column // 8 + 1) * 8 if ch == "\t" else column + 1
+            if next_column > new_columns:
+                break
+            column = next_column
+            kept += 1
+        new = old[:kept] + " " * (new_columns - column)
+        if new != old:
+            l = start + i
+            type_.delete(f"{l}.0", f"{l}.{len(old)}")
+            type_.insert(f"{l}.0", new)
+    type_.edit_separator()
 
 
 def pcunindentregion(start, end):
     """PyCode's `unindentregion` command: remove one level of leading
-    indentation from every non-blank line from start to end. A line
-    starting with a tab loses just that tab; a line starting with
-    spaces loses up to the smallest leading-space count found among
-    the region's space-indented lines (so mixed tab/space indentation
-    stays aligned rather than one line losing more than the others)."""
+    indentation from every non-blank line from start to end (see
+    pcunindentlines() for how a level is worked out from the block the
+    region is in, so any mix of tabs and differently sized space
+    indentation works)."""
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
     pcrunhook("before", "unindent-region", (start, end))
-    state.active.type_.edit_separator()
-    lines = [
-        state.active.type_.get(f"{l}.0", f"{l}.end") for l in range(start, end + 1)
-    ]
-    min_spaces = None
-    for line in lines:
-        if not line.strip() or line.startswith("\t"):
-            continue
-        n = len(line) - len(line.lstrip(" "))
-        if n > 0 and (min_spaces is None or n < min_spaces):
-            min_spaces = n
-    if min_spaces is None:
-        min_spaces = 4
-    for i, l in enumerate(range(start, end + 1)):
-        line = lines[i]
-        if not line.strip():
-            continue
-        if line.startswith("\t"):
-            state.active.type_.delete(f"{l}.0", f"{l}.1")
-        elif line.startswith(" "):
-            remove = 0
-            for ch in line:
-                if ch == " " and remove < min_spaces:
-                    remove += 1
-                else:
-                    break
-            if remove:
-                state.active.type_.delete(f"{l}.0", f"{l}.{remove}")
-    state.active.type_.edit_separator()
+    pcunindentlines(start, end)
     utils.show("unindent region")
     state.active.keypress()
     pcrunhook("after", "unindent-region", (start, end))
@@ -1014,46 +1045,14 @@ def pcunindentselection():
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
-    try:
-        start = int(state.active.type_.index("sel.first").split(".")[0])
-        end = int(state.active.type_.index("sel.last").split(".")[0])
-    except Exception:
-        utils.show("nothing is selected")
+    if (lines := pcselectionlines()) is None:
         return
-    else:
-        pcrunhook("before", "unindent-region", (start, end))
-        state.active.type_.edit_separator()
-        lines = [
-            state.active.type_.get(f"{l}.0", f"{l}.end") for l in range(start, end + 1)
-        ]
-        min_spaces = None
-        for line in lines:
-            if not line.strip() or line.startswith("\t"):
-                continue
-            n = len(line) - len(line.lstrip(" "))
-            if n > 0 and (min_spaces is None or n < min_spaces):
-                min_spaces = n
-        if min_spaces is None:
-            min_spaces = 4
-        for i, l in enumerate(range(start, end + 1)):
-            line = lines[i]
-            if not line.strip():
-                continue
-            if line.startswith("\t"):
-                state.active.type_.delete(f"{l}.0", f"{l}.1")
-            elif line.startswith(" "):
-                remove = 0
-                for ch in line:
-                    if ch == " " and remove < min_spaces:
-                        remove += 1
-                    else:
-                        break
-                if remove:
-                    state.active.type_.delete(f"{l}.0", f"{l}.{remove}")
-        state.active.type_.edit_separator()
-        utils.show("unindent selection")
-        state.active.keypress()
-        pcrunhook("after", "unindent-region", (start, end))
+    start, end = lines
+    pcrunhook("before", "unindent-region", (start, end))
+    pcunindentlines(start, end)
+    utils.show("unindent selection")
+    state.active.keypress()
+    pcrunhook("after", "unindent-region", (start, end))
 
 
 # Maps each PyCode command name to the Python expression (usually just
@@ -1064,6 +1063,7 @@ def pcunindentselection():
 pycodetopythoncommands = {
     "aboutpynotes": "abt",
     "ask": "pcask",
+    "backspace": "pcbackspace",
     "balancebuffers": "balance",
     "cleareditor": "pccleareditor",
     "closebuffer": "pcclosebuff",
@@ -1807,6 +1807,8 @@ for buffer in all_buffers: bindtype_(buffer, '<Control-w>', lambda event, editor
 for buffer in all_buffers: bindtype_(buffer, '<Control-x>', lambda event, editor = buffer: editor.cut())
 for buffer in all_buffers: bindtype_(buffer, '<KeyRelease>', lambda event, editor = buffer: editor.keypress(), break_ = False)
 for buffer in all_buffers: bindtype_(buffer, '<Return>', lambda event, editor = buffer: editor.indent(), break_ = False)
+for buffer in all_buffers: bindtype_(buffer, '<Tab>', lambda event, editor = buffer: editor.tab())
+for buffer in all_buffers: bindtype_(buffer, '<BackSpace>', lambda event, editor = buffer: editor.backspace())
 for buffer in all_buffers: bindtype_(buffer, '<Alt-l>', lambda event, editor = buffer: editor.gl())
 for buffer in all_buffers: bindtype_(buffer, '<Control-p>', lambda event, editor = buffer: editor.ptf())
 for buffer in all_buffers: bindtype_(buffer, '<Control-P>', lambda event, editor = buffer: editor.ptb())
