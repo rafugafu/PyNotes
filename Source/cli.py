@@ -296,12 +296,18 @@ class Console:
                 self.curinput[user] = buf[:cursor] + key + buf[cursor:]
                 self.cursors[user] = cursor + 1
 
-    def inpt(self, prompt, echo=True, cancel_event=None):
+    def inpt(self, prompt, echo=True, cancel_event=None, forinput=None):
         """Print prompt, then block until inputloop() records an Enter
         for the current input channel and return the entered line (with
         echo controlling whether typed characters are shown), or None if
         cancel_event is set first (e.g. because a graphical dialog
-        answered instead)."""
+        answered instead). forinput, if given, temporarily switches
+        curactiveinput to that channel ("command" or "dialog") for the
+        duration of the call, restoring the previous one before
+        returning."""
+        previnput = self.curactiveinput
+        if forinput is not None:
+            self.curactiveinput = forinput
         self.outpt(prompt, end="")
         user = self.curactiveinput
         self.curecho[user] = echo
@@ -311,9 +317,14 @@ class Console:
             if cancel_event and cancel_event.is_set():
                 self.curdoneevents.pop(user, None)
                 self.outpt("")
+                if forinput is not None:
+                    self.curactiveinput = previnput
                 return
         self.curdoneevents.pop(user, None)
-        return self.curresults.pop(user, "")
+        result = self.curresults.pop(user, "")
+        if forinput is not None:
+            self.curactiveinput = previnput
+        return result
 
     def show(self, text):
         """Mirror a utils.show() status message above the command
@@ -323,12 +334,12 @@ class Console:
                 return
             # self.n (set by loop()) is how many extra lines the current
             # command prompt has printed below it (e.g. from a nested
-            # sub-prompt); moveback re-descends past them so the message
+            # sub-prompt); moveback ascends past them so the message
             # is drawn just above the prompt line, using cursor Home
             # instead while the full-screen help text (self.helping) is
             # showing, since its layout doesn't follow the prompt line.
             if self.n:
-                moveback = f"\x1b[{self.n}B"
+                moveback = f"\x1b[{self.n}A"
             else:
                 moveback = ""
             if self.helping:
@@ -355,7 +366,7 @@ class Console:
             text = textwrap.fill(message, width=width) + "\n"
             spacing = " " * ((width - len(title)) // 2)
             if self.n:
-                moveback = f"\x1b[{self.n}B"
+                moveback = f"\x1b[{self.n}A"
             else:
                 moveback = ""
             if self.helping:
@@ -384,7 +395,7 @@ class Console:
             text = textwrap.fill(question, width=width) + "\n"
             spacing = " " * ((width - len(title)) // 2)
             if self.n:
-                moveback = f"\x1b[{self.n}B"
+                moveback = f"\x1b[{self.n}A"
             else:
                 moveback = ""
             if self.helping:
@@ -452,18 +463,14 @@ class Console:
             self.outpt(xlines + outptstring, end="")
             options = range(1, optioni + 2)
             optionpromptslash = "/".join(map(str, options))
-            previnput = self.curactiveinput
-            restore = lambda: [
-                self.outpt(
-                    f'\x1b8\x1b[{optionstext.count("\n") + text.count("\n") + 3}B',
-                    end="",
-                ),
-                setattr(self, "curactiveinput", previnput),
-            ]
-            self.curactiveinput = "dialog"
+            restore = lambda: self.outpt(
+                f'\x1b8\x1b[{optionstext.count("\n") + text.count("\n") + 3}B',
+                end="",
+            )
             gotinput = self.inpt(
                 f"\x1b[7m\x1b[1mselect ({optionpromptslash}):\x1b[0m ",
                 cancel_event=cancel_event,
+                forinput="dialog",
             )
             if gotinput is None:
                 restore()
@@ -475,10 +482,10 @@ class Console:
                 pass
             if gotinput not in options:
                 while gotinput not in options:
-                    self.curactiveinput = "dialog"
                     gotinput = self.inpt(
                         f"\x1b[A\r\x1b[K\x1b[7m\x1b[1m\x1b[31m[invalid input]\x1b[39m select ({optionpromptslash}):\x1b[0m ",
                         cancel_event=cancel_event,
+                        forinput="dialog",
                     )
                     if gotinput is None:
                         restore()
@@ -504,7 +511,7 @@ class Console:
             text = textwrap.fill(text, width=width) + "\n"
             spacing = " " * ((width - len(title)) // 2)
             if self.n:
-                moveback = f"\x1b[{self.n}B"
+                moveback = f"\x1b[{self.n}A"
             else:
                 moveback = ""
             if self.helping:
@@ -518,14 +525,11 @@ class Console:
             nxlines = outptstring.count("\x1b[L") + 1
             xlines = "\x1bD" * nxlines + "\x1b[A" * nxlines
             self.outpt(xlines + outptstring, end="")
-            previnput = self.curactiveinput
-            self.curactiveinput = "dialog"
-            restore = lambda: [
-                self.outpt(f'\x1b8\x1b[{text.count("\n") + 3}B', end=""),
-                setattr(self, "curactiveinput", previnput),
-            ]
+            restore = lambda: self.outpt(f'\x1b8\x1b[{text.count("\n") + 3}B', end="")
             gotinput = self.inpt(
-                f"\x1b[7m\x1b[1mprompt:\x1b[0m ", cancel_event=cancel_event
+                f"\x1b[7m\x1b[1mprompt:\x1b[0m ",
+                cancel_event=cancel_event,
+                forinput="dialog",
             )
             if gotinput is None:
                 restore()
@@ -597,8 +601,7 @@ class Console:
                     expc = ""
                     while True:
                         self.n += 1
-                        self.curactiveinput = "command"
-                        nl = self.inpt("extra-pycode> ").strip()
+                        nl = self.inpt("extra-pycode> ", forinput="command").strip()
                         if nl == "DONE":
                             break
                         elif nl == "CANCEL":
@@ -621,8 +624,9 @@ class Console:
                         filetoopen = commandinput
                     else:
                         self.n = 1
-                        self.curactiveinput = "command"
-                        filetoopen = self.inpt("file to open: ").strip()
+                        filetoopen = self.inpt(
+                            "file to open: ", forinput="command"
+                        ).strip()
                         self.outpt("\r\x1b[A\x1b[K", end="")
                     if not filetoopen:
                         self.outpt("\x1b[33mcancelled.\x1b[0m")
@@ -664,17 +668,19 @@ class Console:
                         )
                         continue
                     self.n = 1
-                    self.curactiveinput = "command"
                     userinput = (
-                        self.inpt("\x1b[33mkill pynotes? (y/n): \x1b[0m").strip() + "g"
+                        self.inpt(
+                            "\x1b[33mkill pynotes? (y/n): \x1b[0m", forinput="command"
+                        ).strip()
+                        + "g"
                     )[0].lower()
                     if userinput not in ("y", "n"):
                         for i in range(2):
                             self.outpt("\r\x1b[A\x1b[K", end="")
-                            self.curactiveinput = "command"
                             userinput = (
                                 self.inpt(
-                                    f"\x1b[31m[invalid input ({i + 2}/3)]\x1b[0m \x1b[33mkill pynotes? (y/n): \x1b[0m"
+                                    f"\x1b[31m[invalid input ({i + 2}/3)]\x1b[0m \x1b[33mkill pynotes? (y/n): \x1b[0m",
+                                    forinput="command",
                                 ).strip()
                                 + "g"
                             )[0].lower()
@@ -695,8 +701,9 @@ class Console:
                         torun = commandinput
                     else:
                         self.n = 1
-                        self.curactiveinput = "command"
-                        torun = self.inpt("command to run: ").strip()
+                        torun = self.inpt(
+                            "command to run: ", forinput="command"
+                        ).strip()
                     if not torun:
                         self.outpt("\r\x1b[A\x1b[K\x1b[33mcancelled.\x1b[0m")
                         continue
@@ -719,9 +726,10 @@ class Console:
                     self.helping = True
                     self.outpt("\x1b[?1049h", end="")
                     self.outpt(clcht)
-                    self.curactiveinput = "command"
                     self.inpt(
-                        "\x1b[33m\x1b[1m[PRESS ENTER TO CONTINUE]\x1b[0m", echo=False
+                        "\x1b[33m\x1b[1m[PRESS ENTER TO CONTINUE]\x1b[0m",
+                        echo=False,
+                        forinput="command",
                     )
                     self.outpt("\x1b[?1049l", end="")
                     self.helping = False
