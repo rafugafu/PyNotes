@@ -82,6 +82,7 @@ changelist = [
     "Also made a backspace PyCode command which does this.",
     "Fixed unindent command unindenting too much.",
     "Make Python comment selection comment with # space correctly indented instead of just # at the start of the line.",
+    "Hugely improved the terminal's performance and made it much faster and more efficient.",
     "Fixed some bugs.",
 ]
 state.changestr = ""
