@@ -9,13 +9,14 @@ A PyNotes plugin to check your spelling in normal HMode editors. You can add new
 A simple typing test plugin which gives feedback in words in the end.
 ==========
 This is a plugin which makes a full simple web browser buffer inside PyNotes, using playwright to drive the Chromium engine. Native easytk (ttkbootstrap) is used for the chrome of the browser, while websites are rendered in a tkinter canvas inside each tab. The browser currently has:
-* tabs
-* back/forward/reload/go buttons
-* address bar
-* clipboard integration with pynotes
+* tabs.
+* back/forward/reload/go buttons.
+* address bar.
+* clipboard integration with pynotes.
 * local files opened with normal file://... urls.
-* native browser dropdown menus rendered by native easytk (ttkbootstrap)
+* native browser dropdown menus rendered by native easytk (ttkbootstrap).
 * www.google.com opening on every new tab.
+* custom tkinter closeable notebook (tabs) class instead of separate button.
 Not currently supported:
 * audio
 * file upload/download
