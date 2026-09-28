@@ -190,9 +190,13 @@ re:(hmode:py;w:print('hello')*1;sw)*3;w:\\n'back'*1""",
 'onv' or 'opennewvert' or 'open-file-vertical': Opens a file in a new vertical editor
 'cb' or 'close' or 'closecurbuf' or 'close-current-buffer': Close the currently active buffer
 'sw' or 'switch' or 'switchbuf' or 'switch-buffer': Cycle between open buffers
-'pynavstart:{f/fun/func/function/c/class/name}' or 'pyjumpstart:{f/fun/func/function/c/class/name}' or 'python-jump-startof:{f/fun/func/function/c/class/name}': If the HMode is Python, jump to the start of the current function/class the cursor is in if given f/fun/func/function/c/class, or jump to the start of the given function/class name
-'pynavend:{f/fun/func/function/c/class/name}' or 'pyjumpend:{f/fun/func/function/c/class/name}' or 'python-jump-endof:{f/fun/func/function/c/class/name}': If the HMode is Python, jump to the end of the current function/class the cursor is in if given f/fun/func/function/c/class, or jump to the end of the given function/class name
-'pygodef:{name}' or 'python-go-definition:{name}': If the HMode is Python, jump to the definition of the given name in the active editor
+'pynavstart:{f/fun/func/function/c/class/b/block/name}' or 'pyjumpstart:{f/fun/func/function/c/class/b/block/name}' or 'python-jump-startof:{f/fun/func/function/c/class/b/block/name}': If the HMode is Python, jump to the start of the current function/class/block the cursor is in if given f/fun/func/function/c/class/b/block, or jump to the start of the given function/class name (an attribute chain like Outer.Inner.name from the module level for nested ones)
+'pynavend:{f/fun/func/function/c/class/b/block/name}' or 'pyjumpend:{f/fun/func/function/c/class/b/block/name}' or 'python-jump-endof:{f/fun/func/function/c/class/b/block/name}': If the HMode is Python, jump to the end of the current function/class/block the cursor is in if given f/fun/func/function/c/class/b/block, or jump to the end of the given function/class name (an attribute chain like Outer.Inner.name from the module level for nested ones)
+'pygodef:{name}' or 'python-go-definition:{name}': If the HMode is Python, jump to the definition of the given name in the active editor (an attribute chain like Outer.Inner.name from the module level for names inside classes/functions)
+'lanavstart:{c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title}' or 'lajumpstart:{c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title}' or 'latex-jump-startof:{c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title}': If the HMode is LaTeX, jump to the start of the current chapter/section/subsection/subsubsection the cursor is in if given the respective keyword, or jump to the start of the section with the given title
+'lanavend:{c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title}' or 'lajumpend:{c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title}' or 'latex-jump-endof:{c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title}': If the HMode is LaTeX, jump to the end of the current chapter/section/subsection/subsubsection the cursor is in if given the respective keyword, or jump to the end of the section with the given title
+'mdnavstart:{h1/h2/h3/h4/h5/h6/s/sec/section/title}' or 'mdjumpstart:{h1/h2/h3/h4/h5/h6/s/sec/section/title}' or 'markdown-jump-startof:{h1/h2/h3/h4/h5/h6/s/sec/section/title}': If the HMode is Markdown, jump to the start of the current section of the given level (h1-h6) the cursor is in if given h1/h2/h3/h4/h5/h6, or of any level if given s/sec/section, or jump to the start of the section with the given title
+'mdnavend:{h1/h2/h3/h4/h5/h6/s/sec/section/title}' or 'mdjumpend:{h1/h2/h3/h4/h5/h6/s/sec/section/title}' or 'markdown-jump-endof:{h1/h2/h3/h4/h5/h6/s/sec/section/title}': If the HMode is Markdown, jump to the end of the current section of the given level (h1-h6) the cursor is in if given h1/h2/h3/h4/h5/h6, or of any level if given s/sec/section, or jump to the end of the section with the given title
 'setsel' or 'selpointset' or 'selection-point-set': Set the selection point at the cursor
 'unsetsel' or 'selpointunset' or 'selection-point-remove': Remove the selection point if set"""
             # Blank line between each command for readability.
@@ -358,7 +362,15 @@ insert 'index', 'text' - Inserts the text at a given tkinter-style index in the 
 
 killquit - Forcibly kills PyNotes without saving files or cleaning up.
 
+latexgoendof 'c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title' - If the HMode is LaTeX, jumps to the end of the current chapter/section/subsection/subsubsection the cursor is in if given the respective keyword, otherwise jumps to the end of the section with the given title if it exists in the active editor.
+
+latexgostartof 'c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title' - If the HMode is LaTeX, jumps to the start of the current chapter/section/subsection/subsubsection the cursor is in if given the respective keyword, otherwise jumps to the start of the section with the given title if it exists in the active editor.
+
 mark 'a', 'b' - Visually marks the text between a tkinter-style index 'a' and a tkinter-style index 'b' in the active editor.
+
+markdowngoendof 'h1/h2/h3/h4/h5/h6/s/sec/section/title' - If the HMode is Markdown, jumps to the end of the current section of the given level the cursor is in if given h1-h6, or of any level if given 's/sec/section', otherwise jumps to the end of the section with the given title if it exists in the active editor.
+
+markdowngostartof 'h1/h2/h3/h4/h5/h6/s/sec/section/title' - If the HMode is Markdown, jumps to the start of the current section of the given level the cursor is in if given h1-h6, or of any level if given 's/sec/section', otherwise jumps to the start of the section with the given title if it exists in the active editor.
 
 markselection - Visually marks the selected text in the active editor.
 
@@ -404,11 +416,11 @@ pynotessourcecode - Show any PyNotes source code file selected by you in /usr/sh
 
 pyshell orient = 'vertical' - Opens a Python REPL buffer in the given orientation.
 
-pythongoendof 'f/fun/func/function/c/class/name' - If the HMode is Python, jumps to the end of the current function/class the cursor is in if given 'f/fun/func/function/c/class', otherwise jumps to the end of the given function/class name if it exists in the active editor.
+pythongoendof 'f/fun/func/function/c/class/b/block/name' - If the HMode is Python, jumps to the end of the current function/class/block the cursor is in if given 'f/fun/func/function/c/class/b/block', otherwise jumps to the end of the given function/class name (an attribute chain like 'Outer.Inner.name' from the module level for nested ones) if it exists in the active editor.
 
-pythongostartof 'f/fun/func/function/c/class/name' - If the HMode is Python, jumps to the start of the current function/class the cursor is in if given 'f/fun/func/function/c/class', otherwise jumps to the start of the given function/class name if it exists in the active editor.
+pythongostartof 'f/fun/func/function/c/class/b/block/name' - If the HMode is Python, jumps to the start of the current function/class/block the cursor is in if given 'f/fun/func/function/c/class/b/block', otherwise jumps to the start of the given function/class name (an attribute chain like 'Outer.Inner.name' from the module level for nested ones) if it exists in the active editor.
 
-pythongodef 'name' - If the HMode is Python, jumps to the definition of the given name in the active editor.
+pythongodef 'name' - If the HMode is Python, jumps to the definition of the given name in the active editor (an attribute chain like 'Outer.Inner.name' from the module level for names inside classes/functions).
 
 quit - Cleanly closes PyNotes.
 

@@ -6,6 +6,7 @@ vars(state)), and the pc* command functions PyCode code calls into
 (each usually a thin wrapper around one editor/PyNotes action, one per
 command documented in help.helppycode())."""
 
+import ast
 import os
 import platform
 import re
@@ -769,12 +770,104 @@ def pcopenemailbuf():
     pynotesemail.openemailbuf()
 
 
+def pcpyscopechains():
+    """Map every function/class scope index of the active (Python-HMode)
+    editor to its full attribute chain, a tuple of the def names from
+    the module level down to it (e.g. ("Outer", "Inner", "method")).
+    The module scope (index 0) maps to the empty chain; a scope that is
+    not a named function/class (lambda, comprehension) or sits inside
+    one is left out."""
+    defs_by_start = {}
+    for dl, dc, dname, dkind in state.active._python_def_names:
+        defs_by_start.setdefault(dl, []).append((dname, dkind))
+    chains = {0: ()}
+    for idx, sc in enumerate(state.active._python_scopes):
+        if idx == 0 or sc.get("parent") not in chains:
+            continue
+        want_def_kind = "class" if sc.get("kind") == "class" else "func"
+        if sc.get("kind") not in ("class", "function"):
+            continue
+        for dname, dkind in defs_by_start.get(sc["start"], []):
+            if dkind == want_def_kind:
+                chains[idx] = chains[sc["parent"]] + (dname,)
+                break
+    return chains
+
+
+def pcpynames():
+    """Every attribute chain ("Outer.Inner.name" strings) the Python
+    navigation commands accept in the active (Python-HMode) editor:
+    the chain of every function/class, and of every name bound directly
+    inside one (or at the module level)."""
+    chains = pcpyscopechains()
+    out = set()
+    for idx, chain in chains.items():
+        if chain:
+            out.add(".".join(chain))
+        for name in state.active._python_scopes[idx]["names"]:
+            out.add(".".join(chain + (name,)))
+    return out
+
+
+def _pcpyblocks(text):
+    """Every block (suite of a compound statement: def/class/if/elif/
+    else/for/while/try/except/finally/with/case...) in text, as
+    (start_line, end_line, keyword) where start_line is the block's
+    header line. Returns None if text can't be parsed."""
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return None
+    lines = text.split("\n")
+    blocks = []
+
+    def add(headerline, suite, keyword=None):
+        if keyword is None:
+            words = lines[headerline - 1].split()
+            keyword = words[0].rstrip(":") if words else "block"
+            if keyword == "async" and len(words) > 1:
+                keyword += " " + words[1].rstrip(":")
+        blocks.append((headerline, suite[-1].end_lineno, keyword))
+
+    def findkeywordline(suite, keyword):
+        for ln in range(suite[0].lineno, 0, -1):
+            if re.match(rf"\s*{keyword}\s*:", lines[ln - 1]):
+                return ln
+        return suite[0].lineno
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Module):
+            continue
+        if isinstance(node, ast.match_case):
+            add(node.pattern.lineno, node.body, "case")
+            continue
+        for attr in ("body", "orelse", "finalbody"):
+            suite = getattr(node, attr, None)
+            if not (
+                isinstance(suite, list)
+                and suite
+                and all(isinstance(s, ast.stmt) for s in suite)
+            ):
+                continue
+            if attr == "body":
+                add(node.lineno, suite)
+            elif attr == "finalbody":
+                add(findkeywordline(suite, "finally"), suite, "finally")
+            elif not (
+                isinstance(suite[0], ast.If)
+                and lines[suite[0].lineno - 1].lstrip().startswith("elif")
+            ):
+                add(findkeywordline(suite, "else"), suite, "else")
+    return blocks
+
+
 def _pcpyresolve(commandinput):
     """Shared logic for pcpystartof()/pcpyendof(): resolve
     commandinput to a target line in the active (Python-HMode) editor.
-    If it names a kind (f/fun/func/function/c/class), find the
-    innermost enclosing function/class of that kind around the cursor;
-    otherwise treat commandinput as a function/class name and find its
+    If it names a kind (f/fun/func/function/c/class/b/block), find the
+    innermost enclosing function/class/block of that kind around the
+    cursor; otherwise treat commandinput as a function/class attribute
+    chain (Outer.Inner.name, starting at the module level) and find its
     definition. Returns None (after showing an error) if nothing
     matches."""
     if state.active.hmode != "python":
@@ -782,25 +875,35 @@ def _pcpyresolve(commandinput):
         return None
     raw = commandinput.strip()
     word = raw.lower()
+    line = int(state.active.type_.index("insert").split(".")[0])
+    if word in ("b", "block"):
+        blocks = _pcpyblocks(state.active.type_.get("1.0", "end-1c"))
+        if blocks is None:
+            utils.show("error: cannot parse python code")
+            return None
+        best = None
+        for bstart, bend, bkeyword in blocks:
+            if not (bstart <= line <= bend):
+                continue
+            if best is None or bstart > best[0] or (bstart == best[0] and bend < best[1]):
+                best = (bstart, bend, bkeyword)
+        if best is None:
+            utils.show("error: not in block")
+            return None
+        return best[0], best[1], best[2], "block"
     if word in ("f", "fun", "func", "function", "c", "class"):
         wantclass = word in ("c", "class")
         want_scope_kind = "class" if wantclass else "function"
         want_def_kind = "class" if wantclass else "func"
-        line = int(state.active.type_.index("insert").split(".")[0])
-        defs_by_start = {}
-        for dl, dc, dname, dkind in state.active._python_def_names:
-            if dkind == want_def_kind:
-                defs_by_start[dl] = dname
         best = None
-        for sc in state.active._python_scopes:
-            if sc.get("kind") != want_scope_kind:
+        for idx, scchain in pcpyscopechains().items():
+            sc = state.active._python_scopes[idx]
+            if not scchain or sc.get("kind") != want_scope_kind:
                 continue
             if not (sc["start"] <= line <= sc["end"]):
                 continue
-            if sc["start"] not in defs_by_start:
-                continue
             if best is None or sc["start"] > best[0]:
-                best = (sc["start"], sc["end"], defs_by_start[sc["start"]])
+                best = (sc["start"], sc["end"], ".".join(scchain))
         if best is None:
             utils.show(
                 "error: currently in no class"
@@ -810,15 +913,12 @@ def _pcpyresolve(commandinput):
             return None
         startline, endline, name = best
         return startline, endline, name, want_def_kind
-    for dl, dc, dname, dkind in state.active._python_def_names:
-        if dname == raw:
-            want_scope_kind = "class" if dkind == "class" else "function"
-            endline = dl
-            for sc in state.active._python_scopes:
-                if sc.get("kind") == want_scope_kind and sc["start"] == dl:
-                    endline = sc["end"]
-                    break
-            return dl, endline, dname, dkind
+    chain = tuple(raw.split("."))
+    defkinds = {(dl, dname): dkind for dl, dc, dname, dkind in state.active._python_def_names}
+    for idx, scchain in pcpyscopechains().items():
+        if scchain == chain:
+            sc = state.active._python_scopes[idx]
+            return sc["start"], sc["end"], raw, defkinds.get((sc["start"], chain[-1]), "func")
     utils.show(f"error: function or class '{raw}' does not exist in current editor")
     return None
 
@@ -833,7 +933,7 @@ def pcpystartof(commandinput):
     if result is None:
         return
     startline, endline, name, kind = result
-    label = "class" if kind == "class" else "function"
+    label = {"class": "class", "block": "block"}.get(kind, "function")
     _pcmovecursor(f"{startline}.end")
     state.active.keypress()
     utils.show(f"jumped to start of {label} '{name}'")
@@ -849,51 +949,279 @@ def pcpyendof(commandinput):
     if result is None:
         return
     startline, endline, name, kind = result
-    label = "class" if kind == "class" else "function"
+    label = {"class": "class", "block": "block"}.get(kind, "function")
     _pcmovecursor(f"{endline}.end")
     state.active.keypress()
     utils.show(f"jumped to end of {label} '{name}'")
 
 
 def pcgodef(commandinput):
-    """PyCode's `pythongodef` command: jump to name's nearest binding
-    at or before the cursor in the cursor's scope, searching outward
-    through its enclosing scopes; if a scope has no binding at or
-    before the cursor, falls back to that scope's earliest binding
-    (which may be after the cursor)."""
+    """PyCode's `pythongodef` command: jump to the definition of the
+    name given as an attribute chain (Outer.Inner.name, starting at the
+    module level): its nearest binding at or before the cursor in the
+    scope the chain leads to; if that scope has no binding at or before
+    the cursor, falls back to its earliest binding (which may be after
+    the cursor)."""
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
     if state.active.hmode != "python":
         utils.show("not in python hmode")
         return
-    name = commandinput.strip()
+    raw = commandinput.strip()
+    chain = tuple(raw.split("."))
     line = int(state.active.type_.index("insert").split(".")[0])
-    scope_idx = None
-    best_start = None
-    for i, sc in enumerate(state.active._python_scopes):
-        if sc["start"] <= line <= sc["end"]:
-            if best_start is None or sc["start"] > best_start:
-                best_start = sc["start"]
-                scope_idx = i
     target_line = None
-    idx = scope_idx
-    while idx is not None:
-        sc = state.active._python_scopes[idx]
-        bindings = sc["names"].get(name)
-        if bindings:
-            candidates = [ln for ln, kd in bindings if ln <= line]
-            target_line = (
-                max(candidates) if candidates else min(ln for ln, kd in bindings)
-            )
-            break
-        idx = sc["parent"]
+    for idx, scchain in pcpyscopechains().items():
+        if scchain == chain[:-1]:
+            bindings = state.active._python_scopes[idx]["names"].get(chain[-1])
+            if bindings:
+                candidates = [ln for ln, kd in bindings if ln <= line]
+                target_line = (
+                    max(candidates) if candidates else min(ln for ln, kd in bindings)
+                )
+                break
     if target_line is None:
-        utils.show(f"error: name '{name}' does not exist in current editor")
+        utils.show(f"error: name '{raw}' does not exist in current editor")
         return
     _pcmovecursor(f"{target_line}.end")
     state.active.keypress()
-    utils.show(f"jumped to definition of '{name}'")
+    utils.show(f"jumped to definition of '{raw}'")
+
+
+_LATEX_SECTION_NAMES = ("chapter", "section", "subsection", "subsubsection")
+_LATEX_SECTION_PAT = re.compile(
+    r"^\s*\\(chapter|section|subsection|subsubsection)\*?\s*(?:\[[^\]]*\])?\s*\{(.*)\}"
+)
+_LATEX_SECTION_KINDWORDS = {
+    "c": 0,
+    "chapter": 0,
+    "s": 1,
+    "sec": 1,
+    "section": 1,
+    "ss": 2,
+    "subsec": 2,
+    "subsection": 2,
+    "sss": 3,
+    "subsubsec": 3,
+    "subsubsection": 3,
+}
+_MARKDOWN_SECTION_PAT = re.compile(r"^(#{1,6})(?:[ \t]+(.*?))?[ \t]*#*[ \t]*$")
+_MARKDOWN_SECTION_KINDWORDS = {
+    "h1": 1,
+    "h2": 2,
+    "h3": 3,
+    "h4": 4,
+    "h5": 5,
+    "h6": 6,
+    "s": None,
+    "sec": None,
+    "section": None,
+}
+
+
+def _pclatexsections(text):
+    """Every \\chapter/\\section/\\subsection/\\subsubsection in text,
+    as (start_line, end_line, level, title, label): level indexes
+    _LATEX_SECTION_NAMES, and end_line is the last non-blank line before
+    the next heading of the same or a higher level (or before
+    \\end{document}, or the end of the text)."""
+    lines = text.split("\n")
+    lastline = len(lines)
+    headings = []
+    for ln, content in enumerate(lines, 1):
+        content = re.split(r"(?<!\\)%", content, 1)[0]
+        if re.match(r"\s*\\end\{document\}", content):
+            lastline = ln - 1
+            break
+        m = _LATEX_SECTION_PAT.match(content)
+        if m:
+            level = _LATEX_SECTION_NAMES.index(m.group(1))
+            headings.append((ln, level, m.group(2).strip(), m.group(1)))
+    return _pcsectionspans(lines, headings, lastline)
+
+
+def _pcmarkdownsections(text):
+    """Every ATX heading (# to ######, outside fenced code blocks) in
+    text, as (start_line, end_line, level, title, label): level is the
+    number of #s, and end_line is the last non-blank line before the
+    next heading of the same or a higher level (or the end of the
+    text)."""
+    lines = text.split("\n")
+    headings = []
+    fence = None
+    for ln, content in enumerate(lines, 1):
+        fencematch = re.match(r"\s{0,3}(`{3,}|~{3,})", content)
+        if fencematch:
+            if fence is None:
+                fence = fencematch.group(1)[0]
+            elif fencematch.group(1)[0] == fence:
+                fence = None
+            continue
+        if fence is not None:
+            continue
+        m = _MARKDOWN_SECTION_PAT.match(content)
+        if m:
+            level = len(m.group(1))
+            headings.append((ln, level, (m.group(2) or "").strip(), f"h{level} section"))
+    return _pcsectionspans(lines, headings, len(lines))
+
+
+def _pcsectionspans(lines, headings, lastline):
+    """Shared by _pclatexsections()/_pcmarkdownsections(): turn
+    headings ((line, level, title, label), in order) into spans by
+    ending each one before the next heading of the same or a higher
+    level (or at lastline), minus trailing blank lines."""
+    spans = []
+    for i, (ln, level, title, label) in enumerate(headings):
+        end = lastline
+        for nln, nlevel, ntitle, nlabel in headings[i + 1 :]:
+            if nlevel <= level:
+                end = nln - 1
+                break
+        while end > ln and not lines[end - 1].strip():
+            end -= 1
+        spans.append((ln, max(end, ln), level, title, label))
+    return spans
+
+
+def _pcsectionresolve(commandinput, spans, kindwords, kindnouns, anynoun):
+    """Shared logic for the LaTeX/Markdown navigation commands: resolve
+    commandinput to (start_line, end_line, title, label). If it is one
+    of kindwords (mapping keyword -> heading level, or None for any
+    level), find the innermost enclosing heading of that level around
+    the cursor; otherwise treat it as a heading title and find the
+    first such heading. kindnouns maps level -> noun used in the
+    "currently in no ..." error; anynoun is used for a None level.
+    Returns None (after showing an error) if nothing matches."""
+    raw = commandinput.strip()
+    word = raw.lower()
+    line = int(state.active.type_.index("insert").split(".")[0])
+    if word in kindwords:
+        wantlevel = kindwords[word]
+        best = None
+        for sstart, send, level, title, label in spans:
+            if wantlevel is not None and level != wantlevel:
+                continue
+            if not (sstart <= line <= send):
+                continue
+            if best is None or sstart > best[0]:
+                best = (sstart, send, title, label)
+        if best is None:
+            noun = anynoun if wantlevel is None else kindnouns[wantlevel]
+            utils.show(f"error: currently in no {noun}")
+            return None
+        return best
+    for sstart, send, level, title, label in spans:
+        if title == raw:
+            return sstart, send, title, label
+    utils.show(f"error: {anynoun} '{raw}' does not exist in current editor")
+    return None
+
+
+def _pcsectionjump(commandinput, atend, hmode, spansfunc, kindwords, kindnouns, anynoun):
+    """Shared by pclatexstartof()/pclatexendof()/pcmarkdownstartof()/
+    pcmarkdownendof(): jump to the start (or end, if atend) of the
+    section commandinput resolves to."""
+    if not isinstance(state.active, editor.Editor):
+        utils.show("not an editor")
+        return
+    if state.active.hmode != hmode:
+        utils.show(f"not in {hmode} hmode")
+        return
+    result = _pcsectionresolve(
+        commandinput,
+        spansfunc(state.active.type_.get("1.0", "end-1c")),
+        kindwords,
+        kindnouns,
+        anynoun,
+    )
+    if result is None:
+        return
+    startline, endline, title, label = result
+    _pcmovecursor(f"{endline if atend else startline}.end")
+    state.active.keypress()
+    utils.show(f"jumped to {'end' if atend else 'start'} of {label} '{title}'")
+
+
+def pclatexstartof(commandinput):
+    """PyCode's `latexgostartof` command: jump to the start of the
+    resolved chapter/section/subsection/subsubsection (see
+    _pcsectionresolve())."""
+    _pcsectionjump(
+        commandinput,
+        False,
+        "latex",
+        _pclatexsections,
+        _LATEX_SECTION_KINDWORDS,
+        _LATEX_SECTION_NAMES,
+        "section",
+    )
+
+
+def pclatexendof(commandinput):
+    """PyCode's `latexgoendof` command: jump to the end of the resolved
+    chapter/section/subsection/subsubsection (see
+    _pcsectionresolve())."""
+    _pcsectionjump(
+        commandinput,
+        True,
+        "latex",
+        _pclatexsections,
+        _LATEX_SECTION_KINDWORDS,
+        _LATEX_SECTION_NAMES,
+        "section",
+    )
+
+
+def pcmarkdownstartof(commandinput):
+    """PyCode's `markdowngostartof` command: jump to the start of the
+    resolved Markdown section (see _pcsectionresolve())."""
+    _pcsectionjump(
+        commandinput,
+        False,
+        "markdown",
+        _pcmarkdownsections,
+        _MARKDOWN_SECTION_KINDWORDS,
+        {level: f"h{level} section" for level in range(1, 7)},
+        "section",
+    )
+
+
+def pcmarkdownendof(commandinput):
+    """PyCode's `markdowngoendof` command: jump to the end of the
+    resolved Markdown section (see _pcsectionresolve())."""
+    _pcsectionjump(
+        commandinput,
+        True,
+        "markdown",
+        _pcmarkdownsections,
+        _MARKDOWN_SECTION_KINDWORDS,
+        {level: f"h{level} section" for level in range(1, 7)},
+        "section",
+    )
+
+
+def pclatexsectiontitles():
+    """Every section title in the active (LaTeX-HMode) editor, for the
+    LaTeX navigation commands' autocomplete."""
+    return [
+        title
+        for s, e, l, title, label in _pclatexsections(
+            state.active.type_.get("1.0", "end-1c")
+        )
+    ]
+
+
+def pcmarkdownsectiontitles():
+    """Every section title in the active (Markdown-HMode) editor, for
+    the Markdown navigation commands' autocomplete."""
+    return [
+        title
+        for s, e, l, title, label in _pcmarkdownsections(
+            state.active.type_.get("1.0", "end-1c")
+        )
+    ]
 
 
 def pccmdwrite(text, n):
@@ -1090,7 +1418,11 @@ pycodetopythoncommands = {
     "indentselection": "pcindentselection",
     "insert": "pcinsert",
     "killquit": "pckillexit",
+    "latexgoendof": "pclatexendof",
+    "latexgostartof": "pclatexstartof",
     "mark": "pcmark",
+    "markdowngoendof": "pcmarkdownendof",
+    "markdowngostartof": "pcmarkdownstartof",
     "markselection": "pcmarkselection",
     "mathgod": "mathgod",
     "maximize": "pcmax",

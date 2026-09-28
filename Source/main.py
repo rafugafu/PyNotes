@@ -83,6 +83,9 @@ changelist = [
     "Fixed unindent command unindenting too much.",
     "Make Python comment selection comment with # space correctly indented instead of just # at the start of the line.",
     "Hugely improved the terminal's performance and made it much faster and more efficient.",
+    "Started accepting attribute chains instead of just plain possibly conflicting names in Python code navigation commands.",
+    "Added Python indent block navigation commands.",
+    "Added code navigation commands for LaTeX and Markdown.",
     "Fixed some bugs.",
 ]
 state.changestr = ""

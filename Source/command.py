@@ -787,6 +787,42 @@ def cmdrun(fullcommand):
             utils.show(f"error: no input given to command '{command}'")
             return
         pycode.pcgodef(commandinput)
+    elif (
+        command == "lanavstart"
+        or command == "lajumpstart"
+        or command == "latex-jump-startof"
+    ):
+        if not commandinput:
+            utils.show(f"error: no input given to command '{command}'")
+            return
+        pycode.pclatexstartof(commandinput)
+    elif (
+        command == "lanavend"
+        or command == "lajumpend"
+        or command == "latex-jump-endof"
+    ):
+        if not commandinput:
+            utils.show(f"error: no input given to command '{command}'")
+            return
+        pycode.pclatexendof(commandinput)
+    elif (
+        command == "mdnavstart"
+        or command == "mdjumpstart"
+        or command == "markdown-jump-startof"
+    ):
+        if not commandinput:
+            utils.show(f"error: no input given to command '{command}'")
+            return
+        pycode.pcmarkdownstartof(commandinput)
+    elif (
+        command == "mdnavend"
+        or command == "mdjumpend"
+        or command == "markdown-jump-endof"
+    ):
+        if not commandinput:
+            utils.show(f"error: no input given to command '{command}'")
+            return
+        pycode.pcmarkdownendof(commandinput)
     else:
         utils.show(text=f"error: invalid command '{command}'")
     pycode.pcrunhook("after", f"alt-x-command:{command}", commandinput)
@@ -799,22 +835,45 @@ def cmdallhmodenames():
 
 def cmdpynavvalues(currentinput):
     """Autocomplete values for pynavstart/pynavend: the fixed
-    f/fun/func/function/c/class keywords plus every function/class name
-    found in the active (Python-HMode) editor."""
+    f/fun/func/function/c/class/b/block keywords plus the attribute
+    chain of every function/class found in the active (Python-HMode)
+    editor."""
     if state.active is None or state.active.hmode != "python":
         return []
-    return ["f", "fun", "func", "function", "c", "class"] + sorted(
-        set(dname for dl, dc, dname, dkind in state.active._python_def_names)
+    chains = pycode.pcpyscopechains()
+    return ["f", "fun", "func", "function", "c", "class", "b", "block"] + sorted(
+        ".".join(chain) for chain in chains.values() if chain
     )
 
 
 def cmdpygodefvalues(currentinput):
-    """Autocomplete values for pygodef: every name visible in any scope
-    of the active (Python-HMode) editor."""
+    """Autocomplete values for pygodef: the attribute chain of every
+    name visible in any scope of the active (Python-HMode) editor."""
     if state.active is None or state.active.hmode != "python":
         return []
-    return sorted(
-        set(name for scope in state.active._python_scopes for name in scope["names"])
+    return sorted(pycode.pcpynames())
+
+
+def cmdlanavvalues(currentinput):
+    """Autocomplete values for lanavstart/lanavend: the fixed
+    c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/
+    subsubsection keywords plus every section title found in the active
+    (LaTeX-HMode) editor."""
+    if state.active is None or state.active.hmode != "latex":
+        return []
+    return list(pycode._LATEX_SECTION_KINDWORDS) + sorted(
+        set(pycode.pclatexsectiontitles())
+    )
+
+
+def cmdmdnavvalues(currentinput):
+    """Autocomplete values for mdnavstart/mdnavend: the fixed
+    h1-h6/s/sec/section keywords plus every heading title found in the
+    active (Markdown-HMode) editor."""
+    if state.active is None or state.active.hmode != "markdown":
+        return []
+    return list(pycode._MARKDOWN_SECTION_KINDWORDS) + sorted(
+        set(pycode.pcmarkdownsectiontitles())
     )
 
 
@@ -964,6 +1023,30 @@ cmdregister(
     ("pygodef", "python-go-definition"),
     hmodes=("python",),
     inputs=cmdpygodefvalues,
+    buffertypes=(editor.Editor,),
+)
+cmdregister(
+    ("lanavstart", "lajumpstart", "latex-jump-startof"),
+    hmodes=("latex",),
+    inputs=cmdlanavvalues,
+    buffertypes=(editor.Editor,),
+)
+cmdregister(
+    ("lanavend", "lajumpend", "latex-jump-endof"),
+    hmodes=("latex",),
+    inputs=cmdlanavvalues,
+    buffertypes=(editor.Editor,),
+)
+cmdregister(
+    ("mdnavstart", "mdjumpstart", "markdown-jump-startof"),
+    hmodes=("markdown",),
+    inputs=cmdmdnavvalues,
+    buffertypes=(editor.Editor,),
+)
+cmdregister(
+    ("mdnavend", "mdjumpend", "markdown-jump-endof"),
+    hmodes=("markdown",),
+    inputs=cmdmdnavvalues,
     buffertypes=(editor.Editor,),
 )
 cmdregister(
