@@ -797,9 +797,7 @@ def cmdrun(fullcommand):
             return
         pycode.pclatexstartof(commandinput)
     elif (
-        command == "lanavend"
-        or command == "lajumpend"
-        or command == "latex-jump-endof"
+        command == "lanavend" or command == "lajumpend" or command == "latex-jump-endof"
     ):
         if not commandinput:
             utils.show(f"error: no input given to command '{command}'")

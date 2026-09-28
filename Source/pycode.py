@@ -885,7 +885,11 @@ def _pcpyresolve(commandinput):
         for bstart, bend, bkeyword in blocks:
             if not (bstart <= line <= bend):
                 continue
-            if best is None or bstart > best[0] or (bstart == best[0] and bend < best[1]):
+            if (
+                best is None
+                or bstart > best[0]
+                or (bstart == best[0] and bend < best[1])
+            ):
                 best = (bstart, bend, bkeyword)
         if best is None:
             utils.show("error: not in block")
@@ -914,11 +918,18 @@ def _pcpyresolve(commandinput):
         startline, endline, name = best
         return startline, endline, name, want_def_kind
     chain = tuple(raw.split("."))
-    defkinds = {(dl, dname): dkind for dl, dc, dname, dkind in state.active._python_def_names}
+    defkinds = {
+        (dl, dname): dkind for dl, dc, dname, dkind in state.active._python_def_names
+    }
     for idx, scchain in pcpyscopechains().items():
         if scchain == chain:
             sc = state.active._python_scopes[idx]
-            return sc["start"], sc["end"], raw, defkinds.get((sc["start"], chain[-1]), "func")
+            return (
+                sc["start"],
+                sc["end"],
+                raw,
+                defkinds.get((sc["start"], chain[-1]), "func"),
+            )
     utils.show(f"error: function or class '{raw}' does not exist in current editor")
     return None
 
@@ -1063,7 +1074,9 @@ def _pcmarkdownsections(text):
         m = _MARKDOWN_SECTION_PAT.match(content)
         if m:
             level = len(m.group(1))
-            headings.append((ln, level, (m.group(2) or "").strip(), f"h{level} section"))
+            headings.append(
+                (ln, level, (m.group(2) or "").strip(), f"h{level} section")
+            )
     return _pcsectionspans(lines, headings, len(lines))
 
 
@@ -1119,7 +1132,9 @@ def _pcsectionresolve(commandinput, spans, kindwords, kindnouns, anynoun):
     return None
 
 
-def _pcsectionjump(commandinput, atend, hmode, spansfunc, kindwords, kindnouns, anynoun):
+def _pcsectionjump(
+    commandinput, atend, hmode, spansfunc, kindwords, kindnouns, anynoun
+):
     """Shared by pclatexstartof()/pclatexendof()/pcmarkdownstartof()/
     pcmarkdownendof(): jump to the start (or end, if atend) of the
     section commandinput resolves to."""
