@@ -351,7 +351,6 @@ class Terminal(easytk.ttk.Text):
         self.running = True
         self._closed = False
         self._out_q = _queue.Queue(maxsize=64)
-        self.cursor = "1.0"
         self.screen_top = 1
         self._cur_line = 1
         self._saved_cursor = None
@@ -828,8 +827,6 @@ class Terminal(easytk.ttk.Text):
             _cur_row = min(max(1, _cur_row), rows)
             _cur_col = min(max(0, _cur_col), cols)
             self.mark_set("insert", f"{_cur_row}.{_cur_col}")
-            self.cursor = self.index("insert")
-            self._cur_line = _cur_row
         else:
             if self._cur_line - self.screen_top + 1 > rows:
                 self.screen_top = self._cur_line - rows + 1
@@ -981,9 +978,7 @@ class Terminal(easytk.ttk.Text):
         self.realbind("<Key>", self._key)
         self.delete("1.0", "end")
         self.mark_set("insert", "1.0")
-        self.cursor = "1.0"
         self.screen_top = 1
-        self._cur_line = 1
         # A fresh screen always follows the bottom again, even if the
         # user had scrolled up into the old scrollback before restarting.
         self._follow_bottom = True
@@ -1303,7 +1298,7 @@ class Terminal(easytk.ttk.Text):
         self._alt_saved = (
             self.dump("1.0", "end", text=True, tag=True),
             self.screen_top,
-            self.cursor,
+            self.index("insert"),
             dict(self._sgr_state),
             self._cur_line,
         )
@@ -1315,7 +1310,6 @@ class Terminal(easytk.ttk.Text):
         self.insert("1.0", "\n".join([" " * self._GRID_COLS] * self._GRID_ROWS))
         self.screen_top = 1
         self.mark_set("insert", "1.0")
-        self.cursor = "1.0"
         if not self.nocolor:
             _sgr_apply(self._sgr_state, [0])
             self._recompute_sgr_tag()
@@ -1345,7 +1339,6 @@ class Terminal(easytk.ttk.Text):
         if self._cur_line - self.screen_top + 1 > self._VT_ROWS:
             self.screen_top = self._cur_line - self._VT_ROWS + 1
         self.mark_set("insert", saved_cursor)
-        self.cursor = saved_cursor
 
     def _deccolm_clear(self):
         """Clear the screen and home the cursor, as DECSET 3 (switching
@@ -1577,7 +1570,6 @@ class Terminal(easytk.ttk.Text):
                 return
             text = text[_skip_end.end() :]
             self._osc_skipping = False
-        self.mark_set("insert", self.cursor)
         i = 0
         n = len(text)
         while i < n:
@@ -2424,7 +2416,6 @@ class Terminal(easytk.ttk.Text):
                         _sgr_apply(self._sgr_state, [0])
                         self._recompute_sgr_tag()
                     self.mark_set("insert", "1.0")
-                    self.cursor = "1.0"
                     self.setcursortype("block")
                     self._cursor_set_blink_enabled(True)
                     self._cursor_set_visible(True)
@@ -2576,7 +2567,6 @@ class Terminal(easytk.ttk.Text):
             else:
                 i += 1
         self._term_materialize_screen()
-        self.cursor = self.index("insert")
         self._cursor_schedule_redraw()
 
     def _poll(self):
@@ -2870,13 +2860,14 @@ class Terminal(easytk.ttk.Text):
         after_idle so this runs after tkinter's own default click
         handling. A plain (non-mouse-reporting) click moves tkinter's
         real "insert" mark, which the emulator otherwise never reads or
-        writes, so this isn't correcting that; it only re-applies
-        self.cursor via mark_set("insert", ...), whose override resets
-        the blink phase and schedules a redraw as a side effect."""
+        writes, so this isn't correcting that; it only re-applies the
+        tracked cursor position via mark_set("insert", ...), whose
+        override resets the blink phase and schedules a redraw as a
+        side effect."""
 
         def _do():
             try:
-                self.mark_set("insert", self.cursor)
+                self.mark_set("insert", self.index("insert"))
             except Exception:
                 pass
 
