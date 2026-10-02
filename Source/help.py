@@ -332,6 +332,8 @@ cut - Cuts the selected text in the active editor.
 
 delete 'a', 'b' - Deletes the text from a given tkinter-style index 'a' to a given tkinter-style index 'b' in the active editor.
 
+deletekey - Presses Delete in the active editor: deletes the selection, or one indentation level if only whitespace is before the cursor and whitespace follows it, or the next character.
+
 dictate - Opens the speech-to-text, lets you dictate text to the active editor.
 
 downloadplugins - Automatically opens a link to the PyNotes GitHub Plugin page to let you download plugins in your default browser.
@@ -365,6 +367,8 @@ killquit - Forcibly kills PyNotes without saving files or cleaning up.
 latexgoendof 'c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title' - If the HMode is LaTeX, jumps to the end of the current chapter/section/subsection/subsubsection the cursor is in if given the respective keyword, otherwise jumps to the end of the section with the given title if it exists in the active editor.
 
 latexgostartof 'c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title' - If the HMode is LaTeX, jumps to the start of the current chapter/section/subsection/subsubsection the cursor is in if given the respective keyword, otherwise jumps to the start of the section with the given title if it exists in the active editor.
+
+left - Presses Left in the active editor: moves the cursor back one indentation level if only whitespace is before it, otherwise one character.
 
 mark 'a', 'b' - Visually marks the text between a tkinter-style index 'a' and a tkinter-style index 'b' in the active editor.
 
@@ -431,6 +435,8 @@ repeatxcommand 'command', n - Repeats the given Alt-X command n times.
 removeselectionpoint - Removes the selection point if set.
 
 return value - Returns the given value from a function.
+
+right - Presses Right in the active editor: moves the cursor forward one indentation level if only whitespace is before it and whitespace follows it, otherwise one character.
 
 runcode - Runs the code in the active editor if the HMode is Python / LaTeX / HTML.
 

@@ -376,6 +376,9 @@ class Editor(Buffer):
         self.type_.bind("<Return>", lambda event: self.indent())
         self.type_.bind("<Tab>", lambda event: self.tab() or "break")
         self.type_.bind("<BackSpace>", lambda event: self.backspace() or "break")
+        self.type_.bind("<Left>", lambda event: self.left() or "break")
+        self.type_.bind("<Right>", lambda event: self.right() or "break")
+        self.type_.bind("<Delete>", lambda event: self.delete_key() or "break")
         self.type_.bind("<Alt-l>", lambda event: self.gl() or "break")
         self.type_.bind("<Control-p>", lambda event: self.ptf() or "break")
         self.type_.bind("<Control-P>", lambda event: self.ptb() or "break")
@@ -3791,6 +3794,95 @@ class Editor(Buffer):
         self.type_.insert(f"insert", indent)
         self._set_undo_mark()
 
+    def _indent_chars_before_cursor(self):
+        """How many characters back the previous indent stop is (a tab,
+        or the spaces back to the previous multiple of 4 columns), or 0
+        if anything but whitespace is before the cursor on its line."""
+        before = self.type_.get("insert linestart", "insert")
+        if not before or before.strip():
+            return 0
+        trailing_spaces = len(before) - len(before.rstrip(" "))
+        if not trailing_spaces:
+            return 1
+        column = len(before.expandtabs(8))
+        return min(trailing_spaces, column % 4 or 4)
+
+    def _indent_chars_after_cursor(self):
+        """How many characters forward the next indent stop is, or 0 if
+        anything but whitespace is before the cursor on its line or a
+        non-whitespace character follows it."""
+        before = self.type_.get("insert linestart", "insert")
+        after = self.type_.get("insert", "insert lineend")
+        if before.strip() or not after or after[0] not in " \t":
+            return 0
+        if after[0] == "\t":
+            return 1
+        spaces = len(after) - len(after.lstrip(" "))
+        column = len(before.expandtabs(8))
+        return min(spaces, 4 - column % 4)
+
+    def left(self):
+        """<Left> handler for all HModes: clear the selection (unless
+        a selection point is extending it), then if only whitespace is
+        before the cursor, move back one indentation level (see
+        backspace()); otherwise move back one character."""
+        if self.selectionpoint:
+            self.type_.after_idle(self.selupdate)
+        else:
+            self.type_.tag_remove("sel", "1.0", "end")
+        move = self._indent_chars_before_cursor()
+        if move:
+            self.type_.mark_set("insert", f"insert-{move}c")
+        else:
+            self.type_.mark_set("insert", "insert-1displayindices")
+        self.type_.see("insert")
+        return "break"
+
+    def right(self):
+        """<Right> handler for all HModes, the opposite of left():
+        clear the selection (unless a selection point is extending
+        it), then if only whitespace is before the cursor and
+        whitespace follows it, move forward one indentation level;
+        otherwise move forward one character."""
+        if self.selectionpoint:
+            self.type_.after_idle(self.selupdate)
+        else:
+            self.type_.tag_remove("sel", "1.0", "end")
+        move = self._indent_chars_after_cursor()
+        if move:
+            self.type_.mark_set("insert", f"insert+{move}c")
+        else:
+            self.type_.mark_set("insert", "insert+1displayindices")
+        self.type_.see("insert")
+        return "break"
+
+    def delete_key(self):
+        """<Delete> handler for all HModes, the forward version of
+        backspace(): delete the selection if the cursor is in it;
+        otherwise, if only whitespace is before the cursor and
+        whitespace follows it, delete forward to the next indentation
+        level; otherwise delete the next character."""
+        if self.selectionpoint:
+            self.removeselpoint()
+        if (
+            self.type_.tag_ranges("sel")
+            and self.type_.compare("sel.first", "<=", "insert")
+            and self.type_.compare("insert", "<=", "sel.last")
+        ):
+            self._set_undo_mark()
+            self.type_.delete("sel.first", "sel.last")
+            self._set_undo_mark()
+            return "break"
+        remove = self._indent_chars_after_cursor()
+        if remove:
+            self._set_undo_mark()
+            self.type_.delete("insert", f"insert+{remove}c")
+            self._set_undo_mark()
+        else:
+            self.type_.delete("insert")
+        self.type_.see("insert")
+        return "break"
+
     def backspace(self):
         """<BackSpace> handler for all HModes, the opposite of tab():
         delete the selection if the cursor is in it; otherwise, if only
@@ -3806,14 +3898,8 @@ class Editor(Buffer):
             self.type_.delete("sel.first", "sel.last")
             self._set_undo_mark()
             return "break"
-        before = self.type_.get("insert linestart", "insert")
-        if before and not before.strip():
-            trailing_spaces = len(before) - len(before.rstrip(" "))
-            if trailing_spaces:
-                column = len(before.expandtabs(8))
-                remove = min(trailing_spaces, column % 4 or 4)
-            else:
-                remove = 1
+        remove = self._indent_chars_before_cursor()
+        if remove:
             self._set_undo_mark()
             self.type_.delete(f"insert-{remove}c", "insert")
             self._set_undo_mark()

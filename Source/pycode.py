@@ -459,6 +459,30 @@ def pcbackspace():
     return state.active.backspace()
 
 
+def pcleft():
+    """PyCode's `left` command: what pressing Left does in the active
+    editor (see Editor.left())."""
+    if not isinstance(state.active, editor.Editor):
+        return
+    return state.active.left()
+
+
+def pcright():
+    """PyCode's `right` command: what pressing Right does in the active
+    editor (see Editor.right())."""
+    if not isinstance(state.active, editor.Editor):
+        return
+    return state.active.right()
+
+
+def pcdeletekey():
+    """PyCode's `deletekey` command: what pressing Delete does in the
+    active editor (see Editor.delete_key())."""
+    if not isinstance(state.active, editor.Editor):
+        return
+    return state.active.delete_key()
+
+
 def pcselall(*args, **kwargs):
     if not isinstance(state.active, editor.Editor):
         return
@@ -1418,6 +1442,7 @@ pycodetopythoncommands = {
     "copytext": "pccopytext",
     "cut": "pccut",
     "delete": "pcdelete",
+    "deletekey": "pcdeletekey",
     "dictate": "st",
     "downloadplugins": "dp",
     "fileinfoconfig": "active.fileinfoconfig",
@@ -1435,6 +1460,7 @@ pycodetopythoncommands = {
     "killquit": "pckillexit",
     "latexgoendof": "pclatexendof",
     "latexgostartof": "pclatexstartof",
+    "left": "pcleft",
     "mark": "pcmark",
     "markdowngoendof": "pcmarkdownendof",
     "markdowngostartof": "pcmarkdownstartof",
@@ -1467,6 +1493,7 @@ pycodetopythoncommands = {
     "repeatxcommand": "pcrepeatx",
     "removeselectionpoint": "pcremoveselectionpoint",
     "return": "return",
+    "right": "pcright",
     "runcode": "pcruncode",
     "saveasfile": "pcsaveasfile",
     "savefile": "pcsavefile",
@@ -2156,6 +2183,9 @@ for buffer in all_buffers: bindtype_(buffer, '<KeyRelease>', lambda event, edito
 for buffer in all_buffers: bindtype_(buffer, '<Return>', lambda event, editor = buffer: editor.indent(), break_ = False)
 for buffer in all_buffers: bindtype_(buffer, '<Tab>', lambda event, editor = buffer: editor.tab())
 for buffer in all_buffers: bindtype_(buffer, '<BackSpace>', lambda event, editor = buffer: editor.backspace())
+for buffer in all_buffers: bindtype_(buffer, '<Left>', lambda event, editor = buffer: editor.left())
+for buffer in all_buffers: bindtype_(buffer, '<Right>', lambda event, editor = buffer: editor.right())
+for buffer in all_buffers: bindtype_(buffer, '<Delete>', lambda event, editor = buffer: editor.delete_key())
 for buffer in all_buffers: bindtype_(buffer, '<Alt-l>', lambda event, editor = buffer: editor.gl())
 for buffer in all_buffers: bindtype_(buffer, '<Control-p>', lambda event, editor = buffer: editor.ptf())
 for buffer in all_buffers: bindtype_(buffer, '<Control-P>', lambda event, editor = buffer: editor.ptb())
