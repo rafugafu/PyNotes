@@ -2165,82 +2165,144 @@ def pcread(code):
             except Exception as error:
                 error = str(error)
                 state.root.error("Error in PyCode", f'Error in line "{line}":\n{error}')
-    defaults_cdt_root = """\
-bindrecur(root, '<Alt-x>', lambda event: cmd())
-bindrecur(root, '<Control-N>', lambda event: neweditor())
-bindrecur(root, '<Control-O>', lambda event: neweditor(True))
-bindrecur(root, '<Control-q>', lambda event: ext())
-"""
-    defaults_cdt_type_ = """\
-for buffer in all_buffers: bindtype_(buffer, '<Control-a>', lambda event, editor = buffer: editor.selall())
-for buffer in all_buffers: bindtype_(buffer, '<Control-n>', lambda event, editor = buffer: editor.nw())
-for buffer in all_buffers: bindtype_(buffer, '<Control-o>', lambda event, editor = buffer: editor.llld())
-for buffer in all_buffers: bindtype_(buffer, '<Control-c>', lambda event, editor = buffer: editor.cp())
-for buffer in all_buffers: bindtype_(buffer, '<Control-v>', lambda event, editor = buffer: editor.pst())
-for buffer in all_buffers: bindtype_(buffer, '<Control-w>', lambda event, editor = buffer: pcclosebuff(all_buffers.index(buffer)))
-for buffer in all_buffers: bindtype_(buffer, '<Control-x>', lambda event, editor = buffer: editor.cut())
+    default_root_bindings = [
+        ("<Alt-x>", "cmd()"),
+        ("<Control-N>", "neweditor()"),
+        ("<Control-O>", "neweditor(True)"),
+        ("<Control-q>", "ext()"),
+    ]
+    default_type_bindings = [
+        ("<Control-a>", "editor.selall()"),
+        ("<Control-n>", "editor.nw()"),
+        ("<Control-o>", "editor.llld()"),
+        ("<Control-c>", "editor.cp()"),
+        ("<Control-v>", "editor.pst()"),
+        ("<Control-w>", "pcclosebuff(all_buffers.index(editor))"),
+        ("<Control-x>", "editor.cut()"),
+        ("<Tab>", "editor.tab()"),
+        ("<BackSpace>", "editor.backspace()"),
+        ("<Left>", "editor.left()"),
+        ("<Right>", "editor.right()"),
+        ("<Delete>", "editor.delete_key()"),
+        ("<Alt-l>", "editor.gl()"),
+        ("<Control-p>", "editor.ptf()"),
+        ("<Control-P>", "editor.ptb()"),
+        ("<Control-f>", "editor.f()"),
+        ("<Control-F>", "editor.fr()"),
+        ("<Control-h>", "editor.fr()"),
+        ("<Control-z>", "editor.undo()"),
+        ("<Control-Z>", "editor.redo()"),
+        ("<Control-s>", "editor.sssv()"),
+        ("<Control-S>", "editor.ssv()"),
+        ("<F5>", "editor.f5()"),
+        ("<Control-space>", "editor.toggleselpoint()"),
+    ]
+    defaults_cdt_root = "".join(
+        f"bindrecur(root, '{key}', lambda event: {action})\n"
+        for key, action in default_root_bindings
+    )
+    defaults_cdt_type_ = "".join(
+        f"for buffer in all_buffers: bindtype_(buffer, '{key}', lambda event, editor = buffer: {action})\n"
+        for key, action in default_type_bindings
+    )
+    defaults_cdt_type_ += """\
 for buffer in all_buffers: bindtype_(buffer, '<KeyRelease>', lambda event, editor = buffer: editor.keypress(), break_ = False)
 for buffer in all_buffers: bindtype_(buffer, '<Return>', lambda event, editor = buffer: editor.indent(), break_ = False)
-for buffer in all_buffers: bindtype_(buffer, '<Tab>', lambda event, editor = buffer: editor.tab())
-for buffer in all_buffers: bindtype_(buffer, '<BackSpace>', lambda event, editor = buffer: editor.backspace())
-for buffer in all_buffers: bindtype_(buffer, '<Left>', lambda event, editor = buffer: editor.left())
-for buffer in all_buffers: bindtype_(buffer, '<Right>', lambda event, editor = buffer: editor.right())
-for buffer in all_buffers: bindtype_(buffer, '<Delete>', lambda event, editor = buffer: editor.delete_key())
-for buffer in all_buffers: bindtype_(buffer, '<Alt-l>', lambda event, editor = buffer: editor.gl())
-for buffer in all_buffers: bindtype_(buffer, '<Control-p>', lambda event, editor = buffer: editor.ptf())
-for buffer in all_buffers: bindtype_(buffer, '<Control-P>', lambda event, editor = buffer: editor.ptb())
-for buffer in all_buffers: bindtype_(buffer, '<Control-f>', lambda event, editor = buffer: editor.f())
-for buffer in all_buffers: bindtype_(buffer, '<Control-F>', lambda event, editor = buffer: editor.fr())
-for buffer in all_buffers: bindtype_(buffer, '<Control-h>', lambda event, editor = buffer: editor.fr())
-for buffer in all_buffers: bindtype_(buffer, '<Control-z>', lambda event, editor = buffer: editor.undo())
-for buffer in all_buffers: bindtype_(buffer, '<Control-Z>', lambda event, editor = buffer: editor.redo())
-for buffer in all_buffers: bindtype_(buffer, '<Control-s>', lambda event, editor = buffer: editor.sssv())
-for buffer in all_buffers: bindtype_(buffer, '<Control-S>', lambda event, editor = buffer: editor.ssv())
-for buffer in all_buffers: bindtype_(buffer, '<F5>', lambda event, editor = buffer: editor.f5())
-for buffer in all_buffers: bindtype_(buffer, '<Control-space>', lambda event, editor = buffer: editor.toggleselpoint())
 for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, editor = buffer: editor.selkeypress(event), False, '+')
 """
     cdt = defaults_cdt_root + cdt
     type_bind_cdt = defaults_cdt_type_ + type_bind_cdt
+
+    def pycodechordhandler(transitions, completions, standalone, guard):
+        """Build the expression a chord-involved key's handler runs. A
+        completion runs only its chord's action; a later chord step
+        runs nothing else; any other press restarts: it begins a chord
+        (also running the key's own standalone binding, if any) or
+        just runs its standalone binding and clears the chord."""
+        reset = "_pychord_state.__setitem__(0, None)"
+        handler = f"({standalone} or {reset})" if standalone else reset
+        for from_s, to_s in reversed(transitions):
+            if from_s is not None:
+                continue
+            advance = f"_pychord_state.__setitem__(0, '{to_s}')"
+            if standalone:
+                advance = f"({standalone} or {advance})"
+            handler = f"({advance} if True{guard} else {handler})"
+        for from_s, to_s in reversed(transitions):
+            if from_s is None:
+                continue
+            advance = f"_pychord_state.__setitem__(0, '{to_s}')"
+            handler = f"({advance} if _pychord_state[0] in ('{from_s}',){guard} else {handler})"
+        for es, ap in reversed(completions):
+            handler = f"((pcexecaction(\"{ap}\") or {reset}) if _pychord_state[0] in ('{es}',){guard} else {handler})"
+        return handler
+
+    pycode_default_type_actions = dict(default_type_bindings)
+    pycode_default_root_actions = dict(default_root_bindings)
     for mod_key in set(list(mod_key_transitions) + list(mod_key_completions)):
+        if mod_key in simple_bindings_seen:
+            standalone_t = standalone_r = (
+                f'pcexecaction("{simple_bindings_seen[mod_key]}")'
+            )
+        else:
+            standalone_t = (
+                f"({pycode_default_type_actions[mod_key]} if isinstance(editor, Editor) else None)"
+                if mod_key in pycode_default_type_actions
+                else None
+            )
+            standalone_r = pycode_default_root_actions.get(mod_key)
         transitions = mod_key_transitions.get(mod_key, [])
         completions = mod_key_completions.get(mod_key, [])
-        is_pure_completion = bool(completions) and not bool(transitions)
-        if is_pure_completion and mod_key in simple_bindings_seen:
-            else_t = f"(pcexecaction(\"{simple_bindings_seen[mod_key]}\") or 'break')"
-            else_r = f'pcexecaction("{simple_bindings_seen[mod_key]}")'
+        handler_t = pycodechordhandler(transitions, completions, standalone_t, "")
+        handler_r = pycodechordhandler(transitions, completions, standalone_r, "")
+        type_bind_cdt += f"for editor in all_buffers: bindrecur(editor, '{mod_key}', lambda event, editor = editor: {handler_t})\n"
+        cdt += f"root.bind('{mod_key}', lambda event: {handler_r}{" or 'break'" if standalone_r else ''})\n"
+    for key_part in dict.fromkeys(
+        list(simple_bindings_seen) + list(pycode_default_type_actions)
+    ):
+        simple_match = re.match(r"^<([^<>\-]+)>$", key_part)
+        if not simple_match:
+            continue
+        simple_inner = simple_match.group(1)
+        simple_transitions = [
+            (from_s, to_s)
+            for from_s, ks_, to_s in nonmod_transitions
+            if ks_ == simple_inner
+        ]
+        simple_completions = [
+            (es, ap) for es, ks_, ap in nonmod_completions if ks_ == simple_inner
+        ]
+        if not simple_transitions and not simple_completions:
+            continue
+        if key_part in simple_bindings_seen:
+            standalone_t = standalone_r = (
+                f'pcexecaction("{simple_bindings_seen[key_part]}")'
+            )
         else:
-            else_t = "_pychord_state.__setitem__(0, None)"
-            else_r = "_pychord_state.__setitem__(0, None)"
-        handler_t = else_t
-        handler_r = else_r
-        for from_s, to_s in reversed(transitions):
-            check = (
-                f"_pychord_state[0] in (None,)"
-                if from_s is None
-                else f"_pychord_state[0] in ('{from_s}',)"
-            )
-            handler_t = f"((_pychord_state.__setitem__(0, '{to_s}') or 'break') if {check} else {handler_t})"
-            handler_r = (
-                f"(_pychord_state.__setitem__(0, '{to_s}') if {check} else {handler_r})"
-            )
-        for es, ap in reversed(completions):
-            handler_t = f"((pcexecaction(\"{ap}\") or _pychord_state.__setitem__(0, None) or 'break') if _pychord_state[0] in ('{es}',) else {handler_t})"
-            handler_r = f"((pcexecaction(\"{ap}\") or _pychord_state.__setitem__(0, None)) if _pychord_state[0] in ('{es}',) else {handler_r})"
-        type_bind_cdt += f"for editor in all_buffers: bindrecur(editor, '{mod_key}', lambda event: {handler_t})\n"
-        cdt += f"root.bind('{mod_key}', lambda event: {handler_r})\n"
+            standalone_t = f"({pycode_default_type_actions[key_part]} if isinstance(editor, Editor) else None)"
+            standalone_r = None
+        guard = " and not (event.state & 12)"
+        handler_t = pycodechordhandler(
+            simple_transitions, simple_completions, standalone_t, guard
+        )
+        handler_r = pycodechordhandler(
+            simple_transitions, simple_completions, standalone_r, guard
+        )
+        type_bind_cdt += f"for editor in all_buffers: bindrecur(editor, '{key_part}', lambda event, editor = editor: {handler_t})\n"
+        cdt += f"root.bind('{key_part}', lambda event: {handler_r}{" or 'break'" if standalone_r else ''})\n"
     if chord_any_defined:
         MODS = "('Control_L', 'Control_R', 'Shift_L', 'Shift_R', 'Alt_L', 'Alt_R', 'Meta_L', 'Meta_R', 'Super_L', 'Super_R', 'Caps_Lock', 'Num_Lock', 'Scroll_Lock', 'ISO_Level3_Shift')"
         kp_body = (
             f"None if event.keysym in {MODS} else _pychord_state.__setitem__(0, None)"
         )
-        for from_s, ks_, to_s in reversed(nonmod_transitions):
-            state_check = (
-                f"_pychord_state[0] in (None,)"
-                if from_s is None
-                else f"_pychord_state[0] in ('{from_s}',)"
-            )
-            kp_body = f"((_pychord_state.__setitem__(0, '{to_s}') or 'break') if {state_check} and event.keysym in ('{ks_}',) and not (event.state & 12) else {kp_body})"
+        for restart in (True, False):
+            for from_s, ks_, to_s in reversed(nonmod_transitions):
+                if (from_s is None) != restart:
+                    continue
+                state_check = (
+                    "True" if from_s is None else f"_pychord_state[0] in ('{from_s}',)"
+                )
+                kp_body = f"((_pychord_state.__setitem__(0, '{to_s}') or 'break') if {state_check} and event.keysym in ('{ks_}',) and not (event.state & 12) else {kp_body})"
         for es, ks_, ap in reversed(nonmod_completions):
             kp_body = f"((pcexecaction(\"{ap}\") or _pychord_state.__setitem__(0, None) or 'break') if _pychord_state[0] in ('{es}',) and event.keysym in ('{ks_}',) and not (event.state & 12) else {kp_body})"
         chord_init = "globals().setdefault('_pychord_state', [None])\n"
