@@ -220,6 +220,24 @@ def mathgod():
     pycode.pcrunhook("after", "open-mathgod")
 
 
+def ss():
+    """Open a PyNotes source code file chosen by the user, from the
+    installed PyNotes source directory, in a new editor."""
+    import dialogs
+    import pycode
+    import window
+
+    pycode.pcrunhook("before", "show-pynotes-source-code")
+    show("open pynotes source code")
+    fn = dialogs.openfileget(
+        (("Python Files", "*.py"),), "Open PyNotes Source Code File: ", rootdir
+    )
+    if not fn:
+        return
+    window.neweditor(fn)
+    pycode.pcrunhook("after", "show-pynotes-source-code")
+
+
 class ErrorHandler:
     """A file-like object (assigned to sys.stderr) that shows uncaught
     errors/tracebacks in a popup window instead of only printing them."""

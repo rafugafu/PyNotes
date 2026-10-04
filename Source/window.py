@@ -9,7 +9,7 @@ import threading
 import textwrap
 import ttkbootstrap as ttk
 import state
-from init import homedir, rootdir, DEBOUNCE_TIME
+from init import homedir, DEBOUNCE_TIME
 import editor
 import dialogs
 import pycode
@@ -555,17 +555,3 @@ def ext():
         except Exception:
             pass
         os._exit(0)
-
-
-def ss():
-    """Open a PyNotes source code file chosen by the user, from the
-    installed PyNotes source directory, in a new editor."""
-    pycode.pcrunhook("before", "show-pynotes-source-code")
-    utils.show("open pynotes source code")
-    fn = dialogs.openfileget(
-        (("Python Files", "*.py"),), "Open PyNotes Source Code File: ", rootdir + "/"
-    )
-    if not fn:
-        return
-    neweditor(fn)
-    pycode.pcrunhook("after", "show-pynotes-source-code")

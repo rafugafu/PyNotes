@@ -850,7 +850,9 @@ class Terminal(easytk.ttk.Text):
             for ln in range(1, min(actual_rows, rows) + 1):
                 width = self._term_col_width(ln)
                 if width > cols:
-                    self.delete(f"{ln}.{self._term_col_to_index(ln, cols)}", f"{ln}.end")
+                    self.delete(
+                        f"{ln}.{self._term_col_to_index(ln, cols)}", f"{ln}.end"
+                    )
                 elif width < cols:
                     self.insert(f"{ln}.end", " " * (cols - width))
             if rows > actual_rows:
@@ -1467,9 +1469,7 @@ class Terminal(easytk.ttk.Text):
         so the cursor ends up where the app itself believes it is."""
         while run:
             row = int(self.index("insert").split(".")[0])
-            gcol = self._term_index_to_col(
-                row, int(self.index("insert").split(".")[1])
-            )
+            gcol = self._term_index_to_col(row, int(self.index("insert").split(".")[1]))
             if gcol >= self._GRID_COLS:
                 if not self._autowrap:
                     gcol = self._GRID_COLS - 1
@@ -2043,7 +2043,10 @@ class Terminal(easytk.ttk.Text):
                                 self._term_goto(self._cur_line, int(col))
                         elif cmd == "P":
                             mv = p[0] or 1
-                            self.delete("insert", f"{ln}.{self._term_col_to_index(ln, col + mv)}")
+                            self.delete(
+                                "insert",
+                                f"{ln}.{self._term_col_to_index(ln, col + mv)}",
+                            )
                             if self._alt_mode:
                                 # Rows on the alt screen are always exactly
                                 # _GRID_COLS columns wide, so blank cells
@@ -2650,7 +2653,9 @@ class Terminal(easytk.ttk.Text):
                         self.insert(f"{self._cur_line}.end", " " * (col - _llw))
                     _idx0 = self._term_col_to_index(self._cur_line, col)
                     _idx1 = self._term_col_to_index(self._cur_line, col + _w)
-                    self.delete(f"{self._cur_line}.{_idx0}", f"{self._cur_line}.{_idx1}")
+                    self.delete(
+                        f"{self._cur_line}.{_idx0}", f"{self._cur_line}.{_idx1}"
+                    )
                     if self._sgr_tag_cache is None:
                         self.insert(f"{self._cur_line}.{_idx0}", chunk)
                     else:
@@ -2683,7 +2688,9 @@ class Terminal(easytk.ttk.Text):
                         self.insert(f"{self._cur_line}.end", " " * (col - _llw))
                     _idx0 = self._term_col_to_index(self._cur_line, col)
                     _idx1 = self._term_col_to_index(self._cur_line, col + _w)
-                    self.delete(f"{self._cur_line}.{_idx0}", f"{self._cur_line}.{_idx1}")
+                    self.delete(
+                        f"{self._cur_line}.{_idx0}", f"{self._cur_line}.{_idx1}"
+                    )
                     if self._sgr_tag_cache is None:
                         self.insert(f"{self._cur_line}.{_idx0}", chunk)
                     else:

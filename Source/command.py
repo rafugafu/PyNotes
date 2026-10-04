@@ -593,7 +593,7 @@ def cmdrun(fullcommand):
         if commandinput:
             utils.show(f"error: command '{command}' does not take input")
             return
-        window.ss()
+        utils.ss()
     elif command == "new" or command == "n":
         if commandinput:
             utils.show(f"error: command '{command}' does not take input")

@@ -137,7 +137,7 @@ re:(hmode:py;w:print('hello')*1;sw)*3;w:\\n'back'*1""",
 'write:{string}*{n}' or 'w:{string}*{n}': Copy the given text {n} times after the cursor position
 'search' or 'f' (optional ':b' or ':back' to find reverse): Find a string in the current editor
 'fr' or 'find-replace' or 'findreplace' (optional ':b' or ':back' to find & replace reverse): Find and replace a string in the current editor
-'show-source' or 'source-code': Show any PyNotes source code file selected by you in /usr/share/PyNotes/ on Linux and C:/Program Files/PyNotes on Windows
+'show-source' or 'source-code': Show any PyNotes source code file selected by you in /usr/share/PyNotes/ on Linux and C:/Program Files/PyNotes/ on Windows
 'new' or 'n': Open a new file in the same editor
 'gotoline:n' or 'gl:n' or 'l:n': Go to the nth line in the active editor if n is given, otherwise prompts for a line number and goes to it
 'pyshell' or 'ps' (optional ':h' or ':horiz' or ':horizontal'): Opens a Python REPL buffer, vertical by default, horizontal if given
@@ -416,7 +416,7 @@ preferences - Opens the PyNotes preferences.
 
 prompt text, autocompletefunc = None, defaultinput = None - Prompts the user with text in the Alt-X command box and returns input. Calls the function inside the string autocomplete with the currently typed text if it is a string, otherwise uses the fixed list/tuple if given in it when Tab is pressed. If defaultinput is given, starts the prompt with it.
 
-pynotessourcecode - Show any PyNotes source code file selected by you in /usr/share/PyNotes/ on Linux and C:/Program Files/PyNotes on Windows in a new editor.
+pynotessourcecode - Show any PyNotes source code file selected by you in /usr/share/PyNotes/ on Linux and C:/Program Files/PyNotes/ on Windows in a new editor.
 
 pyshell orient = 'vertical' - Opens a Python REPL buffer in the given orientation.
 
