@@ -496,6 +496,9 @@ def setup_app():
     sys.stderr = utils.ErrorHandler()
     state.pcsettitle = False
     state.prompting = False
+    state.cmdhistory = []
+    state.fileopenhistory = []
+    state.filesavehistory = []
 
 
 def load_config(file, defaultdefs):

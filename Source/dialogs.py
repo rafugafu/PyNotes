@@ -81,7 +81,7 @@ def _console_prompt_worker(title, prompttext, cancel_event, resultq):
     resultq.put(state.console.prompt(title, prompttext, cancel_event=cancel_event))
 
 
-def _race_console_box(title, prompttext, defaultinput):
+def _race_console_box(title, prompttext, defaultinput, *args, **kwargs):
     """Prompt for a filename via the Alt-X minibuffer, while also polling
     a console prompt running in a background thread; return whichever
     answers first and cancel the other."""
@@ -108,7 +108,7 @@ def _race_console_box(title, prompttext, defaultinput):
         state.prompting = False
 
     state.root.after(50, poll)
-    fn = utils.prompt(prompttext, fileautocompletefunc, defaultinput)
+    fn = utils.prompt(prompttext, fileautocompletefunc, defaultinput, *args, **kwargs)
     if "result" not in winner:
         winner["result"] = fn
         cancel_event.set()
@@ -217,10 +217,13 @@ def openfileget(
             initialfile = initialfile.replace(homedir, "~") + "/"
         else:
             initialfile = initialfile + "\\"
-        fn = _race_console_box("Open", prompttext, initialfile)
+        fn = _race_console_box(
+            "Open", prompttext, initialfile, history=stsate.fileopenhistory
+        )
     if not fn.strip():
         return ""
     fn = os.path.abspath(os.path.expanduser(fn))
+    state.fileopenhistory.append(fn.strip())
     if not os.path.exists(fn):
         utils.show(f"error: '{fn}' does not exist")
         return None
@@ -263,6 +266,7 @@ def saveasfileget(prompttext="Save File: ", initialfile=None):
             )
         if not fn.strip():
             return ""
+        state.filesavehistory.append(fn.strip())
     else:
         if initialfile is None:
             initialfile = os.getcwd()
@@ -271,7 +275,10 @@ def saveasfileget(prompttext="Save File: ", initialfile=None):
         else:
             initialfile = initialfile + "\\"
         while True:
-            fn = _race_console_box("Save As", prompttext, initialfile)
+            fn = _race_console_box(
+                "Save As", prompttext, initialfile, history=state.filesavehistory
+            )
+            state.filesavehistory.append(fn.strip())
             if not fn.strip():
                 return ""
             fn = os.path.abspath(os.path.expanduser(fn))

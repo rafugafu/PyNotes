@@ -62,7 +62,7 @@ state.options, state.files_to_open = argparse(
 
 # The changelog shown by --changes / the "What's new" menu item.
 changelist = [
-    "Added a live cli console inside the starting terminal which can interact with and control PyNotes while it runs! (See pynotes --help)\nNow PyNotes will run with Terminal=true even on linux.",
+    "Added a live cli console inside the starting terminal which can interact with and control PyNotes while it runs. (See pynotes --help)\nNow PyNotes will run with Terminal=true even on linux.",
     "Removed tabs in the editor and made the Python shell and Email separate buffers.\nRemoved the Email HMode.\nCommands now make these new buffers or switch to already existing ones.",
     "Added reverse search and separated forward search from search from beginning.",
     "Added setattr and getattr commands to PyCode.",
@@ -84,6 +84,8 @@ changelist = [
     "Started accepting attribute chains instead of just plain possibly conflicting names in Python code navigation commands.",
     "Added Python indent block navigation commands.",
     "Added code navigation commands for LaTeX and Markdown.",
+    "Added history to prompts and Alt-X commands.",
+    "Fixed arrow key navigation in prompts.",
     "Fixed some bugs.",
 ]
 state.changestr = ""

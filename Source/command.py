@@ -1190,7 +1190,9 @@ def cmdautocompletefunc(typedtext):
 def cmd():
     """Prompt for and run one Alt-X command line (the Alt-X keybinding's
     handler)."""
-    cmdrun(utils.prompt("Alt-X- ", cmdautocompletefunc))
+    command = utils.prompt("Alt-X- ", cmdautocompletefunc, history=state.cmdhistory)
+    state.cmdhistory.append(command)
+    cmdrun(command)
     state.root.update()
     if hasattr(state.active, "keypress"):
         state.active.keypress()

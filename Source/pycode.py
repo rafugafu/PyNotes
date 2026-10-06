@@ -1326,76 +1326,30 @@ def pcindentselection():
 
 
 def pcunindentlines(start, end):
-    """Unindent every non-blank indented line from start to end by the
-    same number of columns, so their relative indentation is kept: the
-    number that moves the least indented line to the indentation of
-    the nearest line above the region that is indented less than it
-    (i.e. the block the region is in). Without such a line (e.g. at
-    the top of the file), it is the smallest gap between the region's
-    indentation levels, or a tab / 4 spaces for a single level. Tabs
-    count as reaching the next multiple of 8 columns; a tab that would
-    be cut in the middle is replaced by spaces. In the Python HMode,
-    comment-only lines are ignored when finding the amount, since they
-    are often indented differently from the code around them."""
+    """Unindent every non-blank indented line from start to end by one
+    indentation level, each line on its own (like backspace() does):
+    a tab, or the spaces back to the previous multiple of 4 columns, so
+    at most 4 spaces are removed from a line."""
     type_ = state.active.type_
-    python = state.active.hmode == "python"
-
-    def leading(line):
-        return line[: len(line) - len(line.lstrip())]
-
-    def columns(line):
-        return len(leading(line).expandtabs(8))
-
-    def comment_only(line):
-        return python and line.lstrip().startswith("#")
-
-    lines = [type_.get(f"{l}.0", f"{l}.end") for l in range(start, end + 1)]
-    indented_lines = [line for line in lines if line.strip() and columns(line)]
-    measured_lines = [
-        line for line in indented_lines if not comment_only(line)
-    ] or indented_lines
-    if not measured_lines:
-        return
-    smallest = min(columns(line) for line in measured_lines)
-    amount = None
-    for l in range(start - 1, 0, -1):
-        above = type_.get(f"{l}.0", f"{l}.end")
-        if above.strip() and not comment_only(above) and columns(above) < smallest:
-            amount = smallest - columns(above)
-            break
-    if amount is None:
-        levels = sorted({columns(line) for line in measured_lines})
-        gaps = [b - a for a, b in zip(levels, levels[1:])]
-        unit = 8 if leading(measured_lines[0]).startswith("\t") else 4
-        amount = min(smallest, min(gaps, default=unit))
     type_.edit_separator()
-    for i, line in enumerate(lines):
-        if not line.strip() or not columns(line):
+    for l in range(start, end + 1):
+        line = type_.get(f"{l}.0", f"{l}.end")
+        old = line[: len(line) - len(line.lstrip())]
+        if not line.strip() or not old:
             continue
-        old = leading(line)
-        new_columns = max(0, columns(line) - amount)
-        column = 0
-        kept = 0
-        for ch in old:
-            next_column = (column // 8 + 1) * 8 if ch == "\t" else column + 1
-            if next_column > new_columns:
-                break
-            column = next_column
-            kept += 1
-        new = old[:kept] + " " * (new_columns - column)
-        if new != old:
-            l = start + i
-            type_.delete(f"{l}.0", f"{l}.{len(old)}")
-            type_.insert(f"{l}.0", new)
+        trailing_spaces = len(old) - len(old.rstrip(" "))
+        if trailing_spaces:
+            remove = min(trailing_spaces, len(old.expandtabs(8)) % 4 or 4)
+        else:
+            remove = 1
+        type_.delete(f"{l}.{len(old) - remove}", f"{l}.{len(old)}")
     type_.edit_separator()
 
 
 def pcunindentregion(start, end):
     """PyCode's `unindentregion` command: remove one level of leading
     indentation from every non-blank line from start to end (see
-    pcunindentlines() for how a level is worked out from the block the
-    region is in, so any mix of tabs and differently sized space
-    indentation works)."""
+    pcunindentlines())."""
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return

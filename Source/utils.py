@@ -78,12 +78,14 @@ def show(text):
     state.cmdentry.unbind("<KeyPress>")
     state.cmdentry.unbind("<Return>")
     state.cmdentry.unbind("<Escape>")
+    state.cmdentry.unbind("<Up>")
+    state.cmdentry.unbind("<Down>")
     state.cmdentry.config(state="disabled")
     state.cmdautocomplete.pack_forget()
     threading.Thread(target=state.console.show, args=(text,), daemon=True).start()
 
 
-def prompt(text, autocompletefunc=None, defaultinput=None):
+def prompt(text, autocompletefunc=None, defaultinput=None, history=[]):
     """Prompt the user for input in the Alt-X command box and return it.
 
     text is shown as the fixed, non-editable prompt prefix. If
@@ -96,14 +98,19 @@ def prompt(text, autocompletefunc=None, defaultinput=None):
     """
 
     def check_edit(event, text, promptend):
+        nonlocal i
+        nonlocal current_history
         """Re-pin the prompt prefix after each keypress and hide the
-        autocomplete list; block BackSpace from eating into the prompt."""
+        autocomplete list; block BackSpace from eating into the prompt.
+        Move the current typed text to the bottom of the history if it
+        is not already."""
         state.cmdentry.delete("1.0", promptend)
         state.cmdentry.insert("1.0", text)
         state.cmdentry.tag_add("prompt", "1.0", promptend)
-        state.cmdentry.mark_set("insert", "1.end")
         state.cmdautocomplete.pack_forget()
-        if event.keysym == "BackSpace" and state.cmdentry.compare(
+        i = None
+        current_history = None
+        if event.keysym in ("BackSpace", "Left") and state.cmdentry.compare(
             "insert", "==", promptend
         ):
             return "break"
@@ -145,11 +152,52 @@ def prompt(text, autocompletefunc=None, defaultinput=None):
             )
             state.cmdautocomplete.config(state="disabled")
 
+    def history_up():
+        """Move up in the given history to the prompt."""
+        nonlocal i
+        nonlocal current_history
+        if i == 0:
+            return
+        if not history:
+            return
+        if i is None:
+            i = len(history)
+            current_history = state.cmdentry.get(promptend, "1.end")
+        i -= 1
+        state.cmdentry.delete(promptend, "end")
+        state.cmdentry.insert(promptend, history[i])
+        state.cmdentry.mark_set("insert", "end")
+
+    def history_down():
+        """Move down in the given history to the prompt."""
+        nonlocal i
+        nonlocal current_history
+        if i is None:
+            return
+        if not history:
+            return
+        len_his = len(history)
+        if i == len_his:
+            return
+        i += 1
+        if i == len_his:
+            state.cmdentry.delete(promptend, "end")
+            state.cmdentry.insert(promptend, current_history)
+            state.cmdentry.mark_set("insert", "end")
+            i = None
+            current_history = None
+            return
+        state.cmdentry.delete(promptend, "end")
+        state.cmdentry.insert(promptend, history[i])
+        state.cmdentry.mark_set("insert", "end")
+
     while state.prompting:
         state.root.update()
         time.sleep(0.01)
     state.prompting = True
     inputtext = ""
+    i = None
+    current_history = None
     state.cmdentry.config(state="normal")
     state.cmdentry.delete("1.0", "end")
     state.cmdentry.insert("1.0", text)
@@ -169,6 +217,8 @@ def prompt(text, autocompletefunc=None, defaultinput=None):
         "<Return>", lambda event, promptend=promptend: setreturninput(promptend)
     )
     state.cmdentry.bind("<Escape>", lambda event: setattr(state, "prompting", False))
+    state.cmdentry.bind("<Up>", lambda event: history_up() or "break")
+    state.cmdentry.bind("<Down>", lambda event: history_down() or "break")
     if autocompletefunc:
         state.cmdentry.bind(
             "<Tab>",
@@ -186,6 +236,8 @@ def prompt(text, autocompletefunc=None, defaultinput=None):
     state.cmdentry.unbind("<KeyPress>")
     state.cmdentry.unbind("<Return>")
     state.cmdentry.unbind("<Escape>")
+    state.cmdentry.unbind("<Up>")
+    state.cmdentry.unbind("<Down>")
     state.cmdentry.config(state="disabled")
     state.cmdautocomplete.pack_forget()
     state.active.mainwidget.focus_set()
