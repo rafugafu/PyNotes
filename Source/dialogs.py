@@ -218,7 +218,7 @@ def openfileget(
         else:
             initialfile = initialfile + "\\"
         fn = _race_console_box(
-            "Open", prompttext, initialfile, history=stsate.fileopenhistory
+            "Open", prompttext, initialfile, history=state.fileopenhistory
         )
     if not fn.strip():
         return ""
