@@ -61,33 +61,7 @@ state.options, state.files_to_open = argparse(
 )
 
 # The changelog shown by --changes / the "What's new" menu item.
-changelist = [
-    "Added a live cli console inside the starting terminal which can interact with and control PyNotes while it runs. (See pynotes --help)\nNow PyNotes will run with Terminal=true even on linux.",
-    "Removed tabs in the editor and made the Python shell and Email separate buffers.\nRemoved the Email HMode.\nCommands now make these new buffers or switch to already existing ones.",
-    "Added reverse search and separated forward search from search from beginning.",
-    "Added setattr and getattr commands to PyCode.",
-    "Added a PyCode evaluator Alt-X command.",
-    "Made a custom terminal cursor which lets it change shape and not move on mouse click, drag, etc.",
-    "Fixed many bugs and implemented new ANSI codes and features in the terminal.",
-    "Fixed upgrading ttkbootstrap from 1.x failing.",
-    "Made the editor line number widget thinner.",
-    "Made the LaTeX environment highlighting include the \\begin{env} line.",
-    "Fixed a bug where the HMode would not change from PDF/PNG/Epub when opening a file or new file.",
-    "Made the filedialogs show the current path instead of assuming it.",
-    "Made the save file dialog visibly highlight the active editor instead of making its first line the initial filename.",
-    "Made the Alt-X command box prompts and messages wait for each other to finish instead of overwriting or running both at once.",
-    "Made <Tab> indent one level with a tab or spaces depending on the user preferences instead of inserting a literal tab.",
-    "Made <Tab> indent selection if any.",
-    "Made backspace, left, right, and delete indentation aware. Also made backspace, left, right, and deletekey PyCode commands which do this.",
-    "Make Python comment selection comment with # space correctly indented instead of just # at the start of the line.",
-    "Hugely improved the terminal's performance and made it much faster and more efficient.",
-    "Started accepting attribute chains instead of just plain possibly conflicting names in Python code navigation commands.",
-    "Added Python indent block navigation commands.",
-    "Added code navigation commands for LaTeX and Markdown.",
-    "Added history to prompts and Alt-X commands.",
-    "Fixed arrow key navigation in prompts.",
-    "Fixed some bugs.",
-]
+changelist = []
 state.changestr = ""
 for i in range(len(changelist) - 1):
     state.changestr += f"{i + 1}. {changelist[i]}\n\n"
