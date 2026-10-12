@@ -6,22 +6,18 @@ import sys
 import shutil
 import queue
 import threading
-import textwrap
-import ttkbootstrap as ttk
+import tkinter.font as tkfont
+import canvastk as ctk
+import themes
 import state
 from init import homedir, DEBOUNCE_TIME
+import buffer
 import editor
 import dialogs
 import pycode
 import utils
-import easytk
+import importlib.util
 
-_MSG_ICONS = {
-    "info": ("info-circle-fill", "info"),
-    "warning": ("exclamation-triangle-fill", "warning"),
-    "error": ("x-circle-fill", "danger"),
-}
-_MSG_ICON_SIZE = 30
 _ASK_PRESETS = {
     ("yes", "no"): {"Yes": True, "No": False, None: None},
     ("ok", "cancel"): {"OK": True, "Cancel": False, None: None},
@@ -36,29 +32,65 @@ _ASK_PRESET_LABELS = {
 }
 
 
-class pynoteswindow(easytk.win):
-    """The root PyNotes window; adds ask/info/error/warning dialogs that
-    can be answered from either the GUI or the terminal console."""
+class pynoteswindow(ctk.Window):
+    """The root PyNotes window; adds sub-windows,
+    and ask/info/error/warning dialogs that can be answered
+    from either the GUI or the terminal console."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.theme = None
+
+    def subwin(self):
+        """Create a themed Toplevel sub-window of this window (kept
+        above it, and minimized/restored together with it)."""
+        return ctk.Toplevel(self)
+
+    def themes(self):
+        """The sorted names of every available theme."""
+        return sorted(list(themes.THEMES[0].keys() | themes.THEMES[1].keys()))
+
+    def gettheme(self):
+        """The name of the current theme."""
+        return self.theme or "Default"
+
+    def settheme(self, name):
+        """Switch to the given theme name, and make the canvastk
+        widgets follow it (light/dark appearance and colors)."""
+        if name is None:
+            self.settheme("Default")
+            return
+        if name in themes.THEMES[0]:
+            ctk.reset_theme()
+            ctk.set_appearance_mode("light")
+            ctk.set_theme(themes.THEMES[0][name])
+        elif name in themes.THEMES[1]:
+            ctk.reset_theme()
+            ctk.set_appearance_mode("dark")
+            ctk.set_theme(themes.THEMES[1][name])
+        else:
+            return
+        self.theme = name
+        utils.EnabledLookTextbox.refresh_all()
+        for buffer in state.all_buffers:
+            buffer.refresh_fileinfo_contrast_colors()
+
+    def getfonts(self):
+        """The names of every font family available."""
+        return tkfont.families(self)
 
     def _build_message_dialog(
         self, kind, title, message, button_labels, default_label=None, alert=False
     ):
-        """Build (but don't yet show/grab) a themed message dialog with
-        the given buttons; return it and a dict that press() fills in
-        with the clicked button's label."""
-        self.update_idletasks()
-        top = ttk.Toplevel(
-            transient=self,
-            title=title or " ",
-            resizable=(False, False),
-            minsize=(250, 15),
-            window_type="dialog",
-            iconify=True,
-        )
+        """Build (but don't yet show/grab) a message dialog laid out
+        exactly like canvastk's own message boxes, with the given
+        buttons (button_labels is in console order, so it's shown
+        reversed); return it and a dict that press() fills in with the
+        clicked button's label."""
+        top = ctk.Toplevel(self, theme=dict(ctk.window_theme(self)))
         top.withdraw()
+        top.title(title or "")
+        top.resizable(False, False)
         state_ = {"result": None}
 
         def press(label):
@@ -69,81 +101,42 @@ class pynoteswindow(easytk.win):
             if top.winfo_exists():
                 top.destroy()
 
-        body = ttk.Frame(top, padding=(20, 20))
-        if kind in _MSG_ICONS:
-            name, color = _MSG_ICONS[kind]
-            icon_img = ttk.Icon(name, _MSG_ICON_SIZE, color)
-            ttk.Label(body, image=icon_img).pack(
-                side="left", anchor="center", padx=(0, 5)
-            )
-        msg_frame = ttk.Frame(body)
-        for line in message.split("\n"):
-            wrapped = "\n".join(textwrap.wrap(line, width=50))
-            ttk.Label(msg_frame, text=wrapped).pack(pady=(0, 3), fill="x", anchor="n")
-        msg_frame.pack(side="left", fill="x", expand=True, anchor="center")
-        body.pack(fill="x", expand=True)
-        buttonframe = ttk.Frame(top, padding=(5, 5))
         default_label = default_label or button_labels[-1]
-        buttons = []
-        initial_focus = None
-        for label in reversed(button_labels):
-            is_default = label == default_label
-            btn = ttk.Button(
-                buttonframe,
-                bootstyle="primary" if is_default else "default",
-                text=label,
+        body = ctk.Frame(top)
+        body.pack(fill="both", expand=True, padx=18, pady=(16, 10))
+        ctk.messagebox._MessageBoxIcon(body, kind or ctk.messagebox.QUESTION).pack(
+            side="left", anchor="n", padx=(0, 14)
+        )
+        text = ctk.Frame(body)
+        text.pack(side="left", fill="both", expand=True)
+        ctk.Label(text, str(message or ""), wraplength=380, justify="left").pack(
+            anchor="w"
+        )
+        row = ctk.Frame(top)
+        row.pack(fill="x", padx=18, pady=(0, 16))
+        for label in button_labels:
+            ctk.Button(row, label, command=lambda l=label: press(l)).pack(
+                side="right", padx=(8, 0)
             )
-            btn.configure(command=lambda l=label: press(l))
-            btn.pack(padx=2, side="right")
-            btn.lower()
-            btn.bind("<Return>", lambda e, b=btn: b.invoke())
-            btn.bind("<KP_Enter>", lambda e, b=btn: b.invoke())
-            buttons.append(btn)
-            if is_default:
-                initial_focus = btn
-        for i, btn in enumerate(buttons):
-            if i > 0:
-                btn.bind("<Right>", lambda e, b=buttons[i - 1]: b.focus_set())
-            if i < len(buttons) - 1:
-                btn.bind("<Left>", lambda e, b=buttons[i + 1]: b.focus_set())
-        ttk.Separator(top).pack(fill="x")
-        buttonframe.pack(side="bottom", fill="x", anchor="s")
+        top.bind("<Return>", lambda e: press(default_label))
         top.bind("<Escape>", lambda e: close_dialog())
         top.protocol("WM_DELETE_WINDOW", close_dialog)
-        top.update_idletasks()
-        w, h = top.winfo_reqwidth(), top.winfo_reqheight()
-        top.geometry(f"{w}x{h}")
-        x = self.winfo_rootx() + (self.winfo_width() - w) // 2
-        y = self.winfo_rooty() + (self.winfo_height() - h) // 2
-        top.geometry(f"+{max(0, x)}+{max(0, y)}")
+        ctk.messagebox._center_on(top, self)
         top.deiconify()
         if alert:
             top.bell()
-        initial_focus.focus_force()
+        top.focus_force()
         return top, state_
 
     def _build_query_dialog(self, title, prompt):
-        """Build (but don't yet show/grab) a themed text-entry dialog;
-        return it and a dict that submit()/cancel() fill in with the
-        result."""
-        self.update_idletasks()
-        top = ttk.Toplevel(
-            transient=self,
-            title=title or " ",
-            resizable=(False, False),
-            minsize=(250, 15),
-            window_type="dialog",
-            iconify=True,
-        )
+        """Build (but don't yet show/grab) a text-entry dialog styled
+        like canvastk's own message boxes; return it and a dict that
+        submit() fills in with the entered text."""
+        top = ctk.Toplevel(self, theme=dict(ctk.window_theme(self)))
         top.withdraw()
+        top.title(title or "")
+        top.resizable(False, False)
         state_ = {"result": None}
-        body = ttk.Frame(top, padding=(20, 20))
-        for line in prompt.split("\n"):
-            wrapped = "\n".join(textwrap.wrap(line, width=65))
-            ttk.Label(body, text=wrapped).pack(pady=(0, 5), fill="x", anchor="n")
-        entry = ttk.Entry(body)
-        entry.pack(pady=(0, 5), fill="x")
-        body.pack(fill="x", expand=True)
 
         def submit(*_):
             state_["result"] = entry.get()
@@ -154,28 +147,27 @@ class pynoteswindow(easytk.win):
             if top.winfo_exists():
                 top.destroy()
 
+        body = ctk.Frame(top)
+        body.pack(fill="both", expand=True, padx=18, pady=(16, 10))
+        ctk.messagebox._MessageBoxIcon(body, ctk.messagebox.QUESTION).pack(
+            side="left", anchor="n", padx=(0, 14)
+        )
+        text = ctk.Frame(body)
+        text.pack(side="left", fill="both", expand=True)
+        ctk.Label(text, str(prompt or ""), wraplength=380, justify="left").pack(
+            anchor="w"
+        )
+        entry = ctk.Entry(text)
+        entry.pack(fill="x", pady=(8, 0))
+        row = ctk.Frame(top)
+        row.pack(fill="x", padx=18, pady=(0, 16))
+        ctk.Button(row, "Cancel", command=cancel).pack(side="right", padx=(8, 0))
+        ctk.Button(row, "Submit", command=submit).pack(side="right", padx=(8, 0))
         entry.bind("<Return>", submit)
         entry.bind("<KP_Enter>", submit)
-        entry.bind("<Escape>", cancel)
         top.bind("<Escape>", cancel)
-        buttonframe = ttk.Frame(top, padding=(5, 10))
-        submitbtn = ttk.Button(
-            buttonframe, bootstyle="primary", text="Submit", command=submit
-        )
-        submitbtn.pack(padx=2, side="right")
-        submitbtn.lower()
-        cancelbtn = ttk.Button(buttonframe, text="Cancel", command=cancel)
-        cancelbtn.pack(padx=2, side="right")
-        cancelbtn.lower()
-        ttk.Separator(top).pack(fill="x")
-        buttonframe.pack(side="bottom", fill="x", anchor="s")
         top.protocol("WM_DELETE_WINDOW", cancel)
-        top.update_idletasks()
-        w, h = top.winfo_reqwidth(), top.winfo_reqheight()
-        top.geometry(f"{w}x{h}")
-        x = self.winfo_rootx() + (self.winfo_width() - w) // 2
-        y = self.winfo_rooty() + (self.winfo_height() - h) // 2
-        top.geometry(f"+{max(0, x)}+{max(0, y)}")
+        ctk.messagebox._center_on(top, self)
         top.deiconify()
         entry.focus_force()
         return top, state_
@@ -279,7 +271,7 @@ class pynoteswindow(easytk.win):
         threading.Thread(
             target=state.console.dialog, args=(title, message), daemon=True
         ).start()
-        return super().info(title, message, **kwargs)
+        return ctk.messagebox.showinfo(title, message, **kwargs)
 
     def error(self, title, message, buttons=None, **kwargs):
         """Show an error dialog; see info() for the buttons/console
@@ -291,7 +283,7 @@ class pynoteswindow(easytk.win):
         threading.Thread(
             target=state.console.dialog, args=(title, message, "41m"), daemon=True
         ).start()
-        return super().error(title, message, **kwargs)
+        return ctk.messagebox.showerror(title, message, **kwargs)
 
     def warning(self, title, message, buttons=None, **kwargs):
         """Show a warning dialog; see info() for the buttons/console
@@ -303,7 +295,7 @@ class pynoteswindow(easytk.win):
         threading.Thread(
             target=state.console.dialog, args=(title, message, "43m"), daemon=True
         ).start()
-        return super().warning(title, message, **kwargs)
+        return ctk.messagebox.showwarning(title, message, **kwargs)
 
 
 def saveforclose():
@@ -363,14 +355,9 @@ def update_menus():
     since different buffer types (editor, terminal, ...) expose different
     menus."""
     state.mainmenu.delete(0, "end")
-    lastentry = state.active.m.index("end")
-    if lastentry is not None:
-        for i in range(lastentry + 1):
-            if state.active.m.type(i) == "cascade":
-                state.mainmenu.add_cascade(
-                    label=state.active.m.entrycget(i, "label"),
-                    menu=state.root.nametowidget(state.active.m.entrycget(i, "menu")),
-                )
+    for entry in state.active.m.entries:
+        if entry["kind"] == "cascade":
+            state.mainmenu.add_cascade(label=entry["label"], menu=entry["menu"])
 
 
 def settitle():
@@ -381,44 +368,17 @@ def settitle():
 
 
 def balance(orient="all"):
-    """Resize the panes of the horizontal and/or vertical splitter to be
+    """Resize the panes of the horizontal and/or vertical splits to be
     equal-sized."""
     if orient == "all":
-        balance("horizontal")
-        balance("vertical")
-        return
-    if orient == "horizontal":
-        pw = state.horizontal
-        tw = pw.winfo_width()
+        orients = ("horizontal", "vertical")
     else:
-        pw = state.vertical
-        tw = pw.winfo_height()
-    panes = pw.panes()
-    n = len(panes)
-    if n > 1:
-        step = tw // n
-        for i in range(n - 1):
-            pw.sashpos(i, (i + 1) * step)
-
-
-def newbuffer(buffer, orient, *args, **kwargs):
-    """Instantiate buffer (a Buffer subclass) with the given args/kwargs,
-    add it to the horizontal or vertical splitter per orient, rebalance,
-    and make it the active buffer."""
-    newbuff = buffer(state.root, *args, **kwargs)
-    state.all_buffers.append(newbuff)
-    pycode.pcrun(state.pycode_keybindings_cdt)
-    if orient == "horizontal":
-        state.horizontal.add(newbuff)
-        state.root.update()
-        balance("horizontal")
-    else:
-        state.vertical.add(newbuff)
-        state.root.update()
-        balance("vertical")
-    state.root.update()
-    setactive(-1)
-    return newbuff
+        orients = (orient,)
+    for split in state.panes._splits():
+        if split.orient in orients:
+            share = 1 / len(split.children)
+            split.fractions = [share] * len(split.children)
+    state.panes._layout()
 
 
 def neweditor(file=None, orient="horizontal"):
@@ -447,7 +407,7 @@ def neweditor(file=None, orient="horizontal"):
     hookevent = "open-file-new-editor" if file else "new-file-new-editor"
     pycode.pcrunhook("before", hookevent, file)
     match = find_open_editor(os.path.abspath(file)) if file else None
-    newedit = newbuffer(
+    newedit = buffer.newbuffer(
         editor.Editor, orient, file=None if match else file, view_master=match
     )
     pycode.pcrunhook("after", hookevent, file)

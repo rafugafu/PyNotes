@@ -8,6 +8,7 @@ import platform
 import getpass
 import subprocess
 import state
+import tkinter as tk
 from tkinter import messagebox as mb
 import cli
 
@@ -35,22 +36,23 @@ else:
 def info(title, inf):
     """Show a standalone info popup with a Close button, blocking (its
     own mainloop) until closed. Used before state.root exists yet."""
-    import easytk
+    import canvastk as ctk
 
-    infowin = easytk.win()
+    infowin = ctk.Window()
     infowin.title(title)
-    infowin.text(text=inf).pack(side="top", anchor="n", padx=10, pady=10)
-    infowin.button(text="Close", command=infowin.destroy).pack(
+    ctk.Label(infowin, text=inf).pack(side="top", anchor="n", padx=10, pady=10)
+    ctk.Button(infowin, text="Close", command=infowin.destroy).pack(
         side="right", anchor="se", padx=10, pady=10
     )
-    infowin.show()
+    infowin.mainloop()
 
 
 def ask(title, askinput):
     """Show a standalone Yes/No popup, blocking (its own mainloop) until
     answered, and return the answer as a bool. Used before state.root
     exists yet (e.g. to ask about installing a missing dependency)."""
-    import easytk
+
+    import canvastk as ctk
 
     def yes():
         global returnval
@@ -62,18 +64,18 @@ def ask(title, askinput):
         askwin.destroy()
         returnval = False
 
-    askwin = easytk.win()
+    askwin = ctk.Window()
     askwin.title(title)
-    askwin.text(text=askinput).pack(side="top", anchor="n", padx=10, pady=10)
-    askwin.button(text="Yes", command=yes).pack(
+    ctk.Label(askwin, text=askinput).pack(side="top", anchor="n", padx=10, pady=10)
+    ctk.Button(askwin, text="Yes", command=yes).pack(
         side="left", anchor="nw", padx=10, pady=10
     )
-    askwin.button(text="No", command=no).pack(
+    ctk.Button(askwin, text="No", command=no).pack(
         side="right", anchor="ne", padx=10, pady=10
     )
     # Disable the window's close button so Yes/No is the only way out.
     askwin.protocol("WM_DELETE_WINDOW", lambda: None)
-    askwin.show()
+    askwin.mainloop()
     return returnval
 
 
@@ -192,17 +194,6 @@ def ensure_dependencies():
         else:
             dialogs.faketerm("pip3 install numpy")
     try:
-        from tklinenums import TkLineNumbers
-    except Exception:
-        ans = ask(
-            "Error!",
-            "The module 'tklinenums' is not installed. Should PyNotes install it locally?",
-        )
-        if not ans:
-            exit()
-        else:
-            dialogs.faketerm("pip3 install tklinenums")
-    try:
         import ziamath
     except Exception:
         ans = ask(
@@ -224,17 +215,6 @@ def ensure_dependencies():
             exit()
         else:
             dialogs.faketerm("pip3 install cairosvg")
-    try:
-        from PIL import Image
-    except Exception:
-        ans = ask(
-            "Error!",
-            "The module 'Pillow' is not installed. Should PyNotes install it locally?",
-        )
-        if not ans:
-            exit()
-        else:
-            dialogs.faketerm("pip3 install Pillow")
     try:
         from watchdog.observers import Observer
         from watchdog.events import FileSystemEventHandler
@@ -269,7 +249,6 @@ def ensure_dependencies():
         import sounddevice as sd
         import speech_recognition as sr
         import numpy as np
-        from tklinenums import TkLineNumbers
         import ziamath
         import cairosvg
         from PIL import Image
@@ -292,13 +271,13 @@ def load_or_create_defs():
     defaultdefs = f"""{v}
 False
 {monospace}
-bootstrap-light
+Default
 {rootdir}/english.txt
 False
 False
 False
 {defaultpythonexec}
-'pynotes:found': \"foreground = '#FFFFFF', background = '#16A34A'\", 'pynotes:foundhighlight': \"foreground = '#FFFFFF', background = '#1F2937'\", 'pynotes:marked': \"background = 'yellow'\", 'python:keywords': \"foreground = '#7C3AED', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold')\", 'python:inbuilt': \"foreground = '#D97706'\", 'python:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'python:strings': \"foreground = '#15803D'\", 'python:variable_names': \"foreground = '#DC2626'\", 'python:function_names': \"foreground = '#2563EB'\", 'python:class_names': \"foreground = '#0891B2'\", 'python:class_instances': \"foreground = '#155E75'\", 'python:function_arguments': \"foreground = '#0F766E'\", 'python:operators': \"foreground = 'white', background = 'light grey'\", 'python:module_names': \"foreground = '#0369A1'\", 'latex:inlinemath': \"foreground = '#15803D'\", 'latex:environment': \"background = '#DCFCE7'\", 'latex:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'latex:commands': \"foreground = '#C026D3'\", 'latex:arguments': \"foreground = '#2563EB'\", 'latex:operators': \"foreground = 'white', background = 'light grey'\", 'latex:square_brackets': \"foreground = '#92400E'\", 'html:attributes': \"foreground = '#DC2626'\", 'html:tags': \"foreground = '#047857'\", 'html:comments': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'html:quotes': \"foreground = '#2563EB'\", 'markdown:headers1': \"foreground = '#111827', font = (type_.cget('font')[:-3].strip('{{}}'), 29, 'bold')\", 'markdown:headers2': \"foreground = '#1F2937', font = (type_.cget('font')[:-3].strip('{{}}'), 26, 'bold')\", 'markdown:headers3': \"foreground = '#374151', font = (type_.cget('font')[:-3].strip('{{}}'), 23, 'bold')\", 'markdown:headers4': \"foreground = '#4B5563', font = (type_.cget('font')[:-3].strip('{{}}'), 20, 'bold')\", 'markdown:headers5': \"foreground = '#6B7280', font = (type_.cget('font')[:-3].strip('{{}}'), 17, 'bold')\", 'markdown:headers6': \"foreground = '#9CA3AF', font = (type_.cget('font')[:-3].strip('{{}}'), 14, 'bold')\", 'markdown:bold': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold')\", 'markdown:italic': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'italic')\", 'markdown:bold_italic': \"font = (type_.cget('font')[:-3].strip('{{}}'), 12, 'bold italic')\", 'markdown:strike': 'overstrike = True', 'markdown:inlinecode': \"foreground = '#BE123C', background = '#F3F4F6'\", 'markdown:links': \"foreground = '#2563EB', underline = True, underlinefg = '#2563EB'\", 'markdown:blockquotes': \"foreground = '#374151', background = '#F3F4F6'\", 'markdown:codeblocks': \"background = '#F3F4F6'\""""
+'pynotes:found': \"foreground = '#FFFFFF', background = '#16A34A'\", 'pynotes:foundhighlight': \"foreground = '#FFFFFF', background = '#1F2937'\", 'pynotes:marked': \"background = 'yellow'\", 'python:keywords': \"foreground = '#7C3AED', font = (state.defs[2], 12, 'bold')\", 'python:inbuilt': \"foreground = '#D97706'\", 'python:comments': \"foreground = '#6B7280', font = (state.defs[2], 12, 'italic')\", 'python:strings': \"foreground = '#15803D'\", 'python:variable_names': \"foreground = '#DC2626'\", 'python:function_names': \"foreground = '#2563EB'\", 'python:class_names': \"foreground = '#0891B2'\", 'python:class_instances': \"foreground = '#155E75'\", 'python:function_arguments': \"foreground = '#0F766E'\", 'python:operators': \"foreground = 'white', background = 'light grey'\", 'python:module_names': \"foreground = '#0369A1'\", 'latex:inlinemath': \"foreground = '#15803D'\", 'latex:environment': \"background = '#DCFCE7'\", 'latex:comments': \"foreground = '#6B7280', font = (state.defs[2], 12, 'italic')\", 'latex:commands': \"foreground = '#C026D3'\", 'latex:arguments': \"foreground = '#2563EB'\", 'latex:operators': \"foreground = 'white', background = 'light grey'\", 'latex:square_brackets': \"foreground = '#92400E'\", 'html:attributes': \"foreground = '#DC2626'\", 'html:tags': \"foreground = '#047857'\", 'html:comments': \"foreground = '#6B7280', font = (state.defs[2], 12, 'italic')\", 'html:quotes': \"foreground = '#2563EB'\", 'markdown:headers1': \"foreground = '#111827', font = (state.defs[2], 29, 'bold')\", 'markdown:headers2': \"foreground = '#1F2937', font = (state.defs[2], 26, 'bold')\", 'markdown:headers3': \"foreground = '#374151', font = (state.defs[2], 23, 'bold')\", 'markdown:headers4': \"foreground = '#4B5563', font = (state.defs[2], 20, 'bold')\", 'markdown:headers5': \"foreground = '#6B7280', font = (state.defs[2], 17, 'bold')\", 'markdown:headers6': \"foreground = '#9CA3AF', font = (state.defs[2], 14, 'bold')\", 'markdown:bold': \"font = (state.defs[2], 12, 'bold')\", 'markdown:italic': \"font = (state.defs[2], 12, 'italic')\", 'markdown:bold_italic': \"font = (state.defs[2], 12, 'bold italic')\", 'markdown:strike': 'overstrike = True', 'markdown:inlinecode': \"foreground = '#BE123C', background = '#F3F4F6'\", 'markdown:links': \"foreground = '#2563EB', underline = True, underlinefg = '#2563EB'\", 'markdown:blockquotes': \"foreground = '#374151', background = '#F3F4F6'\", 'markdown:codeblocks': \"background = '#F3F4F6'\""""
     new = False
     try:
         file = open(f"{homedir}/.local/share/PyNotes/defs", "r", encoding="utf-8")
@@ -449,25 +428,26 @@ def _report_callback_exception(*args, **kwargs):
 
 def setup_app():
     """Sets up PyNotes to start."""
+    import canvastk as ctk
     import window
     import utils
 
     state.root = window.pynoteswindow()
     state.root.report_callback_exception = _report_callback_exception
-    utils.load_themes()
-    state.fm = state.root.menu()
-    state.em = state.root.menu()
-    state.tem = state.root.menu()
-    state.om = state.root.menu()
-    state.pm = state.root.menu()
-    state.lm = state.root.menu()
-    state.pcm = state.root.menu()
-    state.hm = state.root.menu()
-    state.hmm = state.root.menu()
-    state.mg = state.root.menu()
-    state.plgnm = state.root.menu()
-    state.mainmenu = state.root.menu()
-    state.root.config(menu=state.mainmenu)
+    utils.load_user_themes()
+    state.fm = ctk.Menu(state.root)
+    state.em = ctk.Menu(state.root)
+    state.tem = ctk.Menu(state.root)
+    state.om = ctk.Menu(state.root)
+    state.pm = ctk.Menu(state.root)
+    state.lm = ctk.Menu(state.root)
+    state.pcm = ctk.Menu(state.root)
+    state.hm = ctk.Menu(state.root)
+    state.hmm = ctk.Menu(state.root)
+    state.mg = ctk.Menu(state.root)
+    state.plgnm = ctk.Menu(state.root)
+    state.mainmenu = ctk.Menu(state.root)
+    ctk.MenuBar(state.root, menu=state.mainmenu).pack(side="top", fill="x")
     state.all_buffer_menus = {
         "File": state.fm,
         "Options": state.om,
@@ -539,7 +519,15 @@ def load_config(file, defaultdefs):
         elif state.defs[7] == "False":
             state.nographicalfiledialogs = False
         state.pythonexecutable = state.defs[8]
-        exec("theme = " + "{" + state.defs[9] + "}", vars(state))
+        exec(
+            "theme = "
+            + "{"
+            + state.defs[9].replace(
+                "type_.cget('font')[:-3].strip('{}')", "state.defs[2]"
+            )
+            + "}",
+            vars(state),
+        )
         state.theme["python:variable_names"]
         state.theme["python:function_names"]
         state.theme["python:class_names"]
@@ -617,7 +605,15 @@ def load_config(file, defaultdefs):
         elif state.defs[7] == "False":
             state.nographicalfiledialogs = False
         state.pythonexecutable = state.defs[8]
-        exec("theme = " + "{" + state.defs[9] + "}", vars(state))
+        exec(
+            "theme = "
+            + "{"
+            + state.defs[9].replace(
+                "type_.cget('font')[:-3].strip('{}')", "state.defs[2]"
+            )
+            + "}",
+            vars(state),
+        )
     if not v == state.defs[0]:
         state.root.info("Info", "PyNotes has been updated!")
         state.defs[0] = v
@@ -627,7 +623,7 @@ def load_config(file, defaultdefs):
         file.close()
     try:
         icon = f"{rootdir}/Icon.png"
-        state.root.seticon(icon)
+        state.root.iconphoto(False, tk.PhotoImage(file=icon))
     except Exception:
         state.root.error(
             "Error",

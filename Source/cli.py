@@ -6,6 +6,7 @@ commands (including answering dialogs/prompts before the GUI does)."""
 import init
 import state
 import os
+import re
 import sys
 import select
 import subprocess
@@ -164,6 +165,11 @@ def argparse(options, args):
     return options, files_to_open
 
 
+# Matches the escape sequences and line breaks in a console prompt that
+# take up no columns, to measure how wide the prompt really is.
+_PROMPT_ZERO_WIDTH_PATTERN = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[\r\n]")
+
+
 class Console:
     """The live terminal console: renders a `> ` command prompt and
     ANSI-drawn dialogs/messages in the launching terminal, and answers
@@ -184,6 +190,16 @@ class Console:
         self.curinput = {"command": "", "dialog": ""}
         self.cursors = {"command": 0, "dialog": 0}
         self.curecho = {"command": True, "dialog": True}
+        # Per input: the row (0 = the row the prompt starts on) of the
+        # terminal cursor within the input once its text has wrapped.
+        self.curn = {"command": 0, "dialog": 0}
+        # Per input: the visible width of its prompt, which the first
+        # row of its text starts after.
+        self.curpromptlens = {"command": 0, "dialog": 0}
+        # Per input: how many terminal rows the last entered line took.
+        self.curlastrows = {"command": 1, "dialog": 1}
+        self.n = 0
+        self.helping = False
         self.curdoneevents = {}
         self.curresults = {}
         self.curactiveinput = "command"
@@ -215,6 +231,132 @@ class Console:
         string = string.replace("\n", "\n\r")
         return print(string, end="", file=state.stdout, flush=True, *args, **kwargs)
 
+    @staticmethod
+    def _move_rows(rows):
+        """ANSI string moving the cursor down (or up if negative) rows."""
+        if rows > 0:
+            return f"\x1b[{rows}B"
+        if rows < 0:
+            return f"\x1b[{-rows}A"
+        return ""
+
+    def _move_to(self, rowchange, col):
+        """ANSI string moving the cursor rowchange rows down (or up if
+        negative) and to column col."""
+        return "\r" + self._move_rows(rowchange) + (f"\x1b[{col}C" if col else "")
+
+    def _input_rows(self, user, length=None):
+        """How many terminal rows the prompt and text of an input
+        (length characters long, default its current text) take, counting
+        the empty row the cursor sits on when the text ends exactly at
+        the right edge."""
+        if length is None:
+            length = len(self.curinput[user])
+        return (self.curpromptlens[user] + length) // self._get_terminal_width() + 1
+
+    def _input_position(self, user, cursor):
+        """The (row, column) the terminal cursor is at when it is at the
+        cursor-th character of the input's text."""
+        return divmod(self.curpromptlens[user] + cursor, self._get_terminal_width())
+
+    def _rows_below_input(self, user):
+        """How many rows lie below the last row of an input. A dialog
+        input is drawn above the command prompt and its sub-prompts."""
+        if user == "dialog":
+            return self.n + self._input_rows("command")
+        return 0
+
+    def _redraw_input_string(self, user, newbuf, newcursor):
+        """ANSI string to turn the shown text of an input into newbuf
+        with the cursor at newcursor, adding or removing rows (and
+        scrolling the screen if needed) when the text wraps or unwraps.
+        Updates curn."""
+        width = self._get_terminal_width()
+        promptlen = self.curpromptlens[user]
+        oldrows = self._input_rows(user)
+        newrows = self._input_rows(user, len(newbuf))
+        # Go to the first row of the input
+        out = self._move_to(-self.curn[user], 0)
+        if newrows > oldrows:
+            added = newrows - oldrows
+            below = self._rows_below_input(user)
+            # Scroll from the very last row if the added rows (which push
+            # everything below the input down) don't fit on screen
+            out += self._move_to(oldrows - 1 + below, 0)
+            out += "\x1bD" * added + "\x1b[A" * added
+            out += self._move_to(-below, 0)
+            out += f"\x1b[B\x1b[{added}L" + self._move_to(-oldrows, 0)
+        elif newrows < oldrows:
+            out += self._move_to(newrows, 0)
+            out += f"\x1b[{oldrows - newrows}M" + self._move_to(-newrows, 0)
+        firstrow = promptlen // width
+        out += self._move_to(firstrow, 0)
+        for row in range(firstrow, newrows):
+            startcol = promptlen % width if row == firstrow else 0
+            chunk = newbuf[
+                max(0, row * width - promptlen) : (row + 1) * width - promptlen
+            ]
+            out += self._move_to(0, startcol) + chunk
+            # Clearing at the right edge would erase the last character
+            if startcol + len(chunk) < width:
+                out += "\x1b[K"
+            if row < newrows - 1:
+                out += "\x1b[B"
+        row, col = self._input_position(user, newcursor)
+        out += self._move_to(row - (newrows - 1), col)
+        self.curn[user] = row
+        return out
+
+    def _update_input(self, user, newbuf, newcursor):
+        """Replace an input's text and cursor, redrawing it if echoed."""
+        if self.curecho[user]:
+            self.outpt(self._redraw_input_string(user, newbuf, newcursor), end="")
+        self.curinput[user] = newbuf
+        self.cursors[user] = newcursor
+
+    def _move_input_cursor(self, user, newcursor):
+        """Move an input's cursor, following wrapped text if echoed."""
+        if self.curecho[user]:
+            row, col = self._input_position(user, newcursor)
+            self.outpt(self._move_to(row - self.curn[user], col), end="")
+            self.curn[user] = row
+        self.cursors[user] = newcursor
+
+    def _erase_last_input_string(self, user):
+        """ANSI string erasing every row of the line last entered in an
+        input, which the cursor must be directly below, and leaving the
+        cursor at the start of its first row."""
+        return "\r" + "\x1b[A\x1b[K" * self.curlastrows[user]
+
+    def _moveback_string(self):
+        """ANSI string moving from the active input's cursor up to the
+        first row of the command prompt block (self.n sub-prompt rows
+        and the wrapped rows of the active input above the cursor)."""
+        return self._move_rows(-(self.n + self.curn[self.curactiveinput]))
+
+    def _scroll_ahead_string(self, count):
+        """ANSI string scrolling the screen up if fewer than count rows
+        are free below the active input's last row, leaving the cursor
+        where it was."""
+        user = self.curactiveinput
+        below = self._input_rows(user) - 1 - self.curn[user]
+        return (
+            self._move_rows(below)
+            + "\x1bD" * count
+            + "\x1b[A" * count
+            + self._move_rows(-below)
+        )
+
+    def _dialog_restore_string(self, rowsdrawn):
+        """ANSI string returning the cursor to the command prompt after
+        a dialog input was entered or cancelled, rowsdrawn being how many
+        rows the dialog inserted above the saved cursor position."""
+        if self.helping:
+            # The dialog is drawn at the top of the help text instead
+            return f"\x1b8\x1b[{rowsdrawn + self.curlastrows['dialog'] - 1}B"
+        row, col = self._input_position("command", self.cursors["command"])
+        return self._move_to(self.n + row, col)
+
     def inputloop(self):
         """Background-thread loop: read raw keys and maintain the
         current line buffer/cursor for whichever input is active
@@ -228,21 +370,28 @@ class Console:
             cursor = self.cursors[user]
             echo = self.curecho[user]
             if key == "\r":
+                # Return
                 doneevent = self.curdoneevents.get(user)
                 self.curresults[user] = buf
+                rows = self._input_rows(user)
+                self.curlastrows[user] = rows
+                if echo:
+                    # Move below the last row of wrapped text first
+                    self.outpt(self._move_to(rows - 1 - self.curn[user], 0), end="")
                 self.curinput[user] = ""
                 self.cursors[user] = 0
+                self.curn[user] = 0
                 self.outpt("")
+                self.n = 0
                 if doneevent:
                     doneevent.set()
             elif key in ("\x7f", "\x08"):
+                # Backspace
                 if cursor == 0:
                     continue
-                if echo:
-                    self.outpt("\x1b[D\x1b[P", end="")
-                self.curinput[user] = buf[: cursor - 1] + buf[cursor:]
-                self.cursors[user] = cursor - 1
+                self._update_input(user, buf[: cursor - 1] + buf[cursor:], cursor - 1)
             elif key == "\x1b":
+                # Handle arrow keys and delete
                 second = None
                 third = None
                 while not second:
@@ -250,51 +399,45 @@ class Console:
                 while not third:
                     third = get_key()
                 if second + third == "[D":
+                    # Left arrow
                     if cursor == 0:
                         continue
-                    self.cursors[user] = cursor - 1
-                    if echo:
-                        self.outpt("\x1b[D", end="")
+                    self._move_input_cursor(user, cursor - 1)
                 elif second + third == "[C":
+                    # Right arrow
                     if cursor == len(buf):
                         continue
-                    self.cursors[user] = cursor + 1
-                    if echo:
-                        self.outpt("\x1b[C", end="")
+                    self._move_input_cursor(user, cursor + 1)
                 elif second + third == "[A":
-                    self.cursors[user] = 0
-                    if echo:
-                        # terminals move by one even for \x1b[0D. fix
-                        # replace \x1b[0D with ""
-                        self.outpt(f"\x1b[{cursor}D".replace("\x1b[0D", ""), end="")
+                    # Up arrow
+                    self._move_input_cursor(user, 0)
                 elif second + third == "[B":
-                    self.cursors[user] = len(self.curinput[user])
-                    if echo:
-                        # terminals move by one even for \x1b[0C. fix
-                        # replace \x1b[0C with ""
-                        self.outpt(
-                            f"\x1b[{len(self.curinput[user]) - cursor}C".replace(
-                                "\x1b[0C",
-                                "",
-                            ),
-                            end="",
-                        )
+                    # Down arrow
+                    self._move_input_cursor(user, len(buf))
                 elif second + third == "[3":
+                    # Delete
                     fourth = None
                     while not fourth:
                         fourth = get_key()
                     if cursor == len(buf):
                         continue
-                    if echo:
-                        self.outpt("\x1b[P", end="")
-                    self.curinput[user] = buf[:cursor] + buf[cursor + 1 :]
+                    self._update_input(user, buf[:cursor] + buf[cursor + 1 :], cursor)
             elif key == "\t":
+                # Tab
                 continue
             else:
-                if echo:
-                    self.outpt("\x1b[@" + key, end="")
-                self.curinput[user] = buf[:cursor] + key + buf[cursor:]
-                self.cursors[user] = cursor + 1
+                newbuf = buf[:cursor] + key + buf[cursor:]
+                if cursor == len(buf) and self._input_rows(
+                    user, len(newbuf)
+                ) == self._input_rows(user):
+                    # Typing at the end without starting a new row needs
+                    # no redraw.
+                    if echo:
+                        self.outpt(key, end="")
+                    self.curinput[user] = newbuf
+                    self.cursors[user] = cursor + 1
+                else:
+                    self._update_input(user, newbuf, cursor + 1)
 
     def inpt(self, prompt, echo=True, cancel_event=None, forinput=None):
         """Print prompt, then block until inputloop() records an Enter
@@ -311,11 +454,23 @@ class Console:
         self.outpt(prompt, end="")
         user = self.curactiveinput
         self.curecho[user] = echo
+        self.curpromptlens[user] = len(_PROMPT_ZERO_WIDTH_PATTERN.sub("", prompt))
+        # A prompt wider than the terminal wraps itself, leaving the
+        # cursor below the row it started on.
+        self.curn[user] = self.curpromptlens[user] // self._get_terminal_width()
         doneevent = threading.Event()
         self.curdoneevents[user] = doneevent
         while not doneevent.wait(timeout=0.1):
             if cancel_event and cancel_event.is_set():
                 self.curdoneevents.pop(user, None)
+                # Leave the half-typed text behind, below its last row
+                rows = self._input_rows(user)
+                if echo:
+                    self.outpt(self._move_to(rows - 1 - self.curn[user], 0), end="")
+                self.curinput[user] = ""
+                self.cursors[user] = 0
+                self.curn[user] = 0
+                self.curlastrows[user] = rows
                 self.outpt("")
                 if forinput is not None:
                     self.curactiveinput = previnput
@@ -326,29 +481,38 @@ class Console:
             self.curactiveinput = previnput
         return result
 
+    def _get_terminal_width(self):
+        return os.get_terminal_size(state.stdout.fileno())[0]
+
     def show(self, text):
         """Mirror a utils.show() status message above the command
         prompt line (mirrors PyNotes' Alt-X command box)."""
         with self.dialoglock:
             if not (text := text.strip()):
                 return
+            import textwrap
+
+            width = self._get_terminal_width()
+            text = "message: " + text
+            text = textwrap.fill(text, width=width)
             # self.n (set by loop()) is how many extra lines the current
             # command prompt has printed below it (e.g. from a nested
-            # sub-prompt); moveback ascends past them so the message
-            # is drawn just above the prompt line, using cursor Home
+            # sub-prompt); moveback ascends past them, and past the rows
+            # of wrapped input text above the cursor (self.curn), so the
+            # message is drawn just above the prompt line, using cursor Home
             # instead while the full-screen help text (self.helping) is
             # showing, since its layout doesn't follow the prompt line.
-            if self.n:
-                moveback = f"\x1b[{self.n}A"
-            else:
-                moveback = ""
+            moveback = self._moveback_string()
             if self.helping:
                 moveback = "\x1b[H"
+            text = text.replace("message: ", "message: \x1b[3m")
             self.outpt(
                 # \x1bD and \x1b[A are to scroll up if needed, stopping
                 # the terminal clamping text at the bottom row and
                 # continuously overwriting it.
-                f"\x1bD\x1b[A\x1b7{moveback}\x1b[L\r\x1b[7mmessage: \x1b[3m{text}\x1b[0m\x1b8\x1b[B",
+                f"{self._scroll_ahead_string(1)}\x1b7{moveback}\x1b[L\r\x1b[7m{text}\x1b[0m\x1b8\x1b[{text.count('\n') + 1}B".replace(
+                    "\n", f"\n\x1b[L"
+                ),
                 end="",
             )
 
@@ -360,25 +524,22 @@ class Console:
         with self.dialoglock:
             import textwrap
 
-            width = min(shutil.get_terminal_size()[0], 80)
+            width = min(self._get_terminal_width(), 80)
             if len(title) > width:
                 title = title[: width - 3] + "..."
             text = textwrap.fill(message, width=width) + "\n"
             spacing = " " * ((width - len(title)) // 2)
-            if self.n:
-                moveback = f"\x1b[{self.n}A"
-            else:
-                moveback = ""
+            moveback = self._moveback_string()
             if self.helping:
                 moveback = "\x1b[H"
             text = "\n".join(line.ljust(width) for line in text.split("\n"))
-            outptstring = f'\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\x1b[0m\x1b8\x1b[{text.count("\n") + 2}B'.replace(
+            outptstring = f"\x1b7{moveback}\x1b[L\r\x1b[{color}\x1b[7m{spacing}\x1b[1m{title}\x1b[22m{spacing}{" " * ((width - len(title)) % 2)}\x1b[27m\n{text}\x1b[0m\x1b8\x1b[{text.count('\n') + 2}B".replace(
                 "\n", f"\x1b[49m\n\x1b[L\x1b[{color}"
             )
             # count number of insert lines to scroll up that many times
             # if needed
             nxlines = outptstring.count("\x1b[L")
-            xlines = "\x1bD" * nxlines + "\x1b[A" * nxlines
+            xlines = self._scroll_ahead_string(nxlines)
             self.outpt(xlines + outptstring, end="")
 
     def ask(self, title, question, options, color="100m", cancel_event=None):
@@ -389,15 +550,12 @@ class Console:
         with self.dialoglock:
             import textwrap
 
-            width = min(shutil.get_terminal_size()[0], 80)
+            width = min(self._get_terminal_width(), 80)
             if len(title) > width:
                 title = title[: width - 3] + "..."
             text = textwrap.fill(question, width=width) + "\n"
             spacing = " " * ((width - len(title)) // 2)
-            if self.n:
-                moveback = f"\x1b[{self.n}A"
-            else:
-                moveback = ""
+            moveback = self._moveback_string()
             if self.helping:
                 moveback = "\x1b[H"
             text = "\n".join(line.ljust(width) for line in text.split("\n"))
@@ -459,12 +617,14 @@ class Console:
             # count the number of insert lines to scroll up that many times
             # if needed
             nxlines = outptstring.count("\x1b[L") + optionstext.count("\x1b[L")
-            xlines = "\x1bD" * nxlines + "\x1b[A" * nxlines
+            xlines = self._scroll_ahead_string(nxlines)
             self.outpt(xlines + outptstring, end="")
             options = range(1, optioni + 2)
             optionpromptslash = "/".join(map(str, options))
             restore = lambda: self.outpt(
-                f'\x1b8\x1b[{optionstext.count("\n") + text.count("\n") + 3}B',
+                self._dialog_restore_string(
+                    optionstext.count("\n") + text.count("\n") + 3
+                ),
                 end="",
             )
             gotinput = self.inpt(
@@ -483,7 +643,7 @@ class Console:
             if gotinput not in options:
                 while gotinput not in options:
                     gotinput = self.inpt(
-                        f"\x1b[A\r\x1b[K\x1b[7m\x1b[1m\x1b[31m[invalid input]\x1b[39m select ({optionpromptslash}):\x1b[0m ",
+                        f"{self._erase_last_input_string('dialog')}\x1b[7m\x1b[1m\x1b[31m[invalid input]\x1b[39m select ({optionpromptslash}):\x1b[0m ",
                         cancel_event=cancel_event,
                         forinput="dialog",
                     )
@@ -505,15 +665,12 @@ class Console:
         with self.dialoglock:
             import textwrap
 
-            width = min(shutil.get_terminal_size()[0], 80)
+            width = min(self._get_terminal_width(), 80)
             if len(title) > width:
                 title = title[: width - 3] + "..."
             text = textwrap.fill(text, width=width) + "\n"
             spacing = " " * ((width - len(title)) // 2)
-            if self.n:
-                moveback = f"\x1b[{self.n}A"
-            else:
-                moveback = ""
+            moveback = self._moveback_string()
             if self.helping:
                 moveback = "\x1b[H"
             text = "\n".join(line.ljust(width) for line in text.split("\n"))
@@ -523,9 +680,11 @@ class Console:
             # count number of insert lines to scroll up that many times
             # if needed
             nxlines = outptstring.count("\x1b[L") + 1
-            xlines = "\x1bD" * nxlines + "\x1b[A" * nxlines
+            xlines = self._scroll_ahead_string(nxlines)
             self.outpt(xlines + outptstring, end="")
-            restore = lambda: self.outpt(f'\x1b8\x1b[{text.count("\n") + 3}B', end="")
+            restore = lambda: self.outpt(
+                self._dialog_restore_string(text.count("\n") + 3), end=""
+            )
             gotinput = self.inpt(
                 f"\x1b[7m\x1b[1mprompt:\x1b[0m ",
                 cancel_event=cancel_event,
@@ -552,6 +711,7 @@ class Console:
                 self.n = 0
                 self.helping = False
                 commandline = self.inpt("> ")
+                commandrows = self.curlastrows["command"]
                 command, commandinput = (commandline.strip() + " ").split(" ", 1)
                 command = command.strip()
                 commandinput = commandinput.strip()
@@ -599,9 +759,11 @@ class Console:
                         self.outpt("\x1b[31merror: pynotes has already started.\x1b[3m")
                         continue
                     expc = ""
+                    previousrows = commandrows
                     while True:
-                        self.n += 1
+                        self.n += previousrows
                         nl = self.inpt("extra-pycode> ", forinput="command").strip()
+                        previousrows = self.curlastrows["command"]
                         if nl == "DONE":
                             break
                         elif nl == "CANCEL":
@@ -623,15 +785,15 @@ class Console:
                     if commandinput:
                         filetoopen = commandinput
                     else:
-                        self.n = 1
+                        self.n = commandrows
                         filetoopen = self.inpt(
                             "file to open: ", forinput="command"
                         ).strip()
-                        self.outpt("\r\x1b[A\x1b[K", end="")
+                        self.outpt(self._erase_last_input_string("command"), end="")
                     if not filetoopen:
                         self.outpt("\x1b[33mcancelled.\x1b[0m")
                         continue
-                    self.outpt(f"\x1b[A\x1b[K> open-file {filetoopen}")
+                    self.outpt(f"\r\x1b[{commandrows}A\x1b[J> open-file {filetoopen}")
                     self.n = 0
                     filetoopen = os.path.abspath(os.path.expanduser(filetoopen))
                     if not os.path.exists(filetoopen):
@@ -667,7 +829,7 @@ class Console:
                             f"\x1b[31merror: input given to \x1b[3mkill\x1b[23m command.\x1b[0m"
                         )
                         continue
-                    self.n = 1
+                    self.n = commandrows
                     userinput = (
                         self.inpt(
                             "\x1b[33mkill pynotes? (y/n): \x1b[0m", forinput="command"
@@ -676,7 +838,7 @@ class Console:
                     )[0].lower()
                     if userinput not in ("y", "n"):
                         for i in range(2):
-                            self.outpt("\r\x1b[A\x1b[K", end="")
+                            self.outpt(self._erase_last_input_string("command"), end="")
                             userinput = (
                                 self.inpt(
                                     f"\x1b[31m[invalid input ({i + 2}/3)]\x1b[0m \x1b[33mkill pynotes? (y/n): \x1b[0m",
@@ -689,7 +851,9 @@ class Console:
                             else:
                                 userinput = "n"
                     if userinput != "y":
-                        self.outpt("\r\x1b[A\x1b[K\x1b[32mcancelled.\x1b[0m")
+                        self.outpt(
+                            f"{self._erase_last_input_string('command')}\x1b[32mcancelled.\x1b[0m"
+                        )
                         continue
                     else:
                         self.outpt("\x1b[31mkilling pynotes.\x1b[0m")
@@ -700,12 +864,14 @@ class Console:
                     if commandinput:
                         torun = commandinput
                     else:
-                        self.n = 1
+                        self.n = commandrows
                         torun = self.inpt(
                             "command to run: ", forinput="command"
                         ).strip()
                     if not torun:
-                        self.outpt("\r\x1b[A\x1b[K\x1b[33mcancelled.\x1b[0m")
+                        self.outpt(
+                            f"{self._erase_last_input_string('command')}\x1b[33mcancelled.\x1b[0m"
+                        )
                         continue
                     subprocess.run(
                         torun, shell=True, stdout=state.stdout, stderr=state.stderr
@@ -748,4 +914,3 @@ def start_console(consoleq):
     main.py starts alongside the GUI."""
     state.console = Console(consoleq)
     state.console.loop()
-    return state.console

@@ -1,5 +1,5 @@
 """PyNotes' terminal buffer: a from-scratch VT100/xterm terminal
-emulator (the Terminal widget, a ttk.Text subclass) driving a real
+emulator (the Terminal widget, a canvastk Textbox subclass) driving a real
 shell/command subprocess over a PTY (Python's pty module on Linux,
 pywinpty elsewhere), plus TerminalBuffer, the Buffer wrapper around it,
 and term()/termexec(), the public ways to open one or run a one-off
@@ -15,13 +15,13 @@ import threading
 import time
 import unicodedata
 import tkinter.font as tkfont
-import easytk
+import canvastk as ctk
 import state
 from init import monospace, DEBOUNCE_TIME
 
 if platform.system() != "Linux":
     from winpty import PtyProcess
-from buffer import Buffer
+from buffer import Buffer, newbuffer, pcclosebuff
 from utils import bindrecur
 import pycode
 import utils
@@ -276,15 +276,15 @@ def _term_sgr_resolve(state, default_fg, default_bg):
     return fg, bg
 
 
-class Terminal(easytk.ttk.Text):
-    """A VT100/xterm terminal emulator built on a ttk Text widget:
+class Terminal(ctk.Textbox):
+    """A VT100/xterm terminal emulator built on a canvastk Textbox:
     runs a real subprocess over a PTY (see _term_start_process()),
     parses its output as a stream of ANSI/VT escape sequences (see
     _process(), the emulator's core), and reflects the resulting
     character grid, cursor, and colors/styles into the Text widget's
     content and tags. Input events (_key()/_meta_key()/mouse handlers)
     are translated back into the escape sequences/bytes the subprocess
-    expects. self.bind() is disabled after __init__ (use self.realbind
+    expects. self.bind() and self.inner.bind() are disabled after __init__ (use self.realbind
     instead) so external code can't accidentally break the emulator's
     own event bindings.
     """
@@ -336,9 +336,13 @@ class Terminal(easytk.ttk.Text):
         (a string) and fontsize: its size (a number), always used
         explicitly for the text, the bold/italic variants and the
         cell size."""
+        import tkinter as tk
+
         kwargs["font"] = (font, fontsize)
         kwargs.setdefault("wrap", "none")
+        kwargs.setdefault("scrolled", True)
         super().__init__(master, *args, **kwargs)
+        self.unbind("<Control-a>")
         self._term_font_name = font
         self._term_font_size = fontsize
         self._term_font = tkfont.Font(family=font, size=fontsize)
@@ -366,14 +370,12 @@ class Terminal(easytk.ttk.Text):
         self._cursor_blink_visible = True
         self._cursor_blink_after_id = None
         self._cursor_redraw_pending = False
-        self._cursor_widget = easytk.tk.Label(
-            self,
-            background=self._cursor_color,
-            foreground=self._term_default_bg,
+        self._cursor_widget = ctk.Label(
+            self.inner,
+            bg=self._cursor_color,
+            text_color=self._term_default_bg,
             text="",
             font=(self._term_font_name, self._term_font_size),
-            borderwidth=0,
-            highlightthickness=0,
             padx=0,
             pady=0,
             anchor="nw",
@@ -432,14 +434,12 @@ class Terminal(easytk.ttk.Text):
         self._read_generation = 0
         self._follow_bottom = True
         self._poll_after_id = None
-        self._termmenu = state.root.menu(master=self)
+        self._termmenu = ctk.Menu(self)
         self._termmenu.add_command(label="Copy", command=self._copy_selection)
         self._termmenu.add_command(label="Paste", command=self._paste_clipboard)
         self._termmenu.add_separator()
         self._termmenu.add_command(label="Select All", command=self._select_all)
         self._menu_posted = False
-        self._termmenu.bind("<KeyPress>", self._termmenu_keyclose)
-        self._termmenu.bind("<Unmap>", lambda e: setattr(self, "_menu_posted", False))
         self.bind("<Key>", self._key)
         self.bind("<ISO_Left_Tab>", self._key)
         self.bind("<Control-Key>", self._key)
@@ -451,9 +451,8 @@ class Terminal(easytk.ttk.Text):
         self.bind("<Control-v>", self._key)
         self.bind("<Control-y>", self._key)
         self.bind("<Meta-w>", self._meta_key)
-        self.bind("<FocusIn>", self._focus_in)
-        self.bind("<FocusOut>", self._focus_out)
-        self.bind("<<ThemeChanged>>", self._term_on_theme_changed)
+        self.bind("<FocusIn>", self._focus_in, add="+")
+        self.bind("<FocusOut>", self._focus_out, add="+")
         self.bind("<Button-1>", self._term_button1_press)
         self.bind("<ButtonRelease-1>", self._term_button1_release)
         self.bind("<B1-Motion>", self._term_button1_motion)
@@ -474,11 +473,12 @@ class Terminal(easytk.ttk.Text):
         self.edit_modified(False)
         self.bind("<<Modified>>", self._on_modified)
         self.bind("<Control-Shift-V>", self._paste_clipboard)
-        self.bind("<Configure>", self._term_on_configure)
+        self.inner.bind("<Configure>", self._term_on_configure)
         self.bind("<Map>", self._term_on_map)
         self.bind("<Destroy>", lambda e: self._terminate_process())
-        self.realbind = self.bind
+        self.realbind = self.inner.bind
         self.bind = lambda *_, **__: None
+        self.inner.bind = lambda *_, **__: None
 
     # The cursor is drawn as PyNotes' own Label widget (self._cursor_widget,
     # placed on top of the Text) rather than tkinter's built-in insertion
@@ -598,16 +598,16 @@ class Terminal(easytk.ttk.Text):
         _cursor_bg = self._cursor_color if self._cursor_color_custom else _char_fg
         _cursor_fg = self._term_default_bg if self._cursor_color_custom else _char_bg
         if self._cursor_shape == "bar":
-            self._cursor_widget.config(text="", background=_cursor_bg)
+            self._cursor_widget.config(text="", bg=_cursor_bg)
             self._cursor_widget.place(x=_bx, y=_by, width=2, height=_charh)
         elif self._cursor_shape == "underline":
-            self._cursor_widget.config(text="", background=_cursor_bg)
+            self._cursor_widget.config(text="", bg=_cursor_bg)
             self._cursor_widget.place(x=_bx, y=_by + _charh - 2, width=_charw, height=2)
         else:
             self._cursor_widget.config(
                 text=_char if _char and _char != "\n" else " ",
-                background=_cursor_bg,
-                foreground=_cursor_fg,
+                bg=_cursor_bg,
+                text_color=_cursor_fg,
             )
             self._cursor_widget.place(x=_bx, y=_by, width=_charw, height=_charh)
 
@@ -626,8 +626,8 @@ class Terminal(easytk.ttk.Text):
         """Moving the "insert" mark instead moves this terminal's own
         cursor position; every other mark behaves normally."""
         if mark != "insert":
-            return super().mark_set(mark, *args, **kwargs)
-        _idx = super().index(self._resolve_insert(args[0]))
+            return self.inner.mark_set(mark, *args, **kwargs)
+        _idx = self.inner.index(self._resolve_insert(args[0]))
         self._cur_line, self._cx = (int(_x) for _x in _idx.split("."))
         self._cursor_reset_blink_phase()
         self._cursor_schedule_redraw()
@@ -636,18 +636,18 @@ class Terminal(easytk.ttk.Text):
     # so they can be used with this terminal's tracked cursor just like
     # with tkinter's own insertion cursor.
     def index(self, idx, *args, **kwargs):
-        return super().index(self._resolve_insert(idx), *args, **kwargs)
+        return self.inner.index(self._resolve_insert(idx), *args, **kwargs)
 
     def delete(self, *indices):
         super().delete(*(self._resolve_insert(_i) for _i in indices))
 
     def compare(self, index1, op, index2):
-        return super().compare(
+        return self.inner.compare(
             self._resolve_insert(index1), op, self._resolve_insert(index2)
         )
 
     def see(self, idx):
-        return super().see(self._resolve_insert(idx))
+        return self.inner.see(self._resolve_insert(idx))
 
     def bbox(self, idx):
         return super().bbox(self._resolve_insert(idx))
@@ -694,8 +694,8 @@ class Terminal(easytk.ttk.Text):
         _chrome = int(self.cget("borderwidth")) + int(self.cget("highlightthickness"))
         _pad_w = 2 * (_chrome + int(self.cget("padx")))
         _pad_h = 2 * (_chrome + int(self.cget("pady")))
-        cols = max(1, (self.winfo_width() - _pad_w) // charw)
-        rows = max(1, (self.winfo_height() - _pad_h) // charh)
+        cols = max(1, (self.inner.winfo_width() - _pad_w) // charw)
+        rows = max(1, (self.inner.winfo_height() - _pad_h) // charh)
         self.config(width=cols, height=rows)
         return self.cget("width"), self.cget("height")
 
@@ -712,7 +712,7 @@ class Terminal(easytk.ttk.Text):
         self._cursor_schedule_redraw()
 
     def _term_refresh_default_colors(self):
-        """Re-read the terminal's default fg/bg from the current ttk
+        """Re-read the terminal's default fg/bg from the current
         style (after a theme change, or before starting the process)."""
         self._term_default_bg = self.cget("background")
         self._term_default_fg = self.cget("foreground")
@@ -869,6 +869,19 @@ class Terminal(easytk.ttk.Text):
         else:
             if self._cur_line - self.screen_top + 1 > rows:
                 self.screen_top = self._cur_line - rows + 1
+            if cols < self._GRID_COLS:
+                # The live screen is still a fixed-width grid even on
+                # the primary screen; only truncate rows actually on
+                # it now, leaving already-scrolled-off scrollback at
+                # whatever width it was written with.
+                _last = self._term_last_real_line()
+                for ln in range(
+                    self.screen_top, min(self.screen_top + rows - 1, _last) + 1
+                ):
+                    if self._term_col_width(ln) > cols:
+                        self.delete(
+                            f"{ln}.{self._term_col_to_index(ln, cols)}", f"{ln}.end"
+                        )
         if cols > self._GRID_COLS:
             # Newly exposed columns get the default tab stop every 8
             # columns; without them a tab past the old width jumps to the
@@ -952,7 +965,7 @@ class Terminal(easytk.ttk.Text):
             return
         self.running = False
         try:
-            self.event_generate("<<TerminalProcessEnded>>")
+            self.inner.event_generate("<<TerminalProcessEnded>>")
         except Exception:
             pass
 
@@ -1004,7 +1017,7 @@ class Terminal(easytk.ttk.Text):
             pass
         if not restarting:
             try:
-                self.event_generate("<<TerminalStopped>>")
+                self.inner.event_generate("<<TerminalStopped>>")
             except Exception:
                 pass
 
@@ -2741,7 +2754,7 @@ class Terminal(easytk.ttk.Text):
             if _had and self._follow_bottom:
                 self._term_follow_view()
             if _had:
-                self.event_generate("<<TerminalOutputProcessed>>")
+                self.inner.event_generate("<<TerminalOutputProcessed>>")
             if closed:
                 self._emit_process_ended()
                 if self.endmessage:
@@ -2966,34 +2979,16 @@ class Terminal(easytk.ttk.Text):
             except Exception:
                 pass
 
-    def _termmenu_keyclose(self, e):
-        """Close the context menu on any keypress except the ones used
-        to navigate/operate it."""
-        if e.keysym not in (
-            "Up",
-            "Down",
-            "Left",
-            "Right",
-            "Return",
-            "space",
-            "Shift_L",
-            "Shift_R",
-            "Control_L",
-            "Control_R",
-            "Alt_L",
-            "Alt_R",
-        ):
-            self._unpost_menu()
-            return "break"
-
     def _popup(self, e):
         """Show the right-click context menu (Copy/Paste/Select All)."""
         self.focus_set()
         self._menu_posted = True
-        try:
-            self._termmenu.tk_popup(e.x_root, e.y_root)
-        finally:
-            self._termmenu.grab_release()
+        self._termmenu.post(
+            e.x_root,
+            e.y_root,
+            owner=self,
+            on_close=lambda: setattr(self, "_menu_posted", False),
+        )
         return "break"
 
     def _snap_caret(self, e=None):
@@ -3053,7 +3048,7 @@ class Terminal(easytk.ttk.Text):
             return False
         self._mouse_bypass = True
         try:
-            self.event_generate(pattern, x=event.x, y=event.y)
+            self.inner.event_generate(pattern, x=event.x, y=event.y)
         finally:
             self._mouse_bypass = False
         return True
@@ -3261,6 +3256,14 @@ class Terminal(easytk.ttk.Text):
             except Exception:
                 pass
 
+    def on_theme_changed(self):
+        """canvastk calls this when the theme changes: restyle the box
+        as usual, then adopt the new colors (see
+        _term_on_theme_changed())."""
+        super().on_theme_changed()
+        if hasattr(self, "_alt_mode"):
+            self._term_on_theme_changed()
+
     def _term_on_theme_changed(self, e=None):
         """Adopt the new theme's colors as the default fg/bg (unless
         currently showing the alternate screen or a reverse-video
@@ -3292,7 +3295,7 @@ class TerminalBuffer(Buffer):
         """command: the argv list to run (None for the default shell).
         title/endmessage: see Terminal.__init__()."""
         super().__init__(master, *args, **kwargs)
-        self.m = state.root.menu()
+        self.m = ctk.Menu(state.root)
         for label, menu in state.all_terminal_menus.items():
             self.m.add_cascade(label=label, menu=menu)
         pycode.pcrunhook("before", "open-terminal", command)
@@ -3336,9 +3339,7 @@ class TerminalBuffer(Buffer):
         # itself automatically instead of sitting there dead.
         self.term.realbind(
             "<<TerminalStopped>>",
-            lambda event, buffer=self: pycode.pcclosebuff(
-                state.all_buffers.index(buffer)
-            ),
+            lambda event, buffer=self: pcclosebuff(state.all_buffers.index(buffer)),
         )
 
     @property
@@ -3373,9 +3374,8 @@ def term(
     the command has finished (and any endmessage acknowledged)."""
     if not command:
         utils.show("open pynotes terminal")
-    term = window.newbuffer(
+    term = newbuffer(
         TerminalBuffer, orient, command, title, endmessage, *args, **kwargs
     )
     if blocking == True:
-        while term.winfo_exists():
-            state.root.update()
+        term.wait_window()

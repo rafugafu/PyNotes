@@ -28,16 +28,13 @@ import state
 import urllib.request
 import zipfile
 import init
-import utils
-import dialogs
 from cli import claht, clcht
 
-# Pull init/utils/dialogs' top-level names straight into this module's
-# namespace (so e.g. init.homedir can be used here as plain homedir),
-# mirroring what's later done for the rest of PyNotes' own modules.
-for _m in (init, utils, dialogs):
-    globals().update({_k: _v for _k, _v in vars(_m).items() if not _k.startswith("__")})
-del _m
+# Pull init's top-level names straight into this module's namespace (so
+# e.g. init.homedir can be used here as plain homedir), mirroring what's
+# later done for the rest of PyNotes' own modules. utils and dialogs
+# are imported after the Pillow check below, since they import canvastk.
+globals().update({_k: _v for _k, _v in vars(init).items() if not _k.startswith("__")})
 from cli import argparse, start_console
 from tkinter import messagebox as mb
 
@@ -61,7 +58,13 @@ state.options, state.files_to_open = argparse(
 )
 
 # The changelog shown by --changes / the "What's new" menu item.
-changelist = []
+changelist = [
+    "Rewrote PyNotes to use canvastk instead of easytk/ttkbootstrap for amazing aesthetics!\n  - Made many built-in common themes.\n  - Made a custom ttkcreator-like theme creator accessible in preferences.\n  - Made the Linux graphical filedialog also use canvastk's native filedialog instead of zenity.\n  - Made gridpanedwindows which are capable of splitting and reorganizing in any place and direction.",
+    "Fixed the terminal not deleting old overflowing text on resize.",
+    "Fixed an editor which becomes a split view of another editor not stopping its old file change observer.",
+    "Made the PyNotes syntax highlighting module registration search in the editor's working directory instead of PyNotes' own sys.path which would not include local project modules and packages, causing them to not be highlighted.",
+    "Fixed some text-wrapping and width bugs in the console.",
+]
 state.changestr = ""
 for i in range(len(changelist) - 1):
     state.changestr += f"{i + 1}. {changelist[i]}\n\n"
@@ -277,7 +280,7 @@ if state.options["help"]:
     exit()
 
 # GUI startup begins here: make sure PyNotes' own venv is used (Linux),
-# ensure ttkbootstrap itself is installed (needed even to show the
+# ensure Pillow itself is installed (needed even to show the
 # "install this?" dialogs for every other optional dependency), then
 # redirect stdout/stderr so the terminal is free for the console below.
 import subprocess
@@ -292,20 +295,26 @@ if platform.system() == "Linux":
     )
 switchvenv()
 try:
-    import easytk
-
-    assert tuple(map(int, easytk.ttk.__version__.split("."))) >= (2, 0, 0)
+    import PIL.ImageTk
 except Exception:
     if mb.askyesno(
         "Info",
-        "The module 'ttkbootstrap' is not installed. PyNotes will not be able to run without this module. Should PyNotes install it locally?",
+        "The module 'Pillow' is not installed. PyNotes will not be able to run without this module. Should PyNotes install it locally?",
     ):
-        subprocess.run([sys.executable, "-m", "pip", "install", "-U", "ttkbootstrap"])
+        subprocess.run([sys.executable, "-m", "pip", "install", "-U", "Pillow"])
     else:
         mb.showerror("Error!", "Quitting PyNotes.")
         exit(1)
     mb.showinfo("Info", "Restarting PyNotes.")
     os.execv(sys.executable, [sys.executable] + sys.argv)
+
+import utils
+import dialogs
+
+for _m in (utils, dialogs):
+    globals().update({_k: _v for _k, _v in vars(_m).items() if not _k.startswith("__")})
+del _m
+import canvastk as ctk
 
 # Save the real stdout/stderr fds, then redirect the process' own
 # stdout/stderr to /dev/null: from here on, state.stdout/state.stderr
@@ -333,8 +342,8 @@ if not state.options["wait-start"]:
     # console would print if the user had actually typed it themselves.
     print("start\n\r\x1b[32mstarting pynotes.\x1b[0m\n\r> ", end="", file=state.stdout)
 state.started.wait()
-if platform.system() != "Linux":
-    fd = easytk.fd
+from canvastk import filedialog as fd
+
 # python_scope_build implements editor.py's Python-scope analysis
 # (autocomplete, go-to-definition); these names are imported here too so
 # they end up in vars(state) below, reachable from PyCode/plugin code
@@ -388,7 +397,6 @@ import sympy
 import sounddevice as sd
 import speech_recognition as sr
 import numpy as np
-from tklinenums import TkLineNumbers
 import ziamath
 import cairosvg
 from PIL import Image
@@ -451,12 +459,14 @@ state.engine = stt.init()
 state.pcwrittencommands = {}
 state.pcbeforehooks = {}
 state.pcafterhooks = {}
-state.cmdentry = state.root.textbox(
-    state="disabled", height=1, bd=1, font=(monospace, 12)
+
+
+state.cmdentry = utils.EnabledLookTextbox(
+    state.root, state="disabled", height=1, font=(monospace, 12)
 )
 state.cmdentry.pack(padx=10, pady=10, fill="x", anchor="n")
-state.cmdautocomplete = state.root.textbox(
-    state="disabled", bd=1, font=(monospace, 10), wrap="word"
+state.cmdautocomplete = utils.EnabledLookTextbox(
+    state.root, state="disabled", font=(monospace, 10), wrap="word"
 )
 
 # Populate every shared menu (state.fm, state.em, ...) each buffer type
@@ -466,20 +476,25 @@ state.plgnm.add_command(label="Download From PyNotes' GitHub", command=dp)
 state.plgnm.add_command(label="Open Plugins Directory", command=op)
 state.plgnm.add_separator()
 state.plgnm.add_command(label="Help with Adding Plugins", command=ap)
-state.pm.add_command(label="Run → F5", command=lambda: state.active.rp())
+state.pm.add_command(label="Run", accelerator="F5", command=lambda: state.active.rp())
 state.lm.add_command(
-    label="Run LuaLaTeX → F5", command=lambda: state.active.runtex("lua")
+    label="Run LuaLaTeX", accelerator="F5", command=lambda: state.active.runtex("lua")
 )
 state.lm.add_command(label="Run PdfLaTeX", command=lambda: state.active.runtex("pdf"))
 state.em.add_command(
-    label="Undo → Ctrl + Z / Alt + X - u", command=lambda: state.active.undo()
+    label="Undo",
+    accelerator="Ctrl + Z / Alt + X - u",
+    command=lambda: state.active.undo(),
 )
 state.em.add_command(
-    label="Redo → Ctrl + Shift + Z / Alt + X - r", command=lambda: state.active.redo()
+    label="Redo",
+    accelerator="Ctrl + Shift + Z / Alt + X - r",
+    command=lambda: state.active.redo(),
 )
 state.em.add_separator()
 state.em.add_command(
-    label="Copy selection → Ctrl + C / Alt + X - c",
+    label="Copy selection",
+    accelerator="Ctrl + C / Alt + X - c",
     command=lambda: (
         state.active.cp()
         if hasattr(state.active, "cp")
@@ -487,7 +502,8 @@ state.em.add_command(
     ),
 )
 state.em.add_command(
-    label="Paste clipboard → Ctrl + V / Alt + X - p",
+    label="Paste clipboard",
+    accelerator="Ctrl + V / Alt + X - p",
     command=lambda: (
         state.active.pst()
         if hasattr(state.active, "pst")
@@ -495,11 +511,14 @@ state.em.add_command(
     ),
 )
 state.em.add_command(
-    label="Cut selection → Ctrl + X / Alt + X - cut", command=lambda: state.active.cut()
+    label="Cut selection",
+    accelerator="Ctrl + X / Alt + X - cut",
+    command=lambda: state.active.cut(),
 )
 state.em.add_separator()
 state.em.add_command(
-    label="Select all → Ctrl + A / Alt + X - a",
+    label="Select all",
+    accelerator="Ctrl + A / Alt + X - a",
     command=lambda: (
         state.active.selall()
         if hasattr(state.active, "selall")
@@ -508,7 +527,7 @@ state.em.add_command(
 )
 state.hm.add_command(label="About", command=abt)
 state.hm.add_command(label=f"What's new in {v}?", command=changes)
-state.hm.add_command(label="Help with commands → Alt + X - h", command=hx)
+state.hm.add_command(label="Help with commands", accelerator="Alt + X - h", command=hx)
 state.hm.add_command(label="Help with Email", command=hemail)
 state.hm.add_command(label="Help with PyCode", command=helppycode)
 state.hm.add_command(label="Help with MathGod", command=helpmathgod)
@@ -516,27 +535,34 @@ state.hm.add_command(label="Help with Adding Plugins", command=ap)
 state.hm.add_separator()
 state.hm.add_command(label="Recover backup", command=rb)
 state.hmm.add_command(
-    label="Normal → Alt + X - hmode:norm", command=lambda: pchmode("normal")
+    label="Normal",
+    accelerator="Alt + X - hmode:norm",
+    command=lambda: pchmode("normal"),
 )
 state.hmm.add_command(
-    label="Python → Alt + X - hmode:py", command=lambda: pchmode("python")
+    label="Python", accelerator="Alt + X - hmode:py", command=lambda: pchmode("python")
 )
 state.hmm.add_command(
-    label="LaTeX → Alt + X - hmode:la", command=lambda: pchmode("latex")
+    label="LaTeX", accelerator="Alt + X - hmode:la", command=lambda: pchmode("latex")
 )
 state.hmm.add_command(
-    label="Markdown → Alt + X - hmode:md", command=lambda: pchmode("markdown")
+    label="Markdown",
+    accelerator="Alt + X - hmode:md",
+    command=lambda: pchmode("markdown"),
 )
 state.hmm.add_command(
-    label="HTML → Alt + X - hmode:html", command=lambda: pchmode("html")
+    label="HTML", accelerator="Alt + X - hmode:html", command=lambda: pchmode("html")
 )
 state.hmm.add_separator()
 for hmode in state.plgnhmodes:
     state.hmm.add_command(
-        label=hmode + " → Alt + X - hmode:" + hmode, command=lambda: pchmode(hmode)
+        label=hmode,
+        accelerator="Alt + X - hmode:" + hmode,
+        command=lambda: pchmode(hmode),
     )
 state.tem.add_command(
-    label="Copy → Ctrl + Shift + C / Alt + X - c",
+    label="Copy",
+    accelerator="Ctrl + Shift + C / Alt + X - c",
     command=lambda: (
         state.active.cp()
         if hasattr(state.active, "cp")
@@ -544,7 +570,8 @@ state.tem.add_command(
     ),
 )
 state.tem.add_command(
-    label="Paste → Ctrl + Shift + V / Alt + X - p",
+    label="Paste",
+    accelerator="Ctrl + Shift + V / Alt + X - p",
     command=lambda: (
         state.active.pst()
         if hasattr(state.active, "pst")
@@ -553,7 +580,8 @@ state.tem.add_command(
 )
 state.tem.add_separator()
 state.tem.add_command(
-    label="Select All → Ctrl + Shift + A / Alt + X - a",
+    label="Select All",
+    accelerator="Ctrl + Shift + A / Alt + X - a",
     command=lambda: (
         state.active.selall()
         if hasattr(state.active, "selall")
@@ -561,7 +589,8 @@ state.tem.add_command(
     ),
 )
 state.fm.add_command(
-    label="New → Ctrl + N / Alt + X - n",
+    label="New",
+    accelerator="Ctrl + N / Alt + X - n",
     command=lambda: (
         state.active.nw()
         if hasattr(state.active, "nw")
@@ -569,15 +598,18 @@ state.fm.add_command(
     ),
 )
 state.fm.add_command(
-    label="New Editor Horizontal → Ctrl + Shift + N / Alt + X - neh",
+    label="New Editor Horizontal",
+    accelerator="Ctrl + Shift + N / Alt + X - neh",
     command=lambda: neweditor(orient="horizontal"),
 )
 state.fm.add_command(
-    label="New Editor Vertical → Alt + X - nev",
+    label="New Editor Vertical",
+    accelerator="Alt + X - nev",
     command=lambda: neweditor(orient="vertical"),
 )
 state.fm.add_command(
-    label="Open → Ctrl + O / Alt + X - o",
+    label="Open",
+    accelerator="Ctrl + O / Alt + X - o",
     command=lambda: (
         state.active.llld()
         if hasattr(state.active, "llld")
@@ -585,16 +617,19 @@ state.fm.add_command(
     ),
 )
 state.fm.add_command(
-    label="Open in New Editor Horizontal → Ctrl + Shift + O / Alt + X - onh",
+    label="Open in New Editor Horizontal",
+    accelerator="Ctrl + Shift + O / Alt + X - onh",
     command=lambda: neweditor(True),
 )
 state.fm.add_command(
-    label="Open in New Editor Vertical → Alt + X - onv",
+    label="Open in New Editor Vertical",
+    accelerator="Alt + X - onv",
     command=lambda: neweditor(True, "vertical"),
 )
 state.fm.add_separator()
 state.fm.add_command(
-    label="Save → Ctrl + S / Alt + X - s",
+    label="Save",
+    accelerator="Ctrl + S / Alt + X - s",
     command=lambda: (
         state.active.sssv()
         if hasattr(state.active, "sssv")
@@ -602,7 +637,8 @@ state.fm.add_command(
     ),
 )
 state.fm.add_command(
-    label="Save As → Ctrl + Shift + S / Alt + X - sa",
+    label="Save As",
+    accelerator="Ctrl + Shift + S / Alt + X - sa",
     command=lambda: (
         state.active.ssv()
         if hasattr(state.active, "ssv")
@@ -610,43 +646,53 @@ state.fm.add_command(
     ),
 )
 state.fm.add_separator()
-state.fm.add_command(label="Switch Buffer → Alt + X - sw", command=setactive)
 state.fm.add_command(
-    label="Close Current Buffer → Ctrl + W / Alt + X - cb", command=pcclosebuff
+    label="Switch Buffer", accelerator="Alt + X - sw", command=setactive
+)
+state.fm.add_command(
+    label="Close Current Buffer",
+    accelerator="Ctrl + W / Alt + X - cb",
+    command=pcclosebuff,
 )
 state.fm.add_separator()
-state.fm.add_command(label="Quit PyNotes → Ctrl + Q / Alt + X - e", command=ext)
+state.fm.add_command(
+    label="Quit PyNotes", accelerator="Ctrl + Q / Alt + X - e", command=ext
+)
 state.pcm.add_command(label="Start", command=pc)
 state.pcm.add_separator()
 state.pcm.add_command(label="Help", command=helppycode)
-state.om.add_command(label="Preferences → Alt + X - prf", command=prf)
+state.om.add_command(label="Preferences", accelerator="Alt + X - prf", command=prf)
 state.om.add_command(
-    label="Open PyNotes Source Code → Alt + X - source-code", command=ss
+    label="Open PyNotes Source Code", accelerator="Alt + X - source-code", command=ss
 )
 state.om.add_separator()
 state.om.add_command(
-    label="Go to line → Alt + L / Alt + X - gl",
+    label="Go to line",
+    accelerator="Alt + L / Alt + X - gl",
     command=lambda: (
         state.active.gl() if isinstance(state.active, Editor) else show("not an editor")
     ),
 )
 state.om.add_command(
-    label="Page turn forward → Ctrl + P / Alt + X - pf",
+    label="Page turn forward",
+    accelerator="Ctrl + P / Alt + X - pf",
     command=lambda: state.active.ptf(),
 )
 state.om.add_command(
-    label="Page turn backward → Ctrl + Shift + P / Alt + X - pb",
+    label="Page turn backward",
+    accelerator="Ctrl + Shift + P / Alt + X - pb",
     command=lambda: state.active.ptb(),
 )
 state.om.add_separator()
-state.om.add_command(label="Command → Alt + X", command=cmd)
-state.om.add_command(label="PyCode → Alt + X - pc", command=pc)
+state.om.add_command(label="Command", accelerator="Alt + X", command=cmd)
+state.om.add_command(label="PyCode", accelerator="Alt + X - pc", command=pc)
 state.om.add_separator()
 state.em.add_command(
-    label="Find → Ctrl + F / Alt + X - f", command=lambda: state.active.f()
+    label="Find", accelerator="Ctrl + F / Alt + X - f", command=lambda: state.active.f()
 )
 state.em.add_command(
-    label="Find & Replace → Ctrl + Shift + F / Alt + X - fr",
+    label="Find & Replace",
+    accelerator="Ctrl + Shift + F / Alt + X - fr",
     command=lambda: state.active.fr(),
 )
 # Build the combined email spellcheck word list from every configured
@@ -661,14 +707,18 @@ try:
 except Exception as error:
     error = str(error)
     state.root.error("Error", error)
-state.om.add_command(label="Terminal → Alt + X - t", command=term)
-state.om.add_command(label="Python Shell → Alt + X - pyshell", command=openpythonshell)
-state.om.add_separator()
-state.om.add_command(label="Email → Alt + X - sendemail", command=openemailbuf)
-state.om.add_separator()
-state.om.add_command(label="Speech to Text → Alt + X - st", command=st)
+state.om.add_command(label="Terminal", accelerator="Alt + X - t", command=term)
 state.om.add_command(
-    label="Speak Text → Alt + X - sp", command=lambda: state.active.spk()
+    label="Python Shell", accelerator="Alt + X - pyshell", command=openpythonshell
+)
+state.om.add_separator()
+state.om.add_command(
+    label="Email", accelerator="Alt + X - sendemail", command=openemailbuf
+)
+state.om.add_separator()
+state.om.add_command(label="Speech to Text", accelerator="Alt + X - st", command=st)
+state.om.add_command(
+    label="Speak Text", accelerator="Alt + X - sp", command=lambda: state.active.spk()
 )
 state.root.protocol("WM_DELETE_WINDOW", ext)
 state.mg.add_command(label="Start", command=mathgod)
@@ -686,24 +736,13 @@ state.pycode_keybindings_cdt = ""
 state._open_terminal_closers = []
 state.all_buffers = []
 state.buffindex = -1
-# The pane layout every buffer is added into: an outer vertical
-# splitter (state.vertical) whose panes stack top to bottom, containing
-# one inner horizontal splitter (state.horizontal, itself one of
-# state.vertical's panes) whose panes sit side by side. A buffer opened
-# with orient="vertical" becomes another top-level pane of state.vertical
-# directly; orient="horizontal" adds it into state.horizontal instead.
-state.vertical = easytk.ttk.Panedwindow(state.root, orient="vertical")
-state.vertical.pack(side="bottom", fill="both", expand=True)
-state.horizontal = easytk.ttk.Panedwindow(state.vertical, orient="horizontal")
-state.vertical.add(state.horizontal)
-# Widening the pane divider (sash) is a ttk style setting, which a
-# theme switch resets, so it's reapplied via <<ThemeChanged>> too.
-state.sashconfig = lambda: [
-    state.root.style().configure("Sash", sashthickness=15, relief="raised")
-]
+# The pane layout every buffer is added into: one grid panedwindow
+# (state.panes) whose top row holds the buffers opened with
+# orient="horizontal" side by side, with each buffer opened with
+# orient="vertical" stacked below it as another pane of the layout.
+state.panes = ctk.GridPanedwindow(state.root)
+state.panes.pack(side="bottom", fill="both", expand=True)
 state.active = None
-state.sashconfig()
-state.root.bind("<<ThemeChanged>>", lambda event: state.sashconfig())
 state._resize_after_id = None
 state._last_root_size = (state.root.winfo_width(), state.root.winfo_height())
 # Global keybindings, active regardless of which buffer has focus.
@@ -714,9 +753,9 @@ bindrecur(state.root, "<Control-q>", lambda event: ext())
 state.root.bind("<Configure>", _on_root_resize)
 neweditor()
 if state.defs[3] in state.root.themes():
-    state.root.style(state.defs[3])
+    state.root.settheme(state.defs[3])
 else:
-    state.root.style("bootstrap-light")
+    state.root.settheme("Default")
 vars(state).update(globals())
 # Load the user's ~/.pynotes PyCode config (unless --no-load-pycode),
 # append --pycode-exec if given, and run the result, one statement per
@@ -805,4 +844,4 @@ def consoleqempty():
 
 state.consoleqafter = state.root.after(200, consoleqempty)
 # Hand off to tkinter; everything from here on runs from GUI callbacks.
-state.root.show()
+state.root.mainloop()

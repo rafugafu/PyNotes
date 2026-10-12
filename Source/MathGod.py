@@ -8,7 +8,9 @@ utils.mathgod()), not imported by the rest of PyNotes."""
 import matplotlib.pyplot as plt
 import numpy as np
 import re as refind
-import easytk
+import canvastk as ctk
+import tkinter as tk
+from canvastk import filedialog as fd, messagebox
 from sympy import *
 import sympy
 import ast
@@ -23,12 +25,9 @@ import platform
 import io
 
 if platform.system() == "Linux":
-    import subprocess
-
     monospace = "monospace"
 else:
     monospace = "Courier"
-    fd = easytk.fd
 
 
 class MathGod:
@@ -434,15 +433,14 @@ def render_output(label, items):
     for img in images:
         combined.paste(img, (0, y))
         y += img.height + 10
-    available_w = max(100, root.getgeo()[0] - 420)
+    available_w = max(100, root.winfo_width() - 420)
     if combined.width > available_w:
         ratio = available_w / combined.width
         combined = combined.resize(
             (available_w, max(1, int(combined.height * ratio))), Image.LANCZOS
         )
     photo = ImageTk.PhotoImage(combined)
-    root.imgs.append(photo)
-    label.config(image=root.imgs[-1], text="")
+    label.config(image=photo, text="")
 
 
 def translate(code_str):
@@ -816,7 +814,7 @@ def ha(entry=None):
         for search in searchs:
             n = "1.0"
             while True:
-                count = root.intvar()
+                count = tk.IntVar(root)
                 n = entry.search(search, n, count=count, stopindex="end", regexp=True)
                 if not n:
                     break
@@ -895,17 +893,17 @@ def newcell():
     notebook."""
     global innum
     global row
-    text = root.text(master=scrolledframe, text=f"In[{innum}]:")
+    text = ctk.Label(scrolledframe, text=f"In[{innum}]:")
     text.grid(column=0, row=row, padx=10, pady=10, sticky="ne")
-    outtext = root.text(master=scrolledframe, text=f"Out[{innum}]:")
+    outtext = ctk.Label(scrolledframe, text=f"Out[{innum}]:")
     outtext.grid(column=0, row=row + 1, padx=10, pady=10, sticky="ne")
-    output = root.text(master=scrolledframe)
+    output = ctk.Label(scrolledframe)
     output.grid(sticky="new", column=1, row=row + 1, padx=10, pady=10)
     inputtexts[innum] = text
     outputtexts[innum] = outtext
     outputboxes[innum] = output
     output_cache[innum] = ""
-    entry = root.textbox(master=scrolledframe, height=1, font=(monospace, 12))
+    entry = ctk.Textbox(scrolledframe, height=1, font=(monospace, 12))
     entry.bind(
         "<KeyRelease>",
         lambda event, entry=entry: [
@@ -917,7 +915,7 @@ def newcell():
         "<Control-Return>",
         lambda event: retranslateandprint(translate(entry.get("1.0", "end-1c"))),
     )
-    entry.bind("<FocusIn>", lambda event, id=innum: setid(id))
+    entry.bind("<FocusIn>", lambda event, id=innum: setid(id), add="+")
     entry.grid(column=1, row=row, padx=10, pady=10, sticky="new")
     inputentries[innum] = entry
     innum += 1
@@ -951,28 +949,13 @@ def save():
     plotlist script. An output item is serialized as "type\\x1fcontent",
     multiple items joined by '\\x1e' (see retranslateandprint()); load()
     parses this same format back."""
-    if platform.system() == "Linux":
-        path = subprocess.run(
-            [
-                "zenity",
-                "--file-selection",
-                "--filename=./",
-                "--save",
-                "--confirm-overwrite",
-                "--title=Save As",
-                "--file-filter=All Files | *",
-            ],
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-    else:
-        path = fd.asksaveasfilename()
+    path = fd.asksaveasfilename()
     if not path:
         return
     try:
         file = open(path, "w")
     except:
-        root.error("Error!", "Unwritable File!")
+        messagebox.showerror("Error!", "Unwritable File!")
         return
     file.write(
         "`~!".join(
@@ -1004,29 +987,16 @@ def load():
     global plotlist
     global row
     global innum
-    ask = root.ask("WARNING", "Discard current notebook?", ("yes", "no"))
+    ask = messagebox.askyesno("WARNING", "Discard current notebook?")
     if not ask:
         return
-    if platform.system() == "Linux":
-        path = subprocess.run(
-            [
-                "zenity",
-                "--file-selection",
-                "--filename=./",
-                "--title=Open File",
-                "--file-filter=All Files | *.*",
-            ],
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-    else:
-        path = fd.askopenfilename(title="Open File", filetypes=(("All Files", "*.*")))
+    path = fd.askopenfilename(title="Open File", filetypes=(("All Files", "*.*"),))
     if not path:
         return
     try:
         file = open(path, "r")
     except:
-        root.error("Error!", "Unreadable File!")
+        messagebox.showerror("Error!", "Unreadable File!")
         return
     try:
         inputentries_, inputtexts_, outputboxes_, outputtexts_, plotlist = (
@@ -1037,7 +1007,7 @@ def load():
         outputboxes_ = outputboxes_.split("`|!")
         outputtexts_ = outputtexts_.split("`|!")
     except:
-        root.error("Error!", "Not a saved MathGod file!")
+        messagebox.showerror("Error!", "Not a saved MathGod file!")
         return
     for k in list(inputentries.keys()):
         inputentries[k].grid_forget()
@@ -1081,8 +1051,8 @@ plotlist = ""
 innum = 1
 id = 1
 row = 1
-root = easytk.win()
-scrolledframe = root.frame(scrolled=True)
+root = ctk.Window()
+scrolledframe = ctk.ScrolledFrame(root)
 scrolledframe.pack(side="bottom", fill="both", expand=True)
 scrolledframe.columnconfigure(1, weight=1)
 root.title("MathGod")
@@ -1093,18 +1063,18 @@ if platform.system() == "Linux":
 else:
     root.state("zoomed")
 root.update()
-buttonframe = root.frame()
+buttonframe = ctk.Frame(root)
 buttonframe.pack(side="top", fill="x")
-root.button(master=buttonframe, text="+", command=newcell).grid(
+ctk.Button(buttonframe, text="+", command=newcell).grid(
     sticky="w", column=0, row=0, padx=10, pady=10
 )
-root.button(master=buttonframe, text="-", command=delete).grid(
+ctk.Button(buttonframe, text="-", command=delete).grid(
     sticky="w", column=1, row=0, padx=10, pady=10
 )
-root.button(master=buttonframe, text="Save", command=save).grid(
+ctk.Button(buttonframe, text="Save", command=save).grid(
     sticky="w", column=2, row=0, padx=10, pady=10
 )
-root.button(master=buttonframe, text="Load", command=load).grid(
+ctk.Button(buttonframe, text="Load", command=load).grid(
     sticky="w", column=3, row=0, padx=10, pady=10
 )
 inputentries = {}
@@ -1112,4 +1082,4 @@ inputtexts = {}
 outputboxes = {}
 outputtexts = {}
 newcell()
-root.show()
+root.mainloop()

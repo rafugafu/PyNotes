@@ -10,7 +10,8 @@ import ast
 import os
 import platform
 import re
-import easytk
+import canvastk as ctk
+import tkinter as tk
 import state
 from init import homedir, monospace
 import editor
@@ -59,7 +60,7 @@ def pcrun(code):
     for line in code:
         try:
             exec(line, vars(state))
-        except easytk.tk.TclError:
+        except tk.TclError:
             pass
         except Exception as error:
             error = str(error)
@@ -74,7 +75,7 @@ def pcexecaction(code):
     keybinding's action) against vars(state), reporting any error."""
     try:
         exec(code, vars(state))
-    except easytk.tk.TclError:
+    except tk.TclError:
         pass
     except Exception as error:
         error = str(error)
@@ -263,59 +264,6 @@ def pccolor(name, *args, **kwargs):
 
 def pcneweditfile(orient="horizontal"):
     window.neweditor(True, orient)
-
-
-def pcclosebuff(n=None):
-    """Close buffer n (the active one if not given), confirming first
-    via the buffer's own close() if it has unsaved changes/a running
-    process. Removes it from whichever splitter pane it's in,
-    rebalancing, and collapses the horizontal splitter back into the
-    vertical one if it ends up empty. Returns False without closing
-    anything if it's the last open buffer or close() was declined."""
-    if len(state.all_buffers) == 1:
-        utils.show("cannot close only open buffer")
-        return False
-    if n is None:
-        n = state.buffindex
-    else:
-        n = int(n)
-    buffer = state.all_buffers[n]
-    was_last_reference = (
-        (buffer.view_master is None and not buffer.view_children)
-        if hasattr(buffer, "view_master") and hasattr(buffer, "view_children")
-        else False
-    )
-    if not buffer.close():
-        return False
-    pcrunhook("before", "close-buffer")
-    if str(buffer) in state.horizontal.panes():
-        state.horizontal.remove(buffer)
-        window.balance("horizontal")
-    if str(buffer) in state.vertical.panes():
-        state.vertical.remove(buffer)
-        window.balance("vertical")
-    if hasattr(buffer, "_cancel_all_after_ids"):
-        buffer._cancel_all_after_ids()
-    if was_last_reference:
-        try:
-            buffer.observer.stop()
-            buffer.observer.join()
-        except Exception:
-            pass
-    buffer.destroy()
-    if not state.horizontal.panes():
-        for pane_name in state.vertical.panes():
-            if pane_name != str(state.horizontal):
-                pane = state.vertical.nametowidget(pane_name)
-                state.vertical.remove(pane)
-                state.horizontal.add(pane)
-                break
-    state.all_buffers.remove(buffer)
-    if n <= state.buffindex:
-        window.setactive(state.buffindex - 1, force=True)
-    utils.show("closed buffer")
-    pcrunhook("after", "close-buffer")
-    return True
 
 
 def pcsplitedit(n=None, orient="horizontal"):
@@ -2377,18 +2325,16 @@ def pc():
     utils.show("open pycode")
     pcwin = state.root.subwin()
     pcwin.title("PyCode - PyNotes")
-    gcframe = pcwin.frame()
-    buttonframe = pcwin.frame(master=gcframe, scrolled=True)
+    gcframe = ctk.Frame(pcwin)
+    buttonframe = ctk.ScrolledFrame(gcframe, width=200)
     buttonframe.pack(side="top", fill="y", expand=True)
     _bf_active = [False]
-    pccmddonebutton = pcwin.button(
-        master=gcframe,
-        text="Done",
-        command=lambda: [setcommand("Done"), gcframe.update()],
+    pccmddonebutton = ctk.Button(
+        gcframe, text="Done", command=lambda: [setcommand("Done"), gcframe.update()]
     )
     gcframe.pack(side="left", fill="y", expand=True, padx=10, pady=10)
-    pcwin.text(master=buttonframe, text="Define:").grid(column=0)
-    todefine = pcwin.stringvar()
+    ctk.Label(buttonframe, text="Define:").grid(column=0)
+    todefine = tk.StringVar(pcwin)
 
     def define(todefine):
         def shortcutselected():
@@ -2417,10 +2363,10 @@ def pc():
             codeedit.focus()
 
         if todefine == "Function":
-            funcname = pcwin.askstring("Name", "Name of the Function:")
+            funcname = state.root.askstring("Name", "Name of the Function:")
             if not funcname:
                 return
-            prompttext = pcwin.text(master=buttonframe, text="Commands:")
+            prompttext = ctk.Label(buttonframe, text="Commands:")
             prompttext.grid(column=0, row=0)
             row = 0
             for button in buttons:
@@ -2437,30 +2383,30 @@ def pc():
             commanddone.clear()
             prompttext.grid_forget()
         elif todefine == "Python Function":
-            pyfuncname = pcwin.askstring("Name", "Name of the Python Function:")
+            pyfuncname = state.root.askstring("Name", "Name of the Python Function:")
             if not pyfuncname:
                 return
             pyfunccodewin = state.root.subwin()
             pyfunccodewin.title("PyCode Python Function Code")
-            pyfunccodeedit = pyfunccodewin.textbox(font=(monospace, 11))
+            pyfunccodeedit = ctk.Textbox(pyfunccodewin, font=(monospace, 11))
             pyfunccodeedit.grid(column=0, row=0, sticky="nsew")
             pyfunccodeedit.focus()
-            pyfunccodewin.button(text="Done", command=pyfunccodedone).grid(
+            ctk.Button(pyfunccodewin, text="Done", command=pyfunccodedone).grid(
                 column=0, row=1, sticky="ew"
             )
             pyfunccodewin.update()
-            pyfunccodewin.sizablefalse()
+            utils.lock_window_size(pyfunccodewin)
             pyfunccodewin.wait_window(pyfunccodewin)
         elif todefine == "Variable":
-            varname = pcwin.askstring("Name", "Name of the Variable:")
+            varname = state.root.askstring("Name", "Name of the Variable:")
             if not varname:
                 return
-            value = pcwin.askstring("Value", "Value of the Variable:")
+            value = state.root.askstring("Value", "Value of the Variable:")
             if not value:
                 return
             codeedit.insert("insert", f"\n[{varname}] :→ [{value}];")
         elif todefine == "Startup Code":
-            prompttext = pcwin.text(master=buttonframe, text="Commands:")
+            prompttext = ctk.Label(buttonframe, text="Commands:")
             prompttext.grid(column=0)
             row = 0
             for button in buttons:
@@ -2477,37 +2423,41 @@ def pc():
         elif todefine == "Keyboard Shortcut":
             keygetting = state.root.subwin()
             keygetting.title("Keyboard Shortcut")
-            style = keygetting.style()
-            style.configure(
-                "ShowStyle.TLabel",
-                background="white",
-                padding=(7, 7, 7, 7),
+            ctk.Label(keygetting, text="Press a key:").grid(
+                padx=10, pady=10, column=0, row=0
+            )
+            showkey = ctk.Label(
+                keygetting,
+                text="",
+                bg="white",
+                fg="black",
+                padx=7,
+                pady=7,
+                bd=2,
                 relief="sunken",
             )
-            keygetting.text(text="Press a key:").grid(padx=10, pady=10, column=0, row=0)
-            showkey = keygetting.text(text="", style="ShowStyle.TLabel")
             showkey.grid(column=0, row=1, padx=10, pady=10)
             keygetting.bind(
                 "<KeyPress>",
                 lambda event: [
-                    keygetting.sizabletrue(),
+                    utils.unlock_window_size(keygetting),
                     keypressforshortcut(event),
                     keygetting.update(),
-                    keygetting.sizablefalse(),
+                    utils.lock_window_size(keygetting),
                 ],
             )
             keygetting.protocol("WM_DELETE_WINDOW", "break")
-            keygetting.button(text="Done", command=shortcutselected).grid(
+            ctk.Button(keygetting, text="Done", command=shortcutselected).grid(
                 column=0, row=2, padx=10, pady=10
             )
             shortcut = []
             keygetting.update()
-            keygetting.sizablefalse()
+            utils.lock_window_size(keygetting)
             while not shortcut:
                 keygetting.update()
             keygetting.destroy()
             shortcut = "".join(shortcut).replace("+", "-")
-            prompttext = pcwin.text(master=buttonframe, text="Commands:")
+            prompttext = ctk.Label(buttonframe, text="Commands:")
             prompttext.grid(column=0)
             row = 0
             for button in buttons:
@@ -2524,10 +2474,10 @@ def pc():
             commandtodo.clear()
             commanddone.clear()
         elif todefine == "Alt-X Command":
-            cmdname = pcwin.askstring("Name", "Name of the Alt-X Command:")
+            cmdname = state.root.askstring("Name", "Name of the Alt-X Command:")
             if not cmdname:
                 return
-            prompttext = pcwin.text(master=buttonframe, text="Commands:")
+            prompttext = ctk.Label(buttonframe, text="Commands:")
             prompttext.grid(column=0, row=0)
             row = 0
             for button in buttons:
@@ -2546,29 +2496,22 @@ def pc():
         elif todefine == "Event Hook":
             hookwin = state.root.subwin()
             hookwin.title("PyCode Event Hook Definition")
-            hookwin.text(text="When:").grid(
+            ctk.Label(hookwin, text="When:").grid(
                 column=0, row=0, padx=10, pady=10, sticky="e"
             )
-            whenvar = hookwin.stringvar()
-            hookwin.dropdown(
-                master=hookwin,
-                stringvar=whenvar,
-                showdefault="before",
-                options=["before", "after"],
-            ).grid(column=1, row=0, padx=10, pady=10, sticky="ew")
-            hookwin.text(text="Event:").grid(
+            whenvar = tk.StringVar(hookwin)
+            ctk.OptionMenu(hookwin, whenvar, "before", "after").grid(
+                column=1, row=0, padx=10, pady=10, sticky="ew"
+            )
+            ctk.Label(hookwin, text="Event:").grid(
                 column=0, row=1, padx=10, pady=10, sticky="e"
             )
-            eventtype = hookwin.droptype(
-                master=hookwin,
-                options=pchookevents,
-                state="readonly",
-                command=lambda: None,
-            )
+            eventtype = ctk.Combobox(hookwin, values=pchookevents, state="readonly")
             eventtype.set(pchookevents[0])
             eventtype.grid(column=1, row=1, padx=10, pady=10, sticky="ew")
             hookdone = []
-            hookwin.button(
+            ctk.Button(
+                hookwin,
                 text="Done",
                 command=lambda: [
                     hookdone.append((whenvar.get(), eventtype.get())),
@@ -2576,20 +2519,19 @@ def pc():
                 ],
             ).grid(column=1, row=2, columnspan=2, padx=10, pady=10, sticky="ew")
             hookwin.update()
-            hookwin.sizablefalse()
-            while hookwin.winfo_exists():
-                hookwin.update()
+            utils.lock_window_size(hookwin)
+            hookwin.wait_window()
             if not hookdone:
                 return
             when, event = hookdone[0]
             if event in ("alt-x-command", "pycode-command"):
-                subcmd = pcwin.askstring(
+                subcmd = state.root.askstring(
                     "Command Name",
                     f'{"Alt-X" if event == "alt-x-command" else "PyCode"} command (leave blank for all):',
                 )
                 if subcmd:
                     event = f"{event}:{subcmd.strip()}"
-            prompttext = pcwin.text(master=buttonframe, text="Commands:")
+            prompttext = ctk.Label(buttonframe, text="Commands:")
             prompttext.grid(column=0, row=0)
             row = 0
             for button in buttons:
@@ -2607,19 +2549,16 @@ def pc():
             prompttext.grid_forget()
         optionsdropdown.config(state="normal")
 
-    optionsdropdown = pcwin.dropdown(
-        stringvar=todefine,
-        showdefault="Function",
-        options=[
-            "Function",
-            "Python Function",
-            "Variable",
-            "Startup Code",
-            "Keyboard Shortcut",
-            "Alt-X Command",
-            "Event Hook",
-        ],
-        master=buttonframe,
+    optionsdropdown = ctk.OptionMenu(
+        buttonframe,
+        todefine,
+        "Function",
+        "Python Function",
+        "Variable",
+        "Startup Code",
+        "Keyboard Shortcut",
+        "Alt-X Command",
+        "Event Hook",
         command=lambda inpt: [
             optionsdropdown.config(state="disabled"),
             define(inpt),
@@ -2646,20 +2585,19 @@ def pc():
         _bf_active[0] = False
 
     for command in commands:
-        button = pcwin.button(
-            master=buttonframe,
+        button = ctk.Button(
+            buttonframe,
             text=command,
             command=lambda command=command: setcommand(command),
         )
         buttons.append(button)
-    done = pcwin.button(
+    done = ctk.Button(
+        pcwin,
         text="Done",
         command=lambda: [pcdone(codeedit.get("1.0", "end-1c")), pcwin.destroy()],
     )
     done.pack(side="bottom", fill="x", expand=True)
-    scrolly = pcwin.scroll()
-    scrolly.pack(side="right", fill="y")
-    codeedit = pcwin.textbox(yscrollcommand=scrolly.set, font=monospace, wrap="word")
+    codeedit = ctk.Textbox(pcwin, scrolled=True, font=monospace, wrap="word")
     codeedit.pack(side="left", fill="both")
     codeedit.focus_set()
     codeedit.bind("<Control-equal>", lambda event: edit(codeedit, "c="))
@@ -2674,13 +2612,11 @@ def pc():
     codeedit.bind("<Control-bracketright>", lambda event: edit(codeedit, "fbr"))
     codeedit.bind("<quoteright>", lambda event: edit(codeedit, "'"))
     codeedit.bind("<quotedbl>", lambda event: edit(codeedit, '"'))
-    scrolly.config(command=codeedit.yview)
     try:
         open(f"{homedir}/.pynotes", "r", encoding="utf-8")
     except Exception:
         open(f"{homedir}/.pynotes", "w+", encoding="utf-8")
     codeedit.insert("end", open(f"{homedir}/.pynotes", "r", encoding="utf-8").read())
-    pcwin.style(state.root.gettheme())
     pcwin.update()
-    pcwin.sizablefalse()
+    utils.lock_window_size(pcwin)
     pcrunhook("after", "open-pycode")

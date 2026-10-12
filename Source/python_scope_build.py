@@ -20,8 +20,12 @@ import sys
 import re
 import keyword
 import ast
+import json
 import threading
+import subprocess
 import warnings
+
+import state
 
 # Reflection data about Python's own builtins, computed once at import
 # time, used as a fallback/baseline wherever an imported module or
@@ -1123,54 +1127,107 @@ class _PythonModuleSpec:
         self.submodule_search_locations = search_locations
 
 
-def _python_resolve_toplevel_fs(name):
-    """Locate a top-level module/package named name by searching
-    sys.path directly on the filesystem (a package's __init__.py, a
-    namespace-package directory, a single .py file, or a compiled
-    extension module), falling back to marking it as a built-in if
-    it's in sys.builtin_module_names. Returns a _PythonModuleSpec, or
-    None if it can't be found at all."""
-    for _dir in sys.path:
-        try:
-            _dir = _dir or os.getcwd()
-        except Exception:
-            continue
-        _pkg = os.path.join(_dir, name, "__init__.py")
-        if os.path.isfile(_pkg):
-            return _PythonModuleSpec(name, _pkg, [os.path.dirname(_pkg)])
-        _pdir = os.path.join(_dir, name)
-        if os.path.isdir(_pdir):
-            return _PythonModuleSpec(name, None, [_pdir])
-        _mod = os.path.join(_dir, name + ".py")
-        if os.path.isfile(_mod):
-            return _PythonModuleSpec(name, _mod, None)
-        for _ext in _PYTHON_EXTENSION_SUFFIXES:
-            if os.path.isfile(os.path.join(_dir, name + _ext)):
-                return _PythonModuleSpec(name, os.path.join(_dir, name + _ext), None)
+def _python_toplevel_spec_in_dir(_dir, name):
+    """_python_resolve_toplevel_fs()'s single-directory lookup: does
+    _dir itself (not searched recursively) contain name as a package,
+    namespace-package directory, single .py file, or compiled
+    extension module? Returns a _PythonModuleSpec, or None."""
+    _pkg = os.path.join(_dir, name, "__init__.py")
+    if os.path.isfile(_pkg):
+        return _PythonModuleSpec(name, _pkg, [os.path.dirname(_pkg)])
+    _pdir = os.path.join(_dir, name)
+    if os.path.isdir(_pdir):
+        return _PythonModuleSpec(name, None, [_pdir])
+    _mod = os.path.join(_dir, name + ".py")
+    if os.path.isfile(_mod):
+        return _PythonModuleSpec(name, _mod, None)
+    for _ext in _PYTHON_EXTENSION_SUFFIXES:
+        if os.path.isfile(os.path.join(_dir, name + _ext)):
+            return _PythonModuleSpec(name, os.path.join(_dir, name + _ext), None)
+    return None
+
+
+_PYTHON_TARGET_SYS_PATH_CACHE = {}
+
+
+def _python_target_sys_path(buf):
+    """The sys.path that state.pythonexecutable - the interpreter
+    configured to actually run buf's file, not PyNotes' own - would
+    see, found by running that interpreter itself with its cwd set to
+    buf's own directory (sys.path's "" entry, and anything relative on
+    PYTHONPATH, resolves against cwd, so the directory matters as much
+    as the interpreter does). Cached per (interpreter, cwd) pair,
+    since spawning a process on every scan would be wasteful; a config
+    change picks up a fresh cwd/interpreter pair (and so a fresh
+    subprocess run) automatically, nothing to invalidate by hand.
+    Returns [] if it can't be queried at all (interpreter missing,
+    times out, isn't actually Python, ...)."""
+    _interpreter = getattr(state, "pythonexecutable", None)
+    if not _interpreter:
+        return []
+    _cwd = os.path.dirname(buf.title) if buf.title else os.getcwd()
+    _cache_key = (_interpreter, _cwd)
+    if _cache_key in _PYTHON_TARGET_SYS_PATH_CACHE:
+        return _PYTHON_TARGET_SYS_PATH_CACHE[_cache_key]
+    try:
+        _proc = subprocess.run(
+            [_interpreter, "-c", "import sys, json; print(json.dumps(sys.path))"],
+            cwd=_cwd,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        _paths = json.loads(_proc.stdout) if _proc.returncode == 0 else []
+    except Exception:
+        _paths = []
+    _PYTHON_TARGET_SYS_PATH_CACHE[_cache_key] = _paths
+    return _paths
+
+
+def _python_resolve_toplevel_fs(buf, name):
+    """Locate a top-level module/package named name the way actually
+    running buf's own file would: its own directory first (matching
+    how Python puts a script's directory at sys.path[0] when run
+    directly - this is what lets a sibling, not-yet-installed module
+    resolve even though it's nowhere on any interpreter's sys.path),
+    then the configured target interpreter's own sys.path (see
+    _python_target_sys_path() - never the PyNotes process's own
+    sys.path, which belongs to a different interpreter/venv entirely
+    and has no bearing on what the edited file could actually import),
+    then finally sys.builtin_module_names, since those compiled-in
+    modules are effectively universal across any CPython interpreter.
+    Returns a _PythonModuleSpec, or None if it can't be found at
+    all."""
+    if buf.title:
+        _own_spec = _python_toplevel_spec_in_dir(os.path.dirname(buf.title), name)
+        if _own_spec is not None:
+            return _own_spec
+    _cwd = os.path.dirname(buf.title) if buf.title else os.getcwd()
+    for _dir in _python_target_sys_path(buf):
+        _spec = _python_toplevel_spec_in_dir(_dir or _cwd, name)
+        if _spec is not None:
+            return _spec
     if name in _PYTHON_STDLIB_BUILTIN_MODULES:
         return _PythonModuleSpec(name, "built-in", None)
     return None
 
 
-def _python_module_src_path(spec, name):
-    """The .py source file path for spec, if it has one directly
-    (spec.origin already is one) or can be found on sys.path by name -
-    None for a built-in/extension module with no Python source to
-    statically inspect."""
+def _python_module_src_path(spec):
+    """The .py source file path for spec, if spec.origin already is
+    one - None for a built-in/extension module (or one that couldn't
+    be found at all) with no Python source to statically inspect.
+    (This used to also fall back to searching the PyNotes process's
+    own sys.path by name, but that's wrong for the same reason
+    _python_resolve_toplevel_fs() doesn't: it's a different
+    interpreter/venv than the one the edited file will actually run
+    with, and every spec this module itself ever constructs already
+    has a definitive origin - a real .py path, None, "built-in", or an
+    extension-suffixed path - none of which that fallback could ever
+    usefully improve on.)"""
     if spec is None or not spec.origin:
         return None
     if spec.origin.endswith(".py") and os.path.isfile(spec.origin):
         return spec.origin
-    for _cand_name in (name, getattr(spec, "name", None)):
-        if not _cand_name:
-            continue
-        for _sp in sys.path:
-            _candidate = os.path.join(_sp, *_cand_name.split(".")) + ".py"
-            if os.path.isfile(_candidate):
-                return _candidate
-            _pkg_init = os.path.join(_sp, *_cand_name.split("."), "__init__.py")
-            if os.path.isfile(_pkg_init):
-                return _pkg_init
     return None
 
 
@@ -1235,7 +1292,7 @@ def _python_resolve_spec_fs(buf, name):
     if "" in parts or not parts:
         return None
     if len(parts) == 1:
-        return _python_resolve_toplevel_fs(parts[0])
+        return _python_resolve_toplevel_fs(buf, parts[0])
     parent = _python_find_spec_cached(buf, ".".join(parts[:-1]))
     if parent is None or not parent.submodule_search_locations:
         return None
@@ -1279,7 +1336,7 @@ def _python_resolve_module_members(buf, name, visited=None):
         return {}
     visited.add(name)
     spec = _python_find_spec_cached(buf, name)
-    src_path = _python_module_src_path(spec, name)
+    src_path = _python_module_src_path(spec)
     if src_path is None:
         buf._python_module_members_cache[name] = {}
         return {}
@@ -4792,7 +4849,7 @@ def _python_resolve_module_func_params(buf, name):
     if name in buf._python_module_func_params_cache:
         return buf._python_module_func_params_cache[name]
     spec = _python_find_spec_cached(buf, name)
-    src_path = _python_module_src_path(spec, name)
+    src_path = _python_module_src_path(spec)
     if src_path is None:
         buf._python_module_func_params_cache[name] = {}
         return {}

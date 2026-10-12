@@ -17,7 +17,8 @@ import queue
 import ast
 import warnings
 import io
-import easytk
+import canvastk as ctk
+import tkinter as tk
 import state
 from init import homedir, monospace, DEBOUNCE_TIME
 from buffer import Buffer
@@ -38,56 +39,8 @@ import window
 import tika
 from tika import parser
 import pdfplumber
-from tklinenums import TkLineNumbers
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-
-
-class LineNumberWidget(TkLineNumbers):
-    """A TkLineNumbers gutter that tracks its own drawn line-number
-    text items (self.texts) so it can auto-widen (resize()/redraw())
-    to fit the widest one currently shown, e.g. as the file grows past
-    9, 99, 999, ... lines."""
-
-    def __init__(self, *args, **kwargs):
-        self.texts = []
-        super().__init__(*args, **kwargs)
-
-    def _get_max_width(self):
-        """The pixel width needed to fit the widest tracked line
-        number text."""
-
-        def _get_width(text):
-            bbox = self.bbox(text)
-            if bbox:
-                return bbox[2] - bbox[0] + 30
-            else:
-                return 1
-
-        if self.texts:
-            return max((_get_width(text) for text in self.texts))
-        return 1
-
-    def create_text(self, *args, **kwargs):
-        """Draw a line-number text item and track it in self.texts."""
-        self.texts.append(super().create_text(*args, **kwargs))
-
-    def delete(self, what):
-        """Delete one tracked text item, or (what == "all") every one."""
-        if what == "all":
-            self.texts = []
-        elif what in self.texts:
-            self.texts.remove(what)
-        super().delete(what)
-
-    def resize(self):
-        """Set the gutter's width to fit its widest line number."""
-        self.config(width=self._get_max_width())
-
-    def redraw(self, *args, **kwargs):
-        """Redraw the line numbers, then resize the gutter to fit."""
-        super().redraw(*args, **kwargs)
-        self.resize()
 
 
 class Editor(Buffer):
@@ -220,9 +173,7 @@ class Editor(Buffer):
             "latexequation",
             "latexcharvar",
             "latexmath",
-            "scrlbr",
             "_own_type",
-            "ln",
             "active",
             "imageload",
             "m",
@@ -317,38 +268,48 @@ class Editor(Buffer):
         self._focused_pane()._selectionpoint = value
 
     def _make_peer_type(self, master):
-        """Create a tkinter Text "peer" widget (Tk's own peer_create,
-        a second view onto the same underlying text content as
-        master's) for this Editor to use as its own Text widget, copied
-        from master's configuration."""
+        """Create a Textbox whose Text widget is a tkinter "peer" (Tk's
+        own peer_create, a second view onto the same underlying text
+        content as master's) for this Editor to use as its own Text
+        widget, copied from master's configuration."""
         name = "peertype%d" % id(self)
-        master._own_type.peer_create(str(self.mf) + "." + name)
-        peer = easytk.ttk.Text.__new__(easytk.ttk.Text)
+        peer_box = ctk.Textbox(
+            self.mf,
+            scrolled=True,
+            font=(state.defs[2], 12),
+            wrap="word",
+            undo=True,
+            autoseparators=True,
+        )
+        peer_box.inner.destroy()
+        master._own_type.inner.peer_create(str(peer_box) + "." + name)
+        peer = tk.Text.__new__(tk.Text)
         peer.widgetName = "text"
         peer._tclCommands = None
-        peer._setup(self.mf, {"name": name})
-        for option in master._own_type.configure():
+        peer._setup(peer_box, {"name": name})
+        for option in master._own_type.inner.configure():
             if option in ("xscrollcommand", "yscrollcommand"):
                 continue
             try:
-                peer.configure(**{option: master._own_type.cget(option)})
+                peer.configure(**{option: master._own_type.inner.cget(option)})
             except Exception:
                 pass
-        return peer
+        peer_box.install_inner(
+            peer, side="left", fill="both", expand=True, padx=(7, 2), pady=5
+        )
+        peer_box.scrollbar.config(command=peer.yview)
+        peer.bind("<Control-a>", peer_box._select_all, add="+")
+        peer_box.restyle_inner()
+        peer_box.configure(line_numbers=True, line_number_justify="center")
+        return peer_box
 
     def _wire_type(self):
-        """Hook up this pane's Text widget to its scrollbar and line
-        numbers, and bind its events."""
-        self.scrlbr.config(command=self.type_.yview)
-        self.type_.focus_set()
-        self.ln = LineNumberWidget(self.mf, self.type_, justify="center")
-        self.type_.config(
-            yscrollcommand=lambda *args: [self.scrlbr.set(*args), self.ln.redraw()]
-        )
-        self.ln.pack(side="left", fill="y")
-        self.type_.pack(side="right", fill="both", expand=True)
+        """Pack this pane's own Textbox and bind its events."""
+        own_box = self._own_type
+        own_box.focus_set()
+        own_box.pack(side="right", fill="both", expand=True)
         self._bind_type_events()
-        self._bind_focus_recursive(self._own_type)
+        self._bind_focus_recursive(own_box)
 
     def _bind_focus_recursive(self, widget, skip_widgets=()):
         """Bind <FocusIn> (to make this buffer active) on widget and
@@ -360,6 +321,7 @@ class Editor(Buffer):
             lambda event, buffer=self: window.setactive(
                 state.all_buffers.index(buffer)
             ),
+            add="+",
         )
         for child in widget.winfo_children():
             self._bind_focus_recursive(child, skip_widgets)
@@ -431,12 +393,10 @@ class Editor(Buffer):
             self.lfouter.pack_forget()
         if master.imageloaded:
             self.type_.pack_forget()
-            self.ln.pack_forget()
             self.mf.pack_forget()
         else:
-            self.ln.pack(side="left", fill="y", anchor="n")
             self.type_.pack(fill="both", expand=True, anchor="n")
-            self.mf.pack(padx=10, pady=10, fill="both", expand=True)
+            self.mf.pack(fill="both", expand=True)
 
     def _cancel_type_after_ids(self):
         """Cancel every pending .after() callback tracked for this pane
@@ -491,13 +451,16 @@ class Editor(Buffer):
         they read through to master via __getattr__), and register
         self in master.view_children."""
         old_type = self.type_
-        old_ln = self.ln
         self._cancel_type_after_ids()
         self.type_ = self._make_peer_type(master)
         self.mainwidget = self.type_
         self._wire_type()
-        old_ln.destroy()
         old_type.destroy()
+        try:
+            self.__dict__["observer"].stop()
+            self.__dict__["observer"].join()
+        except Exception:
+            pass
         for name in Editor._SHARED_STATE_ATTRS:
             self.__dict__.pop(name, None)
         self.view_master = master
@@ -517,18 +480,19 @@ class Editor(Buffer):
             _promote_new_master(self)
             self.view_children = []
             old_type = self.type_
-            old_ln = self.ln
             self._cancel_type_after_ids()
-            self.type_ = state.root.textbox(
-                master=self.mf,
+            self.type_ = ctk.Textbox(
+                self.mf,
+                scrolled=True,
                 font=(state.defs[2], 12),
                 wrap="word",
                 undo=True,
                 autoseparators=True,
+                line_numbers=True,
+                line_number_justify="center",
             )
             self.mainwidget = self.type_
             self._wire_type()
-            old_ln.destroy()
             old_type.destroy()
             self.unsaved = False
             self.unsavedtext = ""
@@ -552,18 +516,19 @@ class Editor(Buffer):
             if self in master.view_children:
                 master.view_children.remove(self)
             old_type = self.type_
-            old_ln = self.ln
             self._cancel_type_after_ids()
-            self.type_ = state.root.textbox(
-                master=self.mf,
+            self.type_ = ctk.Textbox(
+                self.mf,
+                scrolled=True,
                 font=(state.defs[2], 12),
                 wrap="word",
                 undo=True,
                 autoseparators=True,
+                line_numbers=True,
+                line_number_justify="center",
             )
             self.mainwidget = self.type_
             self._wire_type()
-            old_ln.destroy()
             old_type.destroy()
             self._main_poll()
             self.view_master = None
@@ -598,7 +563,7 @@ class Editor(Buffer):
             self._python_module_func_params_cache = {}
             self._ha_running = [False]
             self._ha_pending = [None]
-            self.m = state.root.menu()
+            self.m = ctk.Menu(state.root)
             for label, menu in state.all_editor_menus.items():
                 self.m.add_cascade(label=label, menu=menu)
             self.init_hl_tags()
@@ -659,106 +624,90 @@ class Editor(Buffer):
         self.view_master = view_master
         self.view_children = []
         self.resetfileinfo()
-        self.mf = state.root.frame(master=self)
-        self.lfouter = state.root.frame(master=self)
-        self.lfcanvas = easytk.ttk.Canvas(self.lfouter, highlightthickness=0)
-        self.lfscroll = state.root.scroll(
-            master=self.lfouter, orient="horizontal", command=self.lfcanvas.xview
-        )
-        self.lfcanvas.configure(xscrollcommand=self.lfscroll.set)
-        self.lfcanvas.pack(side="top", fill="x")
-        self.lfscroll.pack(side="top", fill="x")
-        self.lf = state.root.frame(master=self.lfcanvas)
-        self.lfcanvaswindow = self.lfcanvas.create_window(
-            (0, 0), window=self.lf, anchor="nw"
-        )
+        self.mf = ctk.Frame(self)
+        self.lfouter = ctk.ScrolledFrame(self, orient="horizontal")
+        self.lf = ctk.Frame(self.lfouter)
+        self.lf.pack(side="left", anchor="nw")
         self.lf.bind(
             "<Configure>",
-            lambda event: self.lfcanvas.configure(
-                scrollregion=self.lfcanvas.bbox("all"), height=self.lf.winfo_reqheight()
+            lambda event: self.lfouter.viewport.configure(
+                height=self.lf.winfo_reqheight()
             ),
         )
-        state.root.text(master=self.lf, text="LaTeX:").grid(
-            column=0, row=0, padx=10, pady=10
-        )
-        self.latexbold = state.root.button(
-            master=self.lf, text="Bold", command=self.boldlatex
-        )
+        ctk.Label(self.lf, text="LaTeX:").grid(column=0, row=0, padx=10, pady=10)
+        self.latexbold = ctk.Button(self.lf, text="Bold", command=self.boldlatex)
         self.latexbold.grid(column=1, row=0, padx=10, pady=10)
-        self.latexitalic = state.root.button(
-            master=self.lf, text="Italic", command=self.italiclatex
-        )
+        self.latexitalic = ctk.Button(self.lf, text="Italic", command=self.italiclatex)
         self.latexitalic.grid(column=2, row=0, padx=10, pady=10)
-        self.latexunderline = state.root.button(
-            master=self.lf, text="Underline", command=self.underlinelatex
+        self.latexunderline = ctk.Button(
+            self.lf, text="Underline", command=self.underlinelatex
         )
         self.latexunderline.grid(column=3, row=0, padx=10, pady=10)
-        self.latexsubscript = state.root.button(
-            master=self.lf, text="Subscript", command=self.subscriptlatex
+        self.latexsubscript = ctk.Button(
+            self.lf, text="Subscript", command=self.subscriptlatex
         )
         self.latexsubscript.grid(column=4, row=0, padx=10, pady=10)
-        self.latexsuperscript = state.root.button(
-            master=self.lf, text="Superscript", command=self.superscriptlatex
+        self.latexsuperscript = ctk.Button(
+            self.lf, text="Superscript", command=self.superscriptlatex
         )
         self.latexsuperscript.grid(column=5, row=0, padx=10, pady=10)
-        self.latexnumberlist = state.root.button(
-            master=self.lf, text="Numbered List", command=self.numberlistlatex
+        self.latexnumberlist = ctk.Button(
+            self.lf, text="Numbered List", command=self.numberlistlatex
         )
         self.latexnumberlist.grid(column=6, row=0, padx=10, pady=10)
-        self.latexbulletlist = state.root.button(
-            master=self.lf, text="Bullet List", command=self.bulletlistlatex
+        self.latexbulletlist = ctk.Button(
+            self.lf, text="Bullet List", command=self.bulletlistlatex
         )
         self.latexbulletlist.grid(column=7, row=0, padx=10, pady=10)
-        self.latexsectionvar = state.root.stringvar(master=self.lf)
-        self.latexsection = state.root.dropdown(
-            stringvar=self.latexsectionvar,
-            showdefault="Section",
-            options=["Section", "Subsection", "Subsubsection"],
-            master=self.lf,
+        self.latexsectionvar = tk.StringVar(self.lf)
+        self.latexsection = ctk.OptionMenu(
+            self.lf,
+            self.latexsectionvar,
+            "Section",
+            "Subsection",
+            "Subsubsection",
             command=self.sectionlatex,
         )
         self.latexsection.grid(column=8, row=0, padx=10, pady=10)
-        self.latexparagraph = state.root.button(
-            master=self.lf, text="Paragraph", command=self.paragraphlatex
+        self.latexparagraph = ctk.Button(
+            self.lf, text="Paragraph", command=self.paragraphlatex
         )
         self.latexparagraph.grid(column=9, row=0, padx=10, pady=10)
-        self.latexequation = state.root.button(
-            master=self.lf, text="Equation", command=self.equationlatex
+        self.latexequation = ctk.Button(
+            self.lf, text="Equation", command=self.equationlatex
         )
         self.latexequation.grid(column=10, row=0, padx=10, pady=10)
-        self.latexcharvar = state.root.stringvar()
-        self.latexmath = state.root.dropdown(
-            master=self.lf,
-            stringvar=self.latexcharvar,
-            showdefault="Multiplication",
-            options=[
-                "Multiplication",
-                "Division",
-                "Less or equal",
-                "More or equal",
-                "Not equal",
-                "Infinity",
-                "Summation",
-                "Integral",
-                "Pi",
-                "Theta",
-                "Alpha Lower",
-                "Alpha Upper",
-                "Inline Math",
-            ],
+        self.latexcharvar = tk.StringVar(state.root)
+        self.latexmath = ctk.OptionMenu(
+            self.lf,
+            self.latexcharvar,
+            "Multiplication",
+            "Division",
+            "Less or equal",
+            "More or equal",
+            "Not equal",
+            "Infinity",
+            "Summation",
+            "Integral",
+            "Pi",
+            "Theta",
+            "Alpha Lower",
+            "Alpha Upper",
+            "Inline Math",
             command=self.mathlatex,
         )
         self.latexmath.grid(column=11, row=0, padx=10, pady=10)
         self.mf.pack(fill="both", expand=True)
-        self.scrlbr = state.root.scroll(master=self.mf)
-        self.scrlbr.pack(side="right", fill="y")
         if view_master is None:
-            self.type_ = state.root.textbox(
-                master=self.mf,
+            self.type_ = ctk.Textbox(
+                self.mf,
+                scrolled=True,
                 font=(state.defs[2], 12),
                 wrap="word",
                 undo=True,
                 autoseparators=True,
+                line_numbers=True,
+                line_number_justify="center",
             )
         else:
             self.type_ = self._make_peer_type(view_master)
@@ -817,7 +766,7 @@ class Editor(Buffer):
             self._python_module_func_params_cache = {}
             self._ha_running = [False]
             self._ha_pending = [None]
-            self.m = state.root.menu()
+            self.m = ctk.Menu(state.root)
             for label, menu in state.all_editor_menus.items():
                 self.m.add_cascade(label=label, menu=menu)
         else:
@@ -1062,9 +1011,8 @@ class Editor(Buffer):
             except Exception:
                 pass
             else:
-                self.ln.pack(side="left", fill="y", anchor="n")
                 self.type_.pack(fill="both", expand=True, anchor="n")
-                self.mf.pack(padx=10, pady=10, fill="both", expand=True)
+                self.mf.pack(fill="both", expand=True)
             self.type_.delete("1.0", "end")
             if os.path.dirname(nm):
                 try:
@@ -1090,9 +1038,7 @@ class Editor(Buffer):
             except Exception as error:
                 error = str(error)
                 try:
-                    self.imageload = state.root.image(
-                        master=self, image=nm, imsize=(1, 1)
-                    )
+                    self.imageload = ctk.Label(self, image=ctk.load_canvas_image(nm))
                     self._bind_focus_recursive(self.imageload)
                     self.imageloaded = True
                     self.mainwidget = self.imageload
@@ -1132,7 +1078,6 @@ class Editor(Buffer):
                         self.keypress()
                 else:
                     self.type_.pack_forget()
-                    self.ln.pack_forget()
                     self.mf.pack_forget()
                     self.imageload.pack(fill="both", expand=True)
                     self.imageloaded = True
@@ -1256,10 +1201,9 @@ class Editor(Buffer):
         if self._file_watch_prompt_pending:
             utils.show("select 'Ignore' external changes before saving file")
             return False
-        oldbg = self.type_.cget("background")
-        self.type_.config(bg="green")
+        self.type_.config(fill_color="green")
         fn = dialogs.saveasfileget()
-        self.type_.config(bg=oldbg)
+        self.type_.config(fill_color=None)
         pycode.pcrunhook("before", "save-as-file", fn if fn else None)
         if fn:
             utils.show("save as file")
@@ -1299,9 +1243,8 @@ class Editor(Buffer):
             except Exception:
                 pass
             else:
-                self.ln.pack(side="left", fill="y", anchor="n")
                 self.type_.pack(fill="both", expand=True, anchor="n")
-                self.mf.pack(padx=10, pady=10, fill="both", expand=True)
+                self.mf.pack(fill="both", expand=True)
             self.type_.delete("1.0", "end")
             self.unsavedtext = ""
             self.clt("")
@@ -1637,8 +1580,8 @@ class Editor(Buffer):
             i = 0
         foundlist = []
         ok.title("Find & Replace")
-        ok.text(text="Find:").grid(column=0, row=0, padx=10, pady=10)
-        findbox = ok.entry()
+        ctk.Label(ok, text="Find:").grid(column=0, row=0, padx=10, pady=10)
+        findbox = ctk.Entry(ok)
         findbox.focus()
         findbox.bind("<KeyRelease>", updateff)
         if not state.emacskeysforsearch:
@@ -1651,8 +1594,8 @@ class Editor(Buffer):
                 lambda event: fback(),
             )
         findbox.grid(column=1, row=0, padx=10, pady=10, sticky="ew")
-        ok.text(text="Replace:").grid(column=0, row=1, padx=10, pady=10)
-        replacebox = ok.entry()
+        ctk.Label(ok, text="Replace:").grid(column=0, row=1, padx=10, pady=10)
+        replacebox = ctk.Entry(ok)
         if not state.emacskeysforsearch:
             replacebox.bind(
                 "<Return>",
@@ -1663,22 +1606,22 @@ class Editor(Buffer):
                 ),
             )
         replacebox.grid(column=1, row=1, padx=10, pady=10, sticky="ew")
-        cs = ok.booleanvar()
-        ok.check(text="Case Sensitive", variable=cs, command=updateff).grid(
+        cs = tk.BooleanVar(ok)
+        ctk.Checkbutton(ok, text="Case Sensitive", variable=cs, command=updateff).grid(
             column=0, row=2, padx=10, pady=10, sticky="ew"
         )
-        regx = ok.booleanvar()
-        ok.check(text="Use regexp", variable=regx, command=updateff).grid(
+        regx = tk.BooleanVar(ok)
+        ctk.Checkbutton(ok, text="Use regexp", variable=regx, command=updateff).grid(
             column=1, row=2, padx=10, pady=10, sticky="ew"
         )
-        ww = ok.booleanvar()
-        ok.check(text="Match Whole Word Only", variable=ww, command=updateff).grid(
-            column=0, row=3, columnspan=2, padx=10, pady=10, sticky="ew"
-        )
-        ok.button(text="Previous", command=fback).grid(
+        ww = tk.BooleanVar(ok)
+        ctk.Checkbutton(
+            ok, text="Match Whole Word Only", variable=ww, command=updateff
+        ).grid(column=0, row=3, columnspan=2, padx=10, pady=10, sticky="ew")
+        ctk.Button(ok, text="Previous", command=fback).grid(
             column=0, row=4, padx=10, pady=10, sticky="ew"
         )
-        ok.button(text="Next", command=fnext).grid(
+        ctk.Button(ok, text="Next", command=fnext).grid(
             column=1, row=4, padx=10, pady=10, sticky="ew"
         )
 
@@ -1711,14 +1654,14 @@ class Editor(Buffer):
             pending_action[0] = after_search
             updatef()
 
-        ok.button(text="Replace", command=replace_current).grid(
+        ctk.Button(ok, text="Replace", command=replace_current).grid(
             column=0, row=5, padx=10, pady=10, sticky="ew"
         )
-        ok.button(
-            text="Replace and next", command=lambda: fnext(replacebox.get())
+        ctk.Button(
+            ok, text="Replace and next", command=lambda: fnext(replacebox.get())
         ).grid(column=1, row=5, padx=10, pady=10, sticky="ew")
-        ok.button(
-            text="Replace all", command=lambda: replaceall(replacebox.get())
+        ctk.Button(
+            ok, text="Replace all", command=lambda: replaceall(replacebox.get())
         ).grid(column=0, row=6, padx=10, pady=10, sticky="ew")
 
         def close_find():
@@ -1746,7 +1689,7 @@ class Editor(Buffer):
         self.type_.edit_modified(False)
         state.root.update()
         findmodbindid = self.type_.bind("<<Modified>>", on_type_modified, "+")
-        ok.button(text="Close", command=close_find).grid(
+        ctk.Button(ok, text="Close", command=close_find).grid(
             column=1, row=6, padx=10, pady=10, sticky="ew"
         )
         if state.emacskeysforsearch:
@@ -1766,8 +1709,7 @@ class Editor(Buffer):
                 w.bind("^", lambda event: fback() or "break")
                 w.bind("!", lambda event: replaceall(replacebox.get()) or "break")
         ok.update()
-        ok.sizablefalse()
-        ok.style(state.root.gettheme())
+        utils.lock_window_size(ok)
         ok.bind("<Escape>", lambda event: close_find())
         ok.protocol("WM_DELETE_WINDOW", close_find)
 
@@ -1980,8 +1922,8 @@ class Editor(Buffer):
             i = 0
         foundlist = []
         ok.title("Find")
-        ok.text(text="Find:").grid(column=0, row=0, padx=10, pady=10)
-        findbox = ok.entry()
+        ctk.Label(ok, text="Find:").grid(column=0, row=0, padx=10, pady=10)
+        findbox = ctk.Entry(ok)
         findbox.focus()
         findbox.bind("<KeyRelease>", updateff)
         if not state.emacskeysforsearch:
@@ -1994,22 +1936,22 @@ class Editor(Buffer):
                 lambda event: fback(),
             )
         findbox.grid(column=1, row=0, padx=10, pady=10, sticky="ew")
-        cs = ok.booleanvar()
-        ok.check(text="Case Sensitive", variable=cs, command=updateff).grid(
+        cs = tk.BooleanVar(ok)
+        ctk.Checkbutton(ok, text="Case Sensitive", variable=cs, command=updateff).grid(
             column=0, row=1, padx=10, pady=10, sticky="ew"
         )
-        regx = ok.booleanvar()
-        ok.check(text="Use regexp", variable=regx, command=updateff).grid(
+        regx = tk.BooleanVar(ok)
+        ctk.Checkbutton(ok, text="Use regexp", variable=regx, command=updateff).grid(
             column=1, row=1, padx=10, pady=10, sticky="ew"
         )
-        ww = ok.booleanvar()
-        ok.check(text="Match Whole Word Only", variable=ww, command=updateff).grid(
-            column=0, row=2, columnspan=2, padx=10, pady=10, sticky="ew"
-        )
-        ok.button(text="Previous", command=fback).grid(
+        ww = tk.BooleanVar(ok)
+        ctk.Checkbutton(
+            ok, text="Match Whole Word Only", variable=ww, command=updateff
+        ).grid(column=0, row=2, columnspan=2, padx=10, pady=10, sticky="ew")
+        ctk.Button(ok, text="Previous", command=fback).grid(
             column=0, row=3, padx=10, pady=10, sticky="ew"
         )
-        ok.button(text="Next", command=fnext).grid(
+        ctk.Button(ok, text="Next", command=fnext).grid(
             column=1, row=3, padx=10, pady=10, sticky="ew"
         )
 
@@ -2031,7 +1973,7 @@ class Editor(Buffer):
         self.type_.edit_modified(False)
         state.root.update()
         findmodbindid = self.type_.bind("<<Modified>>", on_type_modified)
-        ok.button(text="Close", command=close_find).grid(
+        ctk.Button(ok, text="Close", command=close_find).grid(
             column=1, row=4, padx=10, pady=10, sticky="ew"
         )
         if state.emacskeysforsearch:
@@ -2039,8 +1981,7 @@ class Editor(Buffer):
             ok.bind("<Control-r>", lambda event: fback())
             ok.bind("<Return>", lambda event: close_find())
         ok.update()
-        ok.sizablefalse()
-        ok.style(state.root.gettheme())
+        utils.lock_window_size(ok)
         ok.bind("<Escape>", lambda event: close_find())
         ok.protocol("WM_DELETE_WINDOW", close_find)
 
@@ -3550,14 +3491,17 @@ class Editor(Buffer):
 
     def keypress(self):
         """Run after (essentially) every edit/keystroke: update the
-        selection, line numbers, and debounced filesize/undo-mark/
+        selection, and debounced filesize/undo-mark/
         highlight/unsaved-state triggers, and refresh the file-info
         bar's filename/saved-state display."""
         if not self.winfo_exists():
             return
         self.selupdate()
         self._python_edit_generation[0] += 1
-        self.ln.redraw()
+        # An edit made through one view never passes through the other
+        # views' Tk commands, so their line numbers have to be told.
+        for member in self._group_members():
+            member._own_type._schedule_line_numbers()
         self.trigger_filesize()
         self.trigger_undo_set()
         if self.hmode == "python":
@@ -4360,7 +4304,7 @@ def _promote_new_master(old_master):
     new_master.view_children = rest
     for child in rest:
         child.view_master = new_master
-    new_master.m = state.root.menu()
+    new_master.m = ctk.Menu(state.root)
     for label, menu in state.all_editor_menus.items():
         new_master.m.add_cascade(label=label, menu=menu)
     for child in rest:

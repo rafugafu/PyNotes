@@ -7,7 +7,10 @@ import subprocess
 import threading
 import webbrowser
 import state
+import tkinter as tk
 import time
+import weakref
+import canvastk as ctk
 from init import homedir, rootdir, monospace
 
 
@@ -55,14 +58,120 @@ def unbindtype_(buffer, *args, **kwargs):
         buffer._own_type.unbind(*args, **kwargs)
 
 
-def load_themes():
-    """Import every theme file in the user's themes directory."""
-    themesdir = f"{homedir}/.local/share/PyNotes/themes"
-    for file in os.listdir(themesdir):
+def load_user_themes():
+    """Refresh the themes list."""
+
+    def _valid_color(color):
         try:
-            state.root.import_theme(f"{themesdir}/{file}")
+            state.root.winfo_rgb(color)
         except Exception:
-            pass
+            return False
+        else:
+            return True
+
+    def _check_valid_themes(*themes_to_check):
+        for themes_list in themes_to_check:
+            assert type(themes_list) == dict, "Invalid user themes"
+            for name, theme in themes_list.items():
+                assert type(name) == str, "Theme name not a string."
+                assert type(theme) == dict, f"Invalid theme {name!r}"
+                for theme_key, theme_value in theme.items():
+                    assert theme_key in tuple(
+                        ctk.CANVAS_WIDGET_THEME
+                    ), "Invalid theme key."
+
+    import json
+    import themes
+    import copy
+
+    themes_path = f"{homedir}/.local/share/PyNotes/user_themes.json"
+    if not os.path.exists(themes_path):
+        return
+    try:
+        with open(themes_path) as file:
+            light_themes, dark_themes = json.load(file)
+        _check_valid_themes(light_themes, dark_themes)
+        themes.THEMES[0].update(light_themes)
+        themes.THEMES[1].update(dark_themes)
+    except Exception as e:
+        state.root.error("Error", f"Error while trying to load user themes:\n{e}")
+        themes.THEMES = copy.deepcopy(themes.ORIGINAL_THEMES)
+
+
+def save_theme_and_reload(theme):
+    """Save a user-made theme and refresh the themes list."""
+    import json
+    import themes
+
+    name, dark, colors = theme
+    user_themes = [
+        {
+            k: v
+            for k, v in lightordark.items()
+            if k not in lightordarkorg or v != lightordarkorg[k]
+        }
+        for lightordark, lightordarkorg in zip(themes.THEMES, themes.ORIGINAL_THEMES)
+    ]
+    if dark:
+        user_themes[1][name] = colors
+    else:
+        user_themes[0][name] = colors
+    themes_path = f"{homedir}/.local/share/PyNotes/user_themes.json"
+    with open(themes_path, "w") as file:
+        json.dump(user_themes, file, indent=4)
+    load_user_themes()
+
+
+class EnabledLookTextbox(ctk.Textbox):
+    """A canvastk Textbox that is disabled only to prevent editing, so
+    it isn't drawn greyed out: its disabled colors are the normal ones.
+    These colors are recomputed by refresh_enabled_look_textboxes()
+    whenever the theme changes."""
+
+    _ALL_ENABLED_LOOK_TEXTBOXES = weakref.WeakSet()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._ALL_ENABLED_LOOK_TEXTBOXES.add(self)
+        self.refresh_enabled_look()
+
+    def refresh_enabled_look(self):
+        """Recompute the disabled colors from the current theme."""
+        theme = ctk.get_theme()
+        self.set_theme(
+            {"surface_disabled": theme["surface"], "text_disabled": theme["text"]}
+        )
+
+    @classmethod
+    def refresh_all(cls):
+        """Recompute the disabled colors of every live instance."""
+        for textbox in list(cls._ALL_ENABLED_LOOK_TEXTBOXES):
+            try:
+                textbox.refresh_enabled_look()
+            except tk.TclError:
+                pass
+
+
+def lock_window_size(window):
+    """Lock window to its current size (fixes both min and max size to
+    the current geometry), preventing manual resizing."""
+    try:
+        window.update()
+        width, height = window.winfo_width(), window.winfo_height()
+        window.minsize(width=width, height=height)
+        window.maxsize(width=width, height=height)
+    except Exception:
+        pass
+
+
+def unlock_window_size(window):
+    """Undo lock_window_size(), letting window resize freely again."""
+    try:
+        window.update()
+        window.minsize(width=0, height=0)
+        window.maxsize(width=99999, height=99999)
+    except Exception:
+        pass
 
 
 def show(text):
@@ -310,27 +419,25 @@ class ErrorHandler:
                     args=("Error", error, "41m"),
                     daemon=True,
                 ).start()
-                if self.win == None or not self.win.exists:
+                if self.win == None or not self.win.winfo_exists():
                     self.win = state.root.subwin()
                     self.win.title("Error")
                     self.win.bind("<Escape>", lambda event: self.win.destroy())
                     self.win.bind("<Return>", lambda event: self.win.destroy())
-                    scrollbar = self.win.scroll()
-                    self.textbox = self.win.textbox(
-                        yscrollcommand=scrollbar.set,
+
+                    self.textbox = EnabledLookTextbox(
+                        self.win,
+                        scrolled=True,
                         font=(monospace, 12),
                         width=60,
                         height=15,
                     )
-                    scrollbar.config(command=self.textbox.yview)
-                    scrollbar.pack(fill="y", side="right")
-                    self.textbox.pack(fill="both", expand=True, side="left")
+                    self.textbox.pack(fill="both", expand=True)
                     self.textbox.insert("end", error)
                     self.textbox.see("end")
                     self.textbox.config(state="disabled")
-                    self.win.style(state.root.gettheme())
                     self.win.update()
-                    self.win.sizablefalse()
+                    lock_window_size(self.win)
                 else:
                     self.textbox.config(state="normal")
                     self.textbox.insert("end", f"\n{error}")
@@ -348,8 +455,6 @@ def _report_callback_exception(exc, val, tb):
     errors as usual, except TclErrors, which are suppressed since they
     tend to be harmless Tcl/tk-level issues (e.g. a widget already
     destroyed) rather than real bugs."""
-    import easytk
-
-    if issubclass(exc, easytk.tk.TclError):
+    if issubclass(exc, tk.TclError):
         return
-    easytk.tk.Tk.report_callback_exception(state.root, exc, val, tb)
+    tk.Tk.report_callback_exception(state.root, exc, val, tb)

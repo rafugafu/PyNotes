@@ -7,6 +7,7 @@ autocomplete (see cmdautocompletefunc)."""
 import os
 import shutil
 import state
+import buffer
 import editor
 import dialogs
 import help
@@ -295,7 +296,7 @@ def cmdrun(fullcommand):
                 return
         else:
             n = state.buffindex
-        pycode.pcclosebuff(n)
+        buffer.pcclosebuff(n)
     elif (
         command == "sw"
         or command == "switch"

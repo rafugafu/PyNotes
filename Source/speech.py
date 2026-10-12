@@ -4,7 +4,7 @@ import io
 import re
 import wave
 import threading
-import easytk
+import canvastk as ctk
 import state
 import sounddevice as sd
 import speech_recognition as sr
@@ -176,25 +176,25 @@ def st():
     samplerate = 16000
     channels = 1
     dtype = np.int16
-    dwin = easytk.win()
+    dwin = state.root.subwin()
     dwin.title("Control")
-    bframe = dwin.frame()
+    bframe = ctk.Frame(dwin)
     bframe.pack(side="top", expand=True)
-    dwin.button(
-        master=bframe,
+    ctk.Button(
+        bframe,
         text="Start Recording",
         command=lambda: threading.Thread(target=record, daemon=True).start(),
     ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    dwin.button(
-        master=bframe,
+    ctk.Button(
+        bframe,
         text="Stop Recording",
         command=lambda: [output.delete("1.0", "end"), output.insert("end", stop())],
     ).grid(column=1, row=0, padx=10, pady=10, sticky="e")
-    oframe = dwin.frame()
-    output = dwin.textbox(master=oframe)
+    oframe = ctk.Frame(dwin)
+    output = ctk.Textbox(oframe)
     output.pack(fill="both", expand=True)
-    dwin.button(
-        master=oframe,
+    ctk.Button(
+        oframe,
         text="Write to Active Editor",
         command=lambda: (
             [
@@ -208,4 +208,4 @@ def st():
         ),
     ).pack(side="bottom", fill="x", expand=True)
     oframe.pack(side="bottom", fill="both", expand=True)
-    dwin.sizablefalse()
+    utils.lock_window_size(dwin)

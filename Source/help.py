@@ -1,11 +1,39 @@
 """All of PyNotes' Help windows (About, Changes, and the various
 Help-with-X topics), each a self-contained window builder."""
 
-import easytk
+import canvastk as ctk
 import state
 from init import v, rootdir, homedir, monospace
 import pycode
 import utils
+
+
+def _help_code_label(master, text):
+    """A Label showing example code (monospaced, black on a white
+    background)."""
+    return ctk.Label(
+        master,
+        text=text,
+        bg="white",
+        fg="black",
+        padx=7,
+        pady=7,
+        bd=2,
+        relief="sunken",
+        font=(monospace, 11),
+    )
+
+
+def _help_image_label(master, path, shrink):
+    """A Label showing the image at path, shrunk by a factor of shrink."""
+    from PIL import Image
+
+    with Image.open(path) as source:
+        width, height = source.size
+    return ctk.Label(
+        master,
+        image=ctk.load_canvas_image(path, size=(width // shrink, height // shrink)),
+    )
 
 
 def abt():
@@ -14,31 +42,26 @@ def abt():
     abw = state.root.subwin()
     abw.title("About PyNotes")
     abw.focus()
-    abw_ = abw.frame()
+    abw_ = ctk.Frame(abw)
     abw_.pack(fill="both", padx=10, pady=10)
-    abw.imgs = []
-    abw.image(master=abw_, image=f"{rootdir}/Icon.png", imsize=(2, 2)).grid(
-        column=0, row=0, sticky="w"
-    )
-    abw.text(master=abw_, text=f"PyNotes v{v}", font=("TkDefaultFont", 20)).grid(
+    _help_image_label(abw_, f"{rootdir}/Icon.png", 2).grid(column=0, row=0, sticky="w")
+    ctk.Label(abw_, text=f"PyNotes v{v}", font=("TkDefaultFont", 20)).grid(
         column=0, row=1, sticky="w"
     )
-    abw.text(
-        master=abw_,
-        text="Rafey <https://github.com/rafugafu>",
-        font=("TkDefaultFont", 15),
+    ctk.Label(
+        abw_, text="Rafey <https://github.com/rafugafu>", font=("TkDefaultFont", 15)
     ).grid(column=0, row=2, sticky="w")
-    abw.text(
-        master=abw_,
+    ctk.Label(
+        abw_,
         text="PyNotes is an advanced, extensible, cross-platform\nEmacs-like text editor and IDE made in Python.",
         font=("TkDefaultFont", 12),
     ).grid(column=0, row=3, sticky="w")
-    abw.button(text="Close", command=abw.destroy).pack(
+    ctk.Button(abw, text="Close", command=abw.destroy).pack(
         side="bottom", fill="x", padx=10, pady=10
     )
     abw.bind("<Escape>", lambda event: abw.destroy())
     abw.bind("<Return>", lambda event: abw.destroy())
-    abw.sizablefalse()
+    utils.lock_window_size(abw)
 
 
 def changes():
@@ -46,15 +69,16 @@ def changes():
     utils.show("show pynotes changes")
     cw = state.root.subwin()
     cw.title(f"Changes in v{v}")
-    chtextbox = cw.textbox(scrolled=True, font=("TkDefaultFont", 13), wrap="word")
+    chtextbox = utils.EnabledLookTextbox(
+        cw, scrolled=True, font=("TkDefaultFont", 13), wrap="word"
+    )
     chtextbox.insert("end", state.changestr)
-    chtextbox.text.config(state="disabled")
+    chtextbox.config(state="disabled")
     chtextbox.yview_moveto(1)
     chtextbox.pack(fill="both", expand=True)
     cw.bind("<Escape>", lambda event: cw.destroy())
     cw.bind("<Return>", lambda event: cw.destroy())
-    cw.sizablefalse()
-    cw.style(state.root.gettheme())
+    utils.lock_window_size(cw)
     cw.focus()
 
 
@@ -63,20 +87,20 @@ def hemail():
     utils.show("open email help")
     hew = state.root.subwin()
     hew.title("Help with Email")
-    tabs = hew.tabs()
-    mf = hew.frame()
+    tabs = ctk.Notebook(hew)
+    mf = ctk.Frame(hew)
     tabs.add(mf, text="Setup")
     tabs.pack(fill="both", expand=True, padx=10, pady=10)
-    hew.text(
-        master=mf,
+    ctk.Label(
+        mf,
         text="""Open the Email buffer with Alt-X and 'sendemail' or 'sendmail'.
 Give the username and password of your email in that buffer.
 Then you can type and send any email from PyNotes!""",
     ).grid(padx=10, pady=10)
-    dt = hew.frame()
+    dt = ctk.Frame(hew)
     tabs.add(dt, text="Dictionaries")
-    hew.text(
-        master=dt,
+    ctk.Label(
+        dt,
         text="""The email textbox has a spellcheck. The default dictionary for spellchecking is English,
 but you can add or remove extra dictionaries to this.
 To add another language or dictionary, you need to find or make a text file that has
@@ -86,8 +110,7 @@ Then go to Preferences → Email to upload that dictionary.
 Once you have added a dictionary, don't move or remove the
 dictionary before removing it in the settings.""",
     ).grid(padx=10, pady=10)
-    hew.sizablefalse()
-    hew.style(state.root.gettheme())
+    utils.lock_window_size(hew)
     hew.focus()
 
 
@@ -101,10 +124,7 @@ def hx():
     utils.show("open alt-x commands help")
     hxw = state.root.subwin()
     hxw.title("Help with commands")
-    hxs = hxw.scroll()
-    hxs.pack(side="right", fill="y", padx=10, pady=10)
-    hxh = hxw.textbox(wrap="word", yscrollcommand=hxs.set)
-    hxs.config(command=hxh.yview)
+    hxh = utils.EnabledLookTextbox(hxw, wrap="word", scrolled=True)
     l1 = hxh.index("end-1c")
     hxh.insert("end", "General\n\n")
     r1 = hxh.index("end-1c")
@@ -211,8 +231,7 @@ re:(hmode:py;w:print('hello')*1;sw)*3;w:\\n'back'*1""",
     hxh.tag_config("bigstuff", font=(monospace, 15, "bold"))
     hxh.pack(fill="both", padx=10, pady=10)
     hxh.config(state="disabled")
-    hxw.sizablefalse()
-    hxw.style(state.root.gettheme())
+    utils.lock_window_size(hxw)
     hxh.bind("<Escape>", lambda event: hxh.destroy())
     hxh.bind("<Return>", lambda event: hxh.destroy())
     hxh.focus()
@@ -226,34 +245,30 @@ def helppycode():
     utils.show("open pycode help")
     hpwin = state.root.subwin()
     hpwin.title("Help with PyCode")
-    hptabs = hpwin.tabs()
+    hptabs = ctk.Notebook(hpwin)
     hptabs.pack(side="top", fill="both", padx=10, pady=10)
-    bt = hpwin.frame()
+    bt = ctk.Frame(hpwin)
     hptabs.add(bt, text="Basics")
-    ct = hpwin.frame()
+    ct = ctk.Frame(hpwin)
     hptabs.add(ct, text="Commands")
-    gt = hpwin.frame()
+    gt = ctk.Frame(hpwin)
     hptabs.add(gt, text="Graphical Coding")
-    kst = hpwin.frame()
+    kst = ctk.Frame(hpwin)
     hptabs.add(kst, text="Keyboard Shortcuts")
-    vt = hpwin.frame()
+    vt = ctk.Frame(hpwin)
     hptabs.add(vt, text="Variables")
-    ft = hpwin.frame()
+    ft = ctk.Frame(hpwin)
     hptabs.add(ft, text="Functions")
-    st = hpwin.frame()
+    st = ctk.Frame(hpwin)
     hptabs.add(st, text="Startup Code")
-    act = hpwin.frame()
+    act = ctk.Frame(hpwin)
     hptabs.add(act, text="Alt-X Command Definition")
-    ht = hpwin.frame()
+    ht = ctk.Frame(hpwin)
     hptabs.add(ht, text="Event Hooks")
-    lct = hpwin.frame()
+    lct = ctk.Frame(hpwin)
     hptabs.add(lct, text="Loops and Conditions")
-    code = hpwin.style()
-    code.configure(
-        "CodeStyle.TLabel", background="white", padding=(7, 7, 7, 7), relief="sunken"
-    )
-    hpwin.text(
-        master=bt,
+    ctk.Label(
+        bt,
         text="""Syntax -
 All Keyboard Shortcuts, Event Hooks, Functions, and Startup Code should end with a semicolon ';'.
 Inputs to a command must be given with one and only one space between
@@ -263,21 +278,17 @@ Spaces do not matter between full commands and between brackets.
 Newlines do not matter between full commands and between brackets.
 For example, the code""",
     ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=bt,
-        text="(something) →: (say 'hello' ↩ say 'this is a test');",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=1, padx=10, pady=10, sticky="w")
-    hpwin.text(master=bt, text="is the same as").grid(
+    _help_code_label(bt, "(something) →: (say 'hello' ↩ say 'this is a test');").grid(
+        column=0, row=1, padx=10, pady=10, sticky="w"
+    )
+    ctk.Label(bt, text="is the same as").grid(
         column=0, row=2, padx=10, pady=10, sticky="w"
     )
-    hpwin.text(
-        master=bt,
-        text="(\nsomething\n)\n→:\n(\nsay 'hello'\n↩\nsay 'this is a test'\n);",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        bt, "(\nsomething\n)\n→:\n(\nsay 'hello'\n↩\nsay 'this is a test'\n);"
     ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=bt,
+    ctk.Label(
+        bt,
         text="""PyCode uses some symbols which are not on the keyboard.
 To type '→', press 'Control + =' on your keyboard.
 To type '↩', press 'Control + Enter'.
@@ -292,12 +303,11 @@ Pressing ';' will automatically put your cursor on a new line after the semicolo
 PyCode runs in the same global space as the rest of PyNotes.
 So, you can access PyNotes variables directly, like 'active' for the currently active buffer.""",
     ).grid(column=0, row=4, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ct,
+    ctk.Label(
+        ct,
         text="These are all the commands in PyCode which you can use to make or change Functions, Keyboard Shortcuts,\nStartup Code, and Alt-X commands:",
     ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    pccmdlistcontainer = hpwin.textbox(master=ct, scrolled=True)
-    pccmdlist = pccmdlistcontainer.text
+    pccmdlist = utils.EnabledLookTextbox(ct, scrolled=True)
     l1 = pccmdlist.index("end-1c")
     pccmdlist.insert("end", "PyNotes' Commands Help\n\n")
     r1 = pccmdlist.index("end-1c")
@@ -512,14 +522,14 @@ write 'text', n - Writes the given text repeated n times in the active editor.""
     pccmdlist.tag_add("bigstuff", l2, r2)
     pccmdlist.tag_config("bigstuff", font=(monospace, 15, "bold"))
     pccmdlist.config(state="disabled")
-    pccmdlistcontainer.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
-    hpwin.text(
-        master=ct,
+    pccmdlist.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
+    ctk.Label(
+        ct,
         text="By default, a command will take all the text that comes after it after a space as it's input.\nTo avoid that, you can give the input inside () brackets.\nThen, the command will only take the text after itself which is inside the brackets as input.",
     ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
     ct.grid_columnconfigure(0, weight=1)
-    hpwin.text(
-        master=gt,
+    ctk.Label(
+        gt,
         text="""There is a dropdown menu in the top left corner, using which you can code graphically.
 Whenever you click something in it, it will ask for inputs.
 It will also show a list of all the commands on the side if it needs it.
@@ -528,14 +538,14 @@ Function / Keyboard Shortcut / Startup Code in order.
 It will not ask for the inputs of commands that take inputs,
 you will have to put those in the code yourself.""",
     ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    state.root.image(
-        master=gt, image=f"{rootdir}/Images/PYCODE1.png", imsize=(2, 2)
-    ).grid(column=0, row=1, padx=10, pady=10, sticky="w")
-    state.root.image(
-        master=gt, image=f"{rootdir}/Images/PYCODE2.png", imsize=(2, 2)
-    ).grid(column=1, row=1, padx=10, pady=10, sticky="e")
-    hpwin.text(
-        master=kst,
+    _help_image_label(gt, f"{rootdir}/Images/PYCODE1.png", 2).grid(
+        column=0, row=1, padx=10, pady=10, sticky="w"
+    )
+    _help_image_label(gt, f"{rootdir}/Images/PYCODE2.png", 2).grid(
+        column=1, row=1, padx=10, pady=10, sticky="e"
+    )
+    ctk.Label(
+        kst,
         text="""You can bind or rebind Keyboard Shortcuts to any of the PyCode commands.
 To put more than one command in a Keyboard Shortcut, separate them with '↩'.
 If you want to make a keyboard shortcut where you have to press and hold 2 keys,
@@ -550,71 +560,60 @@ You can also bind chord keys like Control-x Control-s by separating the keys ins
 You cannot bind chord keys using the graphical programming till now.
 Examples:""",
     ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=kst, text="<Control-q> → <close>;", style="CodeStyle.TLabel"
-    ).grid(column=0, row=1, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=kst,
-        text="<Control-x & Control-s> → <savefile>;",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=kst,
-        text="<Control-t> → <say 'Hello!' ↩ say 'PyNotes is the best!'>;",
-        style="CodeStyle.TLabel",
+    _help_code_label(kst, "<Control-q> → <close>;").grid(
+        column=0, row=1, padx=10, pady=10, sticky="w"
+    )
+    _help_code_label(kst, "<Control-x & Control-s> → <savefile>;").grid(
+        column=0, row=2, padx=10, pady=10, sticky="w"
+    )
+    _help_code_label(
+        kst, "<Control-t> → <say 'Hello!' ↩ say 'PyNotes is the best!'>;"
     ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=vt,
+    ctk.Label(
+        vt,
         text="""Variables can be defined using the PyCode command 'setvar'.
 This can be used like a normal PyCode command.
 The syntax is: setvar 'varname', value.
 For example, here is how to make a variable named 'something' with the value 'something else' on startup:""",
     ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=vt,
-        text="|setvar 'something', 'something else'|;",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=1, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=vt,
-        text="This can then be used in Keyboard Shortcuts and Functions like this:",
+    _help_code_label(vt, "|setvar 'something', 'something else'|;").grid(
+        column=0, row=1, padx=10, pady=10, sticky="w"
+    )
+    ctk.Label(
+        vt, text="This can then be used in Keyboard Shortcuts and Functions like this:"
     ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=vt, text="<Control-q> → <say something>;", style="CodeStyle.TLabel"
-    ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    hpwin.text(master=ft, text="The syntax to define a function is:").grid(
+    _help_code_label(vt, "<Control-q> → <say something>;").grid(
+        column=0, row=3, padx=10, pady=10, sticky="w"
+    )
+    ctk.Label(ft, text="The syntax to define a function is:").grid(
         column=0, row=0, padx=10, pady=10, sticky="w"
     )
-    hpwin.text(
-        master=ft, text="(funcname:args) →: (commands);", style="CodeStyle.TLabel"
-    ).grid(column=0, row=1, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ft,
+    _help_code_label(ft, "(funcname:args) →: (commands);").grid(
+        column=0, row=1, padx=10, pady=10, sticky="w"
+    )
+    ctk.Label(
+        ft,
         text="""The input definition syntax is exactly like Python's function inputs.
 The commands inside the function are separated by a '↩'. For example, here is how to make a function named 'something'
 which clears the editor and writes any given text 5 times
 with a default value of 'text':""",
     ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ft,
-        text="(something:text = 'text') →: (cleareditor ↩ write text, 5);",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        ft, "(something:text = 'text') →: (cleareditor ↩ write text, 5);"
     ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ft,
+    ctk.Label(
+        ft,
         text="This can then be used in other Functions, Keyboard Shortcuts, Startup Code, and Alt-X commands like a normal PyCode command.",
     ).grid(column=0, row=4, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ft,
+    ctk.Label(
+        ft,
         text="If you want to make a more complex function that cannot be made with normal PyCode commands,\nyou can make a Python Function in PyCode.\nThe syntax is:",
     ).grid(column=0, row=5, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ft,
-        text="(python:funcname:args) → (python code);",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=6, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ft,
+    _help_code_label(ft, "(python:funcname:args) → (python code);").grid(
+        column=0, row=6, padx=10, pady=10, sticky="w"
+    )
+    ctk.Label(
+        ft,
         text="""The input definition syntax is exactly the same as normal PyCode functions,
 and the inputs also work exactly the same way.
 The lines of the Python code are separated by a '↩', not newlines.
@@ -624,19 +623,18 @@ There cannot be any spaces between the 'pycode' and the semicolon.
 PyCode commands used in a Python function should maintain proper indentation in the Python code.
 For example, here is how to make a Python function named 'something' that asks for 1+1 and shows 'correct' or 'wrong' for the answer in the Alt-X command box:""",
     ).grid(column=0, row=7, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ft,
-        text="""(python:something) →: (
+    _help_code_label(
+        ft,
+        """(python:something) →: (
 useranswer = int(root.askstring('Question', 'What is 1+1?')) ↩
 if useranswer == 2: ↩
     pycode:{show 'correct'} ↩
 else: ↩
     pycode:{show 'wrong'}
 );""",
-        style="CodeStyle.TLabel",
     ).grid(column=0, row=8, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=st,
+    ctk.Label(
+        st,
         text="""Startup Code runs automatically every time PyNotes starts.
 This can be used to execute some commands everytime on startup or configure PyNotes in some way.
 Everything that is inside a '| |' is executed as startup code.
@@ -645,60 +643,56 @@ have multiple '| |'s, or separate the commands inside one
 '| |' with '↩'.
 For example, these are all the ways you can make PyNotes start with an empty editor instead of the Zen of Python in Python HMode:""",
     ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=st,
-        text="(startup) →: (newfile ↩ hmode 'py');\n|startup|;",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=1, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=st, text="|newfile|;\n|hmode 'py'|;", style="CodeStyle.TLabel"
-    ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=st, text="|newfile ↩ hmode 'py'|;", style="CodeStyle.TLabel"
-    ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=act,
+    _help_code_label(st, "(startup) →: (newfile ↩ hmode 'py');\n|startup|;").grid(
+        column=0, row=1, padx=10, pady=10, sticky="w"
+    )
+    _help_code_label(st, "|newfile|;\n|hmode 'py'|;").grid(
+        column=0, row=2, padx=10, pady=10, sticky="w"
+    )
+    _help_code_label(st, "|newfile ↩ hmode 'py'|;").grid(
+        column=0, row=3, padx=10, pady=10, sticky="w"
+    )
+    ctk.Label(
+        act,
         text="You can make or change Alt-X commands in PyCode.\nPyCode commands inside the Alt-X command definition are separated by a '↩'. The syntax is:",
     ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=act, text="⌊cmdname⌋ → ⌊commands⌋;", style="CodeStyle.TLabel"
-    ).grid(column=0, row=1, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=act,
-        text="Any input given from the Alt-X command will be saved to the variable 'commandinput'.\nYou can then use it in PyCode commands. For example, here is how to make an Alt-X command named 'tktemplate' which writes code in the editor that\nopens a window using easytk with the title and text 'PyCode Easytk Window Template':",
+    _help_code_label(act, "⌊cmdname⌋ → ⌊commands⌋;").grid(
+        column=0, row=1, padx=10, pady=10, sticky="w"
+    )
+    ctk.Label(
+        act,
+        text="Any input given from the Alt-X command will be saved to the variable 'commandinput'.\nYou can then use it in PyCode commands. For example, here is how to make an Alt-X command named 'tktemplate' which writes code in the editor that\nopens a window using canvastk with the title and text 'PyCode CanvasTK Window Template':",
     ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=act,
-        text=r"""
+    _help_code_label(
+        act,
+        r"""
 ⌊tktemplate⌋
 →
 ⌊
 newfile ↩
 hmode 'py' ↩
 write '
-import easytk\n
-root = easytk.win()\n
-root.title("PyCode Easytk Window Template")\n
-root.text(text = "PyCode Easytk Window Template").grid()\n
-root.show()',
+import canvastk as ctk\n
+root = ctk.Window()\n
+root.title("PyCode CanvasTK Window Template")\n
+ctk.Label(root, text = "PyCode CanvasTK Window Template").grid()\n
+root.mainloop()',
 1
 ⌋;
 """,
-        style="CodeStyle.TLabel",
     ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ht,
+    ctk.Label(
+        ht,
         text="You can make event hooks to execute some code before or after the event runs.\nThe syntax is:",
     ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ht, text="[before/after:event] :→ [pycode];", style="CodeStyle.TLabel"
-    ).grid(column=0, row=1, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=ht,
+    _help_code_label(ht, "[before/after:event] :→ [pycode];").grid(
+        column=0, row=1, padx=10, pady=10, sticky="w"
+    )
+    ctk.Label(
+        ht,
         text="Commands should be separated with a '↩'.\nThese are all the events you can hook into:",
     ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    pceventhooklistcontainer = hpwin.textbox(master=ht, scrolled=True)
-    pceventhooklist = pceventhooklistcontainer.text
+    pceventhooklist = utils.EnabledLookTextbox(ht, scrolled=True)
     pceventhooklist.insert(
         "end",
         """new-file-current-editor
@@ -784,9 +778,9 @@ open-email-buffer
 resize-window""",
     )
     pceventhooklist.config(state="disabled")
-    pceventhooklistcontainer.grid(column=0, row=3, padx=10, pady=10, sticky="nsew")
-    hpwin.text(
-        master=ht,
+    pceventhooklist.grid(column=0, row=3, padx=10, pady=10, sticky="nsew")
+    ctk.Label(
+        ht,
         text="""The events 'open-file-current-editor' (filename, or None if cancelled), 'open-file-new-editor' (filename, or None if cancelled),
 'save-as-file' (filename, or None if cancelled), 'switch-buffer' (new editor number),'*-region' (tuple (a, b) containing the incides of the region), 'term-exec' (command), 'open-terminal' (command),
 alt-x-command (command input),pycode-command (command input), 'change-hmode' (new HMode), 'copy-text' (selected text),
@@ -794,49 +788,42 @@ alt-x-command (command input),pycode-command (command input), 'change-hmode' (ne
 the previously shown possible inputs. For events involving a file dialog, the 'before' hook runs after the dialog closes (with commandinput
 set to None if the dialog was cancelled), but the 'after' hook only runs if the dialog was not cancelled.""",
     ).grid(column=0, row=4, padx=10, pady=10, sticky="w")
-    hpwin.text(master=ht, text="Example:").grid(
-        column=0, row=5, padx=10, pady=10, sticky="w"
-    )
-    hpwin.text(
-        master=ht,
-        text="[after:new-file-current-editor] :→ [hmode 'py'];\n[after:new-file-new-editor] :→ [hmode 'py'];",
-        style="CodeStyle.TLabel",
+    ctk.Label(ht, text="Example:").grid(column=0, row=5, padx=10, pady=10, sticky="w")
+    _help_code_label(
+        ht,
+        "[after:new-file-current-editor] :→ [hmode 'py'];\n[after:new-file-new-editor] :→ [hmode 'py'];",
     ).grid(column=0, row=6, padx=10, pady=10, sticky="w")
-    hpwin.text(master=lct, text="The syntax to make conditions in PyCode is:").grid(
+    ctk.Label(lct, text="The syntax to make conditions in PyCode is:").grid(
         column=0, row=0, padx=10, pady=10, sticky="w"
     )
-    hpwin.text(
-        master=lct,
-        text="if (condition) {code} elif (condition) {code} else (condition) {code}",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        lct, "if (condition) {code} elif (condition) {code} else (condition) {code}"
     ).grid(column=0, row=1, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=lct,
+    ctk.Label(
+        lct,
         text="""These can be put anywhere where normal PyCode commands can be used, in Keyboard Shortcuts, Functions, Python Functions pycode:{} wrappers, etc.
 You can have any number of 'elif's in the condition.
 The code inside these conditions is separated by '↓'s.
 Make sure to not put any '↩'s, semicolons, etc between the 'if's, 'elif's, and 'else's, because they are all part of the same statement.
 Example:""",
     ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=lct,
-        text="(sayhellofunc) →:\n(\nif (ask ('Say hello.') == 'hello') {\nsay 'Good job!'\n}\nelse {\nsay 'You did not say hello'\n}\n);",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        lct,
+        "(sayhellofunc) →:\n(\nif (ask ('Say hello.') == 'hello') {\nsay 'Good job!'\n}\nelse {\nsay 'You did not say hello'\n}\n);",
     ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=lct, text="The syntax of making loops in PyCode is very similar:"
-    ).grid(column=0, row=4, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=lct, text="while (condition) {code}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=5, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=lct, text="The code inside the loop is also separated by '↓'s.\nExample:"
+    ctk.Label(lct, text="The syntax of making loops in PyCode is very similar:").grid(
+        column=0, row=4, padx=10, pady=10, sticky="w"
+    )
+    _help_code_label(lct, "while (condition) {code}").grid(
+        column=0, row=5, padx=10, pady=10, sticky="w"
+    )
+    ctk.Label(
+        lct, text="The code inside the loop is also separated by '↓'s.\nExample:"
     ).grid(column=0, row=6, padx=10, pady=10, sticky="w")
-    hpwin.text(
-        master=lct, text="while (True) {say 'Spam'}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=7, padx=10, pady=10, sticky="w")
-    hpwin.sizablefalse()
-    hpwin.style(state.root.gettheme())
+    _help_code_label(lct, "while (True) {say 'Spam'}").grid(
+        column=0, row=7, padx=10, pady=10, sticky="w"
+    )
+    utils.lock_window_size(hpwin)
     hpwin.focus()
 
 
@@ -846,20 +833,21 @@ def ap():
     utils.show("open plugin help")
     apw = state.root.subwin()
     apw.title("Add Plugins")
-    apw.text(
-        text=f"1. Download a plugin\n2. Extract the plugin if it is a zip\n3. Move the folder to {homedir}/.local/share/PyNotes/add-ons\n4. Restart PyNotes"
+    ctk.Label(
+        apw,
+        text=f"1. Download a plugin\n2. Extract the plugin if it is a zip\n3. Move the folder to {homedir}/.local/share/PyNotes/add-ons\n4. Restart PyNotes",
     ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    apw.button(text="Download From PyNotes' GitHub", command=utils.dp).grid(
+    ctk.Button(apw, text="Download From PyNotes' GitHub", command=utils.dp).grid(
         column=0, row=1, padx=10, pady=10, sticky="w"
     )
-    apw.button(text="Open Plugins Directory", command=utils.op).grid(
+    ctk.Button(apw, text="Open Plugins Directory", command=utils.op).grid(
         column=0, row=2, padx=10, pady=10, sticky="w"
     )
-    apw.text(
+    ctk.Label(
+        apw,
         text="Warning: Plugins have full access to PyNotes and your system\nand can run any commands. Be careful in downloading and using\nplugins from other websites.",
         font=(monospace, 12, "bold"),
     ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    apw.style(state.root.gettheme())
     apw.focus()
 
 
@@ -871,243 +859,206 @@ def helpmathgod():
     utils.show("open mathgod help")
     hmgwin = state.root.subwin()
     hmgwin.title("Help with MathGod")
-    code = hmgwin.style()
-    code.configure(
-        "CodeStyle.TLabel", background="white", padding=(7, 7, 7, 7), relief="sunken"
-    )
-    tabs = hmgwin.tabs()
-    vars = hmgwin.frame()
+    tabs = ctk.Notebook(hmgwin)
+    vars = ctk.Frame(hmgwin)
     tabs.add(vars, text="Variables")
-    hmgwin.text(
-        master=vars, text="You can define variables using the standard python syntax:"
+    ctk.Label(
+        vars, text="You can define variables using the standard python syntax:"
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(
-        master=vars, text="{varname} = {varval}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=1, padx=10, pady=10)
-    hmgwin.text(master=vars, text="Here is an example:").grid(
-        column=0, row=2, padx=10, pady=10
+    _help_code_label(vars, "{varname} = {varval}").grid(
+        column=0, row=1, padx=10, pady=10
     )
-    hmgwin.text(master=vars, text="v = 5\nv\nv + 1", style="CodeStyle.TLabel").grid(
-        column=0, row=3, padx=10, pady=10
-    )
-    hmgwin.text(master=vars, text="This will return 5 and 6.").grid(
+    ctk.Label(vars, text="Here is an example:").grid(column=0, row=2, padx=10, pady=10)
+    _help_code_label(vars, "v = 5\nv\nv + 1").grid(column=0, row=3, padx=10, pady=10)
+    ctk.Label(vars, text="This will return 5 and 6.").grid(
         column=0, row=4, padx=10, pady=10
     )
-    func = hmgwin.frame()
+    func = ctk.Frame(hmgwin)
     tabs.add(func, text="Functions")
-    hmgwin.text(
-        master=func,
+    ctk.Label(
+        func,
         text="You can define functions of any number of variables to be used later.\nHere is how to define a function 'f' of a variable 'x' which will return x^2:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(master=func, text="{func f, x, x^2}", style="CodeStyle.TLabel").grid(
-        column=0, row=1, padx=10, pady=10
-    )
-    hmgwin.text(master=func, text="You can now use it like this:").grid(
+    _help_code_label(func, "{func f, x, x^2}").grid(column=0, row=1, padx=10, pady=10)
+    ctk.Label(func, text="You can now use it like this:").grid(
         column=0, row=2, padx=10, pady=10
     )
-    hmgwin.text(master=func, text="f(5)", style="CodeStyle.TLabel").grid(
-        column=0, row=3, padx=10, pady=10
-    )
-    hmgwin.text(
-        master=func,
+    _help_code_label(func, "f(5)").grid(column=0, row=3, padx=10, pady=10)
+    ctk.Label(
+        func,
         text="This will return 25.\nYou can also now use this function in things which take a function as an input. Eg:",
     ).grid(column=0, row=4, padx=10, pady=10)
-    hmgwin.text(
-        master=func, text="{plot f(x), x, -10, 10}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=5, padx=10, pady=10)
-    hmgwin.text(
-        master=func,
+    _help_code_label(func, "{plot f(x), x, -10, 10}").grid(
+        column=0, row=5, padx=10, pady=10
+    )
+    ctk.Label(
+        func,
         text="You can use this function in other things as well, for example integrals, derivatives, limits, etc...\nYou can also define a function of two or more variables.\nThis is the syntax:",
     ).grid(column=0, row=6, padx=10, pady=10)
-    hmgwin.text(
-        master=func,
-        text="{func {function name}, {vars separated by spaces}, {return value}}",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        func, "{func {function name}, {vars separated by spaces}, {return value}}"
     ).grid(column=0, row=7, padx=10, pady=10)
-    hmgwin.text(
-        master=func, text="Here is an example of a function of two variables:"
-    ).grid(column=0, row=8, padx=10, pady=10)
-    hmgwin.text(
-        master=func, text="{func f, x y, x^2+y^2}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=9, padx=10, pady=10)
-    hmgwin.text(master=func, text="You can now even plot this function using").grid(
+    ctk.Label(func, text="Here is an example of a function of two variables:").grid(
+        column=0, row=8, padx=10, pady=10
+    )
+    _help_code_label(func, "{func f, x y, x^2+y^2}").grid(
+        column=0, row=9, padx=10, pady=10
+    )
+    ctk.Label(func, text="You can now even plot this function using").grid(
         column=0, row=10, padx=10, pady=10
     )
-    hmgwin.text(
-        master=func, text="{plot3 f(x, y), x, y, -10, 10}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=11, padx=10, pady=10)
-    hmgwin.text(master=func, text="Images:").grid(column=1, row=0, padx=10, pady=10)
-    state.root.image(
-        master=func, image=f"{rootdir}/Images/plotim.png", imsize=(3, 3)
-    ).grid(column=1, row=1, padx=10, pady=10)
-    state.root.image(
-        master=func, image=f"{rootdir}/Images/plotim2.png", imsize=(3, 3)
-    ).grid(column=1, row=2, padx=10, pady=10)
-    eq = hmgwin.frame()
+    _help_code_label(func, "{plot3 f(x, y), x, y, -10, 10}").grid(
+        column=0, row=11, padx=10, pady=10
+    )
+    ctk.Label(func, text="Images:").grid(column=1, row=0, padx=10, pady=10)
+    _help_image_label(func, f"{rootdir}/Images/plotim.png", 3).grid(
+        column=1, row=1, padx=10, pady=10
+    )
+    _help_image_label(func, f"{rootdir}/Images/plotim2.png", 3).grid(
+        column=1, row=2, padx=10, pady=10
+    )
+    eq = ctk.Frame(hmgwin)
     tabs.add(eq, text="Defining Equations")
-    hmgwin.text(
-        master=eq,
+    ctk.Label(
+        eq,
         text="If you have a long equation and want to solve it, you can define it first.\nHere is how to define an equation named 'something' which is 5x^2=25:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(
-        master=eq, text="{eq something, 5x^2=25}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=1, padx=10, pady=10)
-    hmgwin.text(master=eq, text="You can now solve this using").grid(
-        column=0, row=2, padx=10, pady=10
-    )
-    hmgwin.text(master=eq, text="{solve something, x}", style="CodeStyle.TLabel").grid(
-        column=0, row=3, padx=10, pady=10
-    )
-    hmgwin.text(master=eq, text="to get '[-sqrt(5), sqrt(5)]'.").grid(
-        column=0, row=4, padx=10, pady=10
-    )
-    int = hmgwin.frame()
-    tabs.add(int, text="Integrals")
-    hmgwin.text(
-        master=int,
-        text="You can use defined functions as variables here.\nHere is how to find the indefinite integral of a function 'x^2':",
-    ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(master=int, text="{integrate x^2, x}", style="CodeStyle.TLabel").grid(
+    _help_code_label(eq, "{eq something, 5x^2=25}").grid(
         column=0, row=1, padx=10, pady=10
     )
-    hmgwin.text(
-        master=int,
+    ctk.Label(eq, text="You can now solve this using").grid(
+        column=0, row=2, padx=10, pady=10
+    )
+    _help_code_label(eq, "{solve something, x}").grid(column=0, row=3, padx=10, pady=10)
+    ctk.Label(eq, text="to get '[-sqrt(5), sqrt(5)]'.").grid(
+        column=0, row=4, padx=10, pady=10
+    )
+    int = ctk.Frame(hmgwin)
+    tabs.add(int, text="Integrals")
+    ctk.Label(
+        int,
+        text="You can use defined functions as variables here.\nHere is how to find the indefinite integral of a function 'x^2':",
+    ).grid(column=0, row=0, padx=10, pady=10)
+    _help_code_label(int, "{integrate x^2, x}").grid(column=0, row=1, padx=10, pady=10)
+    ctk.Label(
+        int,
         text="This will return 'x^3/3'.\nIf you want to calculate a definite integral, just put the bounds at the end, separated by commas.\nFor example,",
     ).grid(column=0, row=2, padx=10, pady=10)
-    hmgwin.text(
-        master=int, text="{integrate x^2, x, 0, 1}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=3, padx=10, pady=10)
-    hmgwin.text(
-        master=int,
+    _help_code_label(int, "{integrate x^2, x, 0, 1}").grid(
+        column=0, row=3, padx=10, pady=10
+    )
+    ctk.Label(
+        int,
         text="""This will return '0.333333333333333'.
 If you have defined a function as a variable, you can integrate that too.
 You can also put another command which returns a function like integral and derivative inside.
 For example,""",
     ).grid(column=0, row=4, padx=10, pady=10)
-    hmgwin.text(
-        master=int,
-        text="{func f, x, x^2}\n{integrate f(x), x}",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=5, padx=10, pady=10)
-    hmgwin.text(master=int, text="This will also return 'x^3/3'.").grid(
+    _help_code_label(int, "{func f, x, x^2}\n{integrate f(x), x}").grid(
+        column=0, row=5, padx=10, pady=10
+    )
+    ctk.Label(int, text="This will also return 'x^3/3'.").grid(
         column=0, row=6, padx=10, pady=10
     )
-    der = hmgwin.frame()
+    der = ctk.Frame(hmgwin)
     tabs.add(der, text="Derivatives")
-    hmgwin.text(
-        master=der,
+    ctk.Label(
+        der,
         text="The syntax of finding derivatives is very similar to finding integrals.\nJust type 'derivative' instead of 'integrate'.\nFor example, here is how to find the derivative of x^2:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(master=der, text="{derivative x^2, x}", style="CodeStyle.TLabel").grid(
-        column=0, row=1, padx=10, pady=10
-    )
-    hmgwin.text(
-        master=der,
+    _help_code_label(der, "{derivative x^2, x}").grid(column=0, row=1, padx=10, pady=10)
+    ctk.Label(
+        der,
         text="In this too, like integrals (see Functions), you can put a named function inside.\nYou can also put another command which returns a function like integral and derivative inside.",
     ).grid(column=0, row=2, padx=10, pady=10)
-    lim = hmgwin.frame()
+    lim = ctk.Frame(hmgwin)
     tabs.add(lim, text="Limits")
-    hmgwin.text(
-        master=lim,
+    ctk.Label(
+        lim,
         text="The syntax of finding limits is very similar to finding integrals and derivatives.\nYou can also specify the direction from which the limit is calculated.\nThe default is +. For example,",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(
-        master=lim, text="{limit abs(x)/x, x, 0}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=1, padx=10, pady=10)
-    hmgwin.text(master=lim, text="will give you '1', and").grid(
+    _help_code_label(lim, "{limit abs(x)/x, x, 0}").grid(
+        column=0, row=1, padx=10, pady=10
+    )
+    ctk.Label(lim, text="will give you '1', and").grid(
         column=0, row=2, padx=10, pady=10
     )
-    hmgwin.text(
-        master=lim, text="{limit abs(x)/x, x, 0, dir='-'}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=3, padx=10, pady=10)
-    hmgwin.text(
-        master=lim,
+    _help_code_label(lim, "{limit abs(x)/x, x, 0, dir='-'}").grid(
+        column=0, row=3, padx=10, pady=10
+    )
+    ctk.Label(
+        lim,
         text="will give you '-1'.\nIn this too, like integrals and derivatives (see Functions), you can put a named function inside.\nYou can also put another command which returns a function like integral and derivative inside.",
     ).grid(column=0, row=4, padx=10, pady=10)
-    sol = hmgwin.frame()
+    sol = ctk.Frame(hmgwin)
     tabs.add(sol, text="Solving Equations")
-    hmgwin.text(
-        master=sol,
+    ctk.Label(
+        sol,
         text="You can solve an equation that has been defined (See Defining Equations).\nYou can either have an equation with one variable, or many equations with many variables.\nLet us first look at how to solve an equation with one variable:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(
-        master=sol,
-        text="{solve {equation_name}, {equation_var}}",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=1, padx=10, pady=10)
-    hmgwin.text(master=sol, text="is the general syntax. Fox example,").grid(
+    _help_code_label(sol, "{solve {equation_name}, {equation_var}}").grid(
+        column=0, row=1, padx=10, pady=10
+    )
+    ctk.Label(sol, text="is the general syntax. Fox example,").grid(
         column=0, row=2, padx=10, pady=10
     )
-    hmgwin.text(
-        master=sol,
-        text="{eq something, x+3=5}\n{solve something, x}",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=3, padx=10, pady=10)
-    hmgwin.text(
-        master=sol,
+    _help_code_label(sol, "{eq something, x+3=5}\n{solve something, x}").grid(
+        column=0, row=3, padx=10, pady=10
+    )
+    ctk.Label(
+        sol,
         text="will give you '[2]'.\nThis can solve things of any order.\nIf there are multiple answers, you will get a list of the format '[a, b, c, ...]'.",
     ).grid(column=0, row=4, padx=10, pady=10)
-    hmgwin.text(
-        master=sol,
+    ctk.Label(
+        sol,
         text="""The next is multiple equations with multiple variables.
 This is also very easy.
 Instead of one equation, you put a list of all your equations,
 and instead of one variable, you put a list of all the variables.
 For example, here is how to solve two simultaneous linear equations""",
     ).grid(column=0, row=5, padx=10, pady=10)
-    hmgwin.text(master=sol, text="5x+6y=15\n2x+8y=9", style="CodeStyle.TLabel").grid(
-        column=0, row=6, padx=10, pady=10
-    )
-    hmgwin.text(master=sol, text=":").grid(column=0, row=7, padx=10, pady=10)
-    hmgwin.text(
-        master=sol,
-        text="{eq one, 5x+6y=15}\n{eq two 2x+8y=9}\n{solve [one, two], [x, y]}",
-        style="CodeStyle.TLabel",
+    _help_code_label(sol, "5x+6y=15\n2x+8y=9").grid(column=0, row=6, padx=10, pady=10)
+    ctk.Label(sol, text=":").grid(column=0, row=7, padx=10, pady=10)
+    _help_code_label(
+        sol, "{eq one, 5x+6y=15}\n{eq two 2x+8y=9}\n{solve [one, two], [x, y]}"
     ).grid(column=0, row=8, padx=10, pady=10)
-    hmgwin.text(
-        master=sol, text="This will give you an answer like '{x: 33/14, y: 15/28}'."
+    ctk.Label(
+        sol, text="This will give you an answer like '{x: 33/14, y: 15/28}'."
     ).grid(column=0, row=9, padx=10, pady=10)
-    plt2 = hmgwin.frame()
+    plt2 = ctk.Frame(hmgwin)
     tabs.add(plt2, text="Plotting 2D")
-    hmgwin.text(
-        master=plt2,
+    ctk.Label(
+        plt2,
         text="You can either plot a function of one variable, or a list of coordinates.\nBy default, if you close the plot and plot something else, that will get added to this plot,\nnot make a new graph. If you want to clear the plot, just type:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(master=plt2, text="clearplot", style="CodeStyle.TLabel").grid(
-        column=0, row=1, padx=10, pady=10
-    )
-    hmgwin.text(
-        master=plt2,
-        text="First, let's look at how to plot a function. The general syntax is:",
+    _help_code_label(plt2, "clearplot").grid(column=0, row=1, padx=10, pady=10)
+    ctk.Label(
+        plt2, text="First, let's look at how to plot a function. The general syntax is:"
     ).grid(column=0, row=2, padx=10, pady=10)
-    hmgwin.text(
-        master=plt2,
-        text="{plot {function}, {variable}, {start}, {end}, {options}}",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        plt2, "{plot {function}, {variable}, {start}, {end}, {options}}"
     ).grid(column=0, row=3, padx=10, pady=10)
-    hmgwin.text(
-        master=plt2,
+    ctk.Label(
+        plt2,
         text="In this too, you can put a named function (see Functions) inside.\nYou can also put another command which returns a function like an indefinite integral or derivative inside.\nHere is an example of a plot of x^2:",
     ).grid(column=0, row=4, padx=10, pady=10)
-    hmgwin.text(
-        master=plt2, text="{plot x^2, x, 0, 10}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=5, padx=10, pady=10)
-    state.root.image(
-        master=plt2, image=f"{rootdir}/Images/plotim.png", imsize=(3, 3)
-    ).grid(column=2, row=1, padx=10, pady=10)
-    hmgwin.text(
-        master=plt2, text="Here is an example of a plot of x^3 using a named function:"
+    _help_code_label(plt2, "{plot x^2, x, 0, 10}").grid(
+        column=0, row=5, padx=10, pady=10
+    )
+    _help_image_label(plt2, f"{rootdir}/Images/plotim.png", 3).grid(
+        column=2, row=1, padx=10, pady=10
+    )
+    ctk.Label(
+        plt2, text="Here is an example of a plot of x^3 using a named function:"
     ).grid(column=0, row=6, padx=10, pady=10)
-    hmgwin.text(
-        master=plt2,
-        text="{func f, x, x^3}\n{plot f(x), x, -10, 10}",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=7, padx=10, pady=10)
-    state.root.image(
-        master=plt2, image=f"{rootdir}/Images/plotim3.png", imsize=(3, 3)
-    ).grid(column=2, row=2, padx=10, pady=10)
-    hmgwin.text(
-        master=plt2,
+    _help_code_label(plt2, "{func f, x, x^3}\n{plot f(x), x, -10, 10}").grid(
+        column=0, row=7, padx=10, pady=10
+    )
+    _help_image_label(plt2, f"{rootdir}/Images/plotim3.png", 3).grid(
+        column=2, row=2, padx=10, pady=10
+    )
+    ctk.Label(
+        plt2,
         text="You can also specify various 'options'. The basic ones for plotting a function are:",
     ).grid(column=1, row=0, padx=10, pady=10)
     ops = [
@@ -1120,51 +1071,44 @@ For example, here is how to solve two simultaneous linear equations""",
         "linspace: Sets the smoothness of the plot",
         "grid: Sets grid to 'True' or 'False'",
     ]
-    opl = hmgwin.listbox(master=plt2, width=50)
+    opl = ctk.Listbox(plt2, width=50)
     for op in ops:
         opl.insert("end", op)
     opl.grid(column=1, row=1, padx=10, pady=10)
-    hmgwin.text(
-        master=plt2,
+    ctk.Label(
+        plt2,
         text="The xticks and yticks options take an input in the format of a list made with square brackets, and separated by commas.\nYou will have to use the option followed by an '=' and the value, separated by commas at the end of the plot command.\nHere is an example of a plot with a title:",
     ).grid(column=1, row=2, padx=10, pady=10)
-    hmgwin.text(
-        master=plt2,
-        text="{plot x^2, x, 0, 10, title='Title'}",
-        style="CodeStyle.TLabel",
-    ).grid(column=1, row=3, padx=10, pady=10)
-    hmgwin.text(
-        master=plt2,
+    _help_code_label(plt2, "{plot x^2, x, 0, 10, title='Title'}").grid(
+        column=1, row=3, padx=10, pady=10
+    )
+    ctk.Label(
+        plt2,
         text="The syntax of plotting a list of coordinates is also very easy.\nHere is the general syntax:",
     ).grid(column=1, row=4, padx=10, pady=10)
-    hmgwin.text(
-        master=plt2, text="{plotlist {xs}, {ys}, {options}}", style="CodeStyle.TLabel"
-    ).grid(column=1, row=5, padx=10, pady=10)
-    hmgwin.text(master=plt2, text="For example,").grid(
-        column=1, row=6, padx=10, pady=10
+    _help_code_label(plt2, "{plotlist {xs}, {ys}, {options}}").grid(
+        column=1, row=5, padx=10, pady=10
     )
-    hmgwin.text(
-        master=plt2, text="{plotlist [1, 2, 3], [1, 2, 3]}", style="CodeStyle.TLabel"
-    ).grid(column=1, row=7, padx=10, pady=10)
-    state.root.image(
-        master=plt2, image=f"{rootdir}/Images/plotim4.png", imsize=(3, 3)
-    ).grid(column=2, row=3, padx=10, pady=10)
-    state.root.image(
-        master=plt2, image=f"{rootdir}/Images/plotim5.png", imsize=(3, 3)
-    ).grid(column=2, row=3, padx=10, pady=10)
-    hmgwin.text(master=plt2, text="Images:").grid(column=2, row=0, padx=10, pady=10)
-    pltpie = hmgwin.frame()
+    ctk.Label(plt2, text="For example,").grid(column=1, row=6, padx=10, pady=10)
+    _help_code_label(plt2, "{plotlist [1, 2, 3], [1, 2, 3]}").grid(
+        column=1, row=7, padx=10, pady=10
+    )
+    _help_image_label(plt2, f"{rootdir}/Images/plotim4.png", 3).grid(
+        column=2, row=3, padx=10, pady=10
+    )
+    _help_image_label(plt2, f"{rootdir}/Images/plotim5.png", 3).grid(
+        column=2, row=3, padx=10, pady=10
+    )
+    ctk.Label(plt2, text="Images:").grid(column=2, row=0, padx=10, pady=10)
+    pltpie = ctk.Frame(hmgwin)
     tabs.add(pltpie, text="Pie Charts")
-    hmgwin.text(
-        master=pltpie,
+    ctk.Label(
+        pltpie,
         text="Making Pie Charts with MathGod is very easy.\nYou do not have to make the values add up to 1 or 100.\nHere is an example of a simple pie chart of 40% and 60%:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(master=pltpie, text="{pie [40, 60]}", style="CodeStyle.TLabel").grid(
-        column=0, row=1, padx=10, pady=10
-    )
-    hmgwin.text(
-        master=pltpie,
-        text="There are various options for a pie chart. The basic ones are:",
+    _help_code_label(pltpie, "{pie [40, 60]}").grid(column=0, row=1, padx=10, pady=10)
+    ctk.Label(
+        pltpie, text="There are various options for a pie chart. The basic ones are:"
     ).grid(column=0, row=2, padx=10, pady=10)
     opspie = [
         "labels: Sets the labels of the sectors",
@@ -1172,42 +1116,41 @@ For example, here is how to solve two simultaneous linear equations""",
         "explode: Sets the distance each sector comes out by",
         "startangle: Sets the starting point of the first sector",
     ]
-    oplpie = hmgwin.listbox(master=pltpie, width=50)
+    oplpie = ctk.Listbox(pltpie, width=50)
     for op in opspie:
         oplpie.insert("end", op)
     oplpie.grid(column=0, row=3, padx=10, pady=10)
-    hmgwin.text(
-        master=pltpie,
+    ctk.Label(
+        pltpie,
         text="""The labels, colors, and explode options get a list of the same size as the list of input values.
 The startangle option is in degrees.
 Here is an example of a pie chart of 3 sectors of the same size,
 with labels 'a', 'b', 'c', the first one ('a') set to explode '0.1', and colors red, blue, and green:""",
     ).grid(column=0, row=4, padx=10, pady=10)
-    hmgwin.text(
-        master=pltpie,
-        text="{pie [1, 1, 1], labels=['a', 'b', 'c'], colors=['red', 'blue', 'green'], explode=[0.1, 0, 0]}",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        pltpie,
+        "{pie [1, 1, 1], labels=['a', 'b', 'c'], colors=['red', 'blue', 'green'], explode=[0.1, 0, 0]}",
     ).grid(column=0, row=5, padx=10, pady=10)
-    hmgwin.text(master=pltpie, text="Images:").grid(column=1, row=0, padx=10, pady=10)
-    state.root.image(
-        master=pltpie, image=f"{rootdir}/Images/plotim6.png", imsize=(3, 3)
-    ).grid(column=1, row=1, padx=10, pady=10)
-    state.root.image(
-        master=pltpie, image=f"{rootdir}/Images/plotim7.png", imsize=(3, 3)
-    ).grid(column=1, row=2, padx=10, pady=10)
-    pltbar = hmgwin.frame()
+    ctk.Label(pltpie, text="Images:").grid(column=1, row=0, padx=10, pady=10)
+    _help_image_label(pltpie, f"{rootdir}/Images/plotim6.png", 3).grid(
+        column=1, row=1, padx=10, pady=10
+    )
+    _help_image_label(pltpie, f"{rootdir}/Images/plotim7.png", 3).grid(
+        column=1, row=2, padx=10, pady=10
+    )
+    pltbar = ctk.Frame(hmgwin)
     tabs.add(pltbar, text="Bar Charts")
-    hmgwin.text(
-        master=pltbar,
+    ctk.Label(
+        pltbar,
         text="Making Bar Charts with MathGod is very simple. This is the general syntax:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(
-        master=pltbar, text="{bar {xs}, {ys}, {options}}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=1, padx=10, pady=10)
-    hmgwin.text(master=pltbar, text="The basic options are:").grid(
+    _help_code_label(pltbar, "{bar {xs}, {ys}, {options}}").grid(
+        column=0, row=1, padx=10, pady=10
+    )
+    ctk.Label(pltbar, text="The basic options are:").grid(
         column=0, row=2, padx=10, pady=10
     )
-    oplbar = hmgwin.listbox(master=pltbar, width=50)
+    oplbar = ctk.Listbox(pltbar, width=50)
     opbar = [
         "color: Sets the color of the bars",
         "tick_label: Sets the label of each bar",
@@ -1216,43 +1159,39 @@ with labels 'a', 'b', 'c', the first one ('a') set to explode '0.1', and colors 
     for op in opbar:
         oplbar.insert("end", op)
     oplbar.grid(column=0, row=3, padx=10, pady=10)
-    hmgwin.text(master=pltbar, text="Here is an example of a basic bar chart:").grid(
+    ctk.Label(pltbar, text="Here is an example of a basic bar chart:").grid(
         column=0, row=4, padx=10, pady=10
     )
-    hmgwin.text(
-        master=pltbar, text="{bar [1, 2, 3], [1, 5, 3]}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=5, padx=10, pady=10)
-    hmgwin.text(master=pltbar, text="Images:").grid(column=1, row=0, padx=10, pady=10)
-    state.root.image(
-        master=pltbar, image=f"{rootdir}/Images/plotim8.png", imsize=(3, 3)
-    ).grid(column=1, row=1, padx=10, pady=10)
-    hmgwin.text(
-        master=pltbar,
+    _help_code_label(pltbar, "{bar [1, 2, 3], [1, 5, 3]}").grid(
+        column=0, row=5, padx=10, pady=10
+    )
+    ctk.Label(pltbar, text="Images:").grid(column=1, row=0, padx=10, pady=10)
+    _help_image_label(pltbar, f"{rootdir}/Images/plotim8.png", 3).grid(
+        column=1, row=1, padx=10, pady=10
+    )
+    ctk.Label(
+        pltbar,
         text="Here is an example of a bar chart labeled 'a', 'b', and 'c' with the color green with the width '0.1' of each bar:",
     ).grid(column=0, row=6, padx=10, pady=10)
-    hmgwin.text(
-        master=pltbar,
-        text="{bar [1, 2, 3], [1, 5, 3], tick_label=['a', 'b', 'c'], color='green', width=0.1}",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        pltbar,
+        "{bar [1, 2, 3], [1, 5, 3], tick_label=['a', 'b', 'c'], color='green', width=0.1}",
     ).grid(column=0, row=7, padx=10, pady=10)
-    state.root.image(
-        master=pltbar, image=f"{rootdir}/Images/plotim9.png", imsize=(3, 3)
-    ).grid(column=1, row=2, padx=10, pady=10)
-    plt3 = hmgwin.frame()
+    _help_image_label(pltbar, f"{rootdir}/Images/plotim9.png", 3).grid(
+        column=1, row=2, padx=10, pady=10
+    )
+    plt3 = ctk.Frame(hmgwin)
     tabs.add(plt3, text="Plotting 3D")
-    hmgwin.text(
-        master=plt3,
+    ctk.Label(
+        plt3,
         text="You can only 3D plot a function of two variables.\nThe general syntax is:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(
-        master=plt3,
-        text="{plot3  {func}, {var1}, {var2}, [{var1 start}, {var1 end}], [{var2 start}, {var2 end}], options}",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        plt3,
+        "{plot3  {func}, {var1}, {var2}, [{var1 start}, {var1 end}], [{var2 start}, {var2 end}], options}",
     ).grid(column=0, row=1, padx=10, pady=10)
-    hmgwin.text(master=plt3, text="The options are").grid(
-        column=0, row=2, padx=10, pady=10
-    )
-    oplpl3 = hmgwin.listbox(master=plt3, width=50)
+    ctk.Label(plt3, text="The options are").grid(column=0, row=2, padx=10, pady=10)
+    oplpl3 = ctk.Listbox(plt3, width=50)
     opspl3 = [
         "title: Sets the title of the plot",
         "grid: Sets the grid to True or False",
@@ -1264,142 +1203,118 @@ with labels 'a', 'b', 'c', the first one ('a') set to explode '0.1', and colors 
     for op in opspl3:
         oplpl3.insert("end", op)
     oplpl3.grid(column=0, row=3, padx=10, pady=10)
-    hmgwin.text(
-        master=plt3,
+    ctk.Label(
+        plt3,
         text="You have to use the options followed by an '=' and then the value.\nHere is an example of a plot of x^2+y^2:",
     ).grid(column=0, row=4, padx=10, pady=10)
-    hmgwin.text(
-        master=plt3,
-        text="{plot3 x^2+y^2, x, y, [-10, 10], [-10, 10]}",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=5, padx=10, pady=10)
-    hmgwin.text(
-        master=plt3,
+    _help_code_label(plt3, "{plot3 x^2+y^2, x, y, [-10, 10], [-10, 10]}").grid(
+        column=0, row=5, padx=10, pady=10
+    )
+    ctk.Label(
+        plt3,
         text="Here is an example of a plot of the same function but using a named function:",
     ).grid(column=0, row=6, padx=10, pady=10)
-    hmgwin.text(
-        master=plt3,
-        text="{func f, x y, x^2+y^2}\n{plot3 f(x, y), x, y, [-10, 10], [-10, 10]}",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        plt3, "{func f, x y, x^2+y^2}\n{plot3 f(x, y), x, y, [-10, 10], [-10, 10]}"
     ).grid(column=0, row=7, padx=10, pady=10)
-    hmgwin.text(master=plt3, text="Images:").grid(column=1, row=0, padx=10, pady=10)
-    state.root.image(
-        master=plt3, image=f"{rootdir}/Images/plotim10.png", imsize=(3, 3)
-    ).grid(column=1, row=1, padx=10, pady=10)
-    sum = hmgwin.frame()
+    ctk.Label(plt3, text="Images:").grid(column=1, row=0, padx=10, pady=10)
+    _help_image_label(plt3, f"{rootdir}/Images/plotim10.png", 3).grid(
+        column=1, row=1, padx=10, pady=10
+    )
+    sum = ctk.Frame(hmgwin)
     tabs.add(sum, text="Summation and Products")
-    hmgwin.text(
-        master=sum,
+    ctk.Label(
+        sum,
         text="Summation with MathGod is very easy.\nYou can either put an named function inside, or an unnamed one.\nHere is the general syntax:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(
-        master=sum, text="{sum {func}, {var}, {start}, {end}}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=1, padx=10, pady=10)
-    hmgwin.text(master=sum, text="Here is an example of a sum of i from 1 to 10:").grid(
+    _help_code_label(sum, "{sum {func}, {var}, {start}, {end}}").grid(
+        column=0, row=1, padx=10, pady=10
+    )
+    ctk.Label(sum, text="Here is an example of a sum of i from 1 to 10:").grid(
         column=0, row=2, padx=10, pady=10
     )
-    hmgwin.text(master=sum, text="{sum i, i, 1, 10}", style="CodeStyle.TLabel").grid(
-        column=0, row=3, padx=10, pady=10
-    )
-    hmgwin.text(
-        master=sum,
+    _help_code_label(sum, "{sum i, i, 1, 10}").grid(column=0, row=3, padx=10, pady=10)
+    ctk.Label(
+        sum,
         text="This will return '55'. You can also put in named functions.\nHere is an example:",
     ).grid(column=0, row=4, padx=10, pady=10)
-    hmgwin.text(
-        master=sum,
-        text="{func f, x, x}\n{sum f(i), i, 1, 10}",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=5, padx=10, pady=10)
-    hmgwin.text(
-        master=sum,
+    _help_code_label(sum, "{func f, x, x}\n{sum f(i), i, 1, 10}").grid(
+        column=0, row=5, padx=10, pady=10
+    )
+    ctk.Label(
+        sum,
         text="This will also return the same output.\nYou can also put another variable inside the bounds.\nHere is an example:",
     ).grid(column=0, row=6, padx=10, pady=10)
-    hmgwin.text(master=sum, text="{sum i, i, 1, n}", style="CodeStyle.TLabel").grid(
-        column=0, row=7, padx=10, pady=10
-    )
-    hmgwin.text(
-        master=sum,
+    _help_code_label(sum, "{sum i, i, 1, n}").grid(column=0, row=7, padx=10, pady=10)
+    ctk.Label(
+        sum,
         text="This will return 'n^2/2 + n/2'.\nFinding products is exactly the same, except just 'prod' instead of 'sum'.\nHere is an example:",
     ).grid(column=0, row=8, padx=10, pady=10)
-    hmgwin.text(master=sum, text="{prod i, i, 1, 10}", style="CodeStyle.TLabel").grid(
-        column=0, row=9, padx=10, pady=10
-    )
-    hmgwin.text(master=sum, text="This will return '3628800'.").grid(
+    _help_code_label(sum, "{prod i, i, 1, 10}").grid(column=0, row=9, padx=10, pady=10)
+    ctk.Label(sum, text="This will return '3628800'.").grid(
         column=0, row=10, padx=10, pady=10
     )
-    intp = hmgwin.frame()
+    intp = ctk.Frame(hmgwin)
     tabs.add(intp, text="Interpolation")
-    hmgwin.text(
-        master=intp,
+    ctk.Label(
+        intp,
         text="Interpolation returns a function that is the given value for all the given points. The general syntax is:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(
-        master=intp,
-        text="{interpolate [(x_1, y_1), (x_2, y_2), ...], {var}}",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=1, padx=10, pady=10)
-    hmgwin.text(master=intp, text="Here is an example:").grid(
-        column=0, row=2, padx=10, pady=10
+    _help_code_label(intp, "{interpolate [(x_1, y_1), (x_2, y_2), ...], {var}}").grid(
+        column=0, row=1, padx=10, pady=10
     )
-    hmgwin.text(
-        master=intp,
-        text="{interpolate [(0, 10), (1, 5), (2, -3)], x}",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=3, padx=10, pady=10)
-    hmgwin.text(
-        master=intp,
+    ctk.Label(intp, text="Here is an example:").grid(column=0, row=2, padx=10, pady=10)
+    _help_code_label(intp, "{interpolate [(0, 10), (1, 5), (2, -3)], x}").grid(
+        column=0, row=3, padx=10, pady=10
+    )
+    ctk.Label(
+        intp,
         text="This will return '-3x^2/2 - 7x/2 + 10'.\nIf you plot it, you can see that it actually passes through all the exact points:",
     ).grid(column=0, row=4, padx=10, pady=10)
-    hmgwin.text(
-        master=intp,
-        text="{func f, x, {interpolate [(0, 10), (1, 5), (2, -3)], x}}\n{plot f(x), x, -5, 5, xticks=[0, 1, 2], yticks=[10, 5, -3], grid=True}",
-        style="CodeStyle.TLabel",
+    _help_code_label(
+        intp,
+        "{func f, x, {interpolate [(0, 10), (1, 5), (2, -3)], x}}\n{plot f(x), x, -5, 5, xticks=[0, 1, 2], yticks=[10, 5, -3], grid=True}",
     ).grid(column=0, row=5, padx=10, pady=10)
-    hmgwin.text(master=intp, text="Images:").grid(column=1, row=0, padx=10, pady=10)
-    state.root.image(
-        master=intp, image=f"{rootdir}/Images/plotim11.png", imsize=(3, 3)
-    ).grid(column=1, row=1, padx=10, pady=10)
-    cnd = hmgwin.frame()
+    ctk.Label(intp, text="Images:").grid(column=1, row=0, padx=10, pady=10)
+    _help_image_label(intp, f"{rootdir}/Images/plotim11.png", 3).grid(
+        column=1, row=1, padx=10, pady=10
+    )
+    cnd = ctk.Frame(hmgwin)
     tabs.add(cnd, text="Conditions")
-    hmgwin.text(
-        master=cnd,
+    ctk.Label(
+        cnd,
         text="There are two ways to create a function with a condition.\nThe first is using 'Piecewise', and the second is just using 'if'.\nLet's first look at the first method:",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(
-        master=cnd,
-        text="{func f, x, Piecewise((x-1, x<0), (x+1, x>=0))}",
-        style="CodeStyle.TLabel",
-    ).grid(column=0, row=1, padx=10, pady=10)
-    hmgwin.text(
-        master=cnd,
+    _help_code_label(cnd, "{func f, x, Piecewise((x-1, x<0), (x+1, x>=0))}").grid(
+        column=0, row=1, padx=10, pady=10
+    )
+    ctk.Label(
+        cnd,
         text="This creates a function 'f', which is x-1 for x<0, and x+1 for x>=0.\nNow, the other way to create the same function is this:",
     ).grid(column=0, row=2, padx=10, pady=10)
-    hmgwin.text(
-        master=cnd, text="{func f, x, (x-1 if x<0 else x+1)}", style="CodeStyle.TLabel"
-    ).grid(column=0, row=3, padx=10, pady=10)
-    hmgwin.text(
-        master=cnd,
+    _help_code_label(cnd, "{func f, x, (x-1 if x<0 else x+1)}").grid(
+        column=0, row=3, padx=10, pady=10
+    )
+    ctk.Label(
+        cnd,
         text="With this method, to make multiple 'elif' conditions, you can stack the 'if's up.",
     ).grid(column=0, row=4, padx=10, pady=10)
     tabs.pack(fill="both", expand=True)
-    ot = hmgwin.frame()
+    ot = ctk.Frame(hmgwin)
     tabs.add(ot, text="Other")
-    hmgwin.text(
-        master=ot,
+    ctk.Label(
+        ot,
         text="""Additionally, you can use any function from sympy, or any basic function from python.
 For example, you can use range, map, min, max, subs, sin, cos, etc...
 The functions from sympy like sin, cos, log, etc... will work with both symbols, and numbers.
 Multiline python things like 'while', 'for', 'if', etc... will not work.
 For example, if you want to just output the integral back without calculating it, you can type:""",
     ).grid(column=0, row=0, padx=10, pady=10)
-    hmgwin.text(master=ot, text="Integral(x^2, x)", style="CodeStyle.TLabel").grid(
-        column=0, row=1, padx=10, pady=10
+    _help_code_label(ot, "Integral(x^2, x)").grid(column=0, row=1, padx=10, pady=10)
+    ctk.Label(ot, text="OR").grid(column=0, row=2, padx=10, pady=10)
+    _help_code_label(ot, "Integral(y^2, (y, 0, x))").grid(
+        column=0, row=3, padx=10, pady=10
     )
-    hmgwin.text(master=ot, text="OR").grid(column=0, row=2, padx=10, pady=10)
-    hmgwin.text(
-        master=ot, text="Integral(y^2, (y, 0, x))", style="CodeStyle.TLabel"
-    ).grid(column=0, row=3, padx=10, pady=10)
-    hmgwin.style(state.root.gettheme())
     hmgwin.focus()
 
 

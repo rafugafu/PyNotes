@@ -4,6 +4,9 @@ import os
 import sys
 import subprocess
 import state
+import canvastk as ctk
+import themes
+import tkinter as tk
 from init import v, homedir, monospace
 import utils
 
@@ -24,7 +27,7 @@ def svprf():
     state.theme = (
         colours.get("1.0", "end-1c")
         .replace("\n", "")
-        .replace("orgfont", "type_.cget('font')[:-3].strip('{}')")
+        .replace("orgfont", "state.defs[2]")
     )
     file.write(
         f'{v}\n{str(state.bfr)}\n{font}\n{state.root.gettheme()}\n{",".join(state.dicts)}\n{state.emacskeysforsearch}\n{state.taborspace}\n{state.nographicalfiledialogs}\n{state.pythonexecutable}\n{state.theme}'
@@ -118,66 +121,44 @@ def prf():
             )
 
     def makeowntheme():
-        """Launch ttkcreator so the user can design a custom ttk theme,
-        then reload the theme list once it exits so the new theme (once
-        saved into the themes directory) shows up in the dropdown."""
-        pr.info(
-            "Info",
-            f"Click Save after you're done. You can edit the theme later at any time. To import and use it in PyNotes, save the resulting file to {homedir}/.local/share/PyNotes/themes/.",
-        )
-        ttkcreator = subprocess.Popen(
-            [sys.executable, "-m", "ttkcreator"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-        )
-        ttkcreatorerrorhandler = utils.ErrorHandler()
-        for error in ttkcreator.stderr:
-            ttkcreatorerrorhandler.write(error)
-            ttkcreator.terminate()
-        utils.load_themes()
-        current = sts.get()
-        themes = sorted(state.root.themes())
-        sts["values"] = themes
-        if current in themes:
-            sts.set(current)
-        elif themes:
-            sts.set(themes[0])
-        (
-            lambda: [
-                pr.sizabletrue(),
-                pr.style(sts.get()),
-                state.root.style(sts.get()),
-                pr.sizablefalse(),
-            ]
-        )()
+        """Launch custom canvastk creator so the user can design a
+        custom canvastk theme, then apply the theme to canvastk."""
+        newtheme = themes.creator()
+        if newtheme is None:
+            return
+        utils.save_theme_and_reload(newtheme)
+        uithemes = state.root.themes()
+        state.root.settheme(newtheme[0])
+        sts.configure(values=uithemes)
+        sts.variable.set(newtheme[0])
 
     pr = state.root.subwin()
     pr.title("Preferences")
-    tabs = pr.tabs()
-    gt = pr.frame()
-    tft = pr.frame()
-    et = pr.frame()
+    tabs = ctk.Notebook(pr)
+    gt = ctk.Frame(tabs)
+    tft = ctk.Frame(tabs)
+    et = ctk.Frame(tabs)
     tabs.add(gt, text="General")
-    bfc = pr.booleanvar(value=state.bfr)
-    pr.check(
-        master=gt, text="Backup file regularly", command=lambda: bf(bfc.get()), var=bfc
+    bfc = tk.BooleanVar(pr, value=state.bfr)
+    ctk.Checkbutton(
+        gt, text="Backup file regularly", command=lambda: bf(bfc.get()), variable=bfc
     ).grid(column=0, row=0, sticky="w")
-    varts = pr.booleanvar(value=state.taborspace)
-    pr.check(
-        master=gt,
+    varts = tk.BooleanVar(pr, value=state.taborspace)
+    ctk.Checkbutton(
+        gt,
         text="Use spaces instead of tabs for indentation commands",
         command=lambda: setts(varts.get()),
-        var=varts,
+        variable=varts,
     ).grid(column=0, row=1, sticky="w")
-    varffre = pr.booleanvar(value=state.emacskeysforsearch)
-    pr.check(
-        master=gt,
+    varffre = tk.BooleanVar(pr, value=state.emacskeysforsearch)
+    ctk.Checkbutton(
+        gt,
         text="Use Emacs-like keybindings for the Find and Find & Replace",
         command=lambda: setffre(varffre.get()),
-        var=varffre,
+        variable=varffre,
     ).grid(column=0, row=2, sticky="w")
-    pr.text(
-        master=gt,
+    ctk.Label(
+        gt,
         text="""Emacs-like keys:
 Find keys:
 Control-R for previous match
@@ -189,101 +170,91 @@ Alt-Enter for next
 Control-T for replace and next
 Enter to close search""",
     ).grid(column=0, row=3, sticky="w")
-    varnoguifd = pr.booleanvar(value=state.nographicalfiledialogs)
-    pr.check(
-        master=gt,
+    varnoguifd = tk.BooleanVar(pr, value=state.nographicalfiledialogs)
+    ctk.Checkbutton(
+        gt,
         text="File prompts in the Alt-X command box (minibuffer) instead of a graphical file dialogue",
         command=lambda: setnoguifd(varnoguifd.get()),
-        var=varnoguifd,
+        variable=varnoguifd,
     ).grid(column=0, row=4, sticky="w")
-    pr.frame(master=gt, height=20).grid(column=0, row=4, sticky="w")
-    pyexecshowtext = pr.text(
-        master=gt, text=f"Python interpreter: '{state.pythonexecutable}'"
+    ctk.Frame(gt, height=20).grid(column=0, row=4, sticky="w")
+    pyexecshowtext = ctk.Label(
+        gt, text=f"Python interpreter: '{state.pythonexecutable}'"
     )
     pyexecshowtext.grid(column=0, row=5, sticky="w")
-    pr.text(
-        master=gt,
+    ctk.Label(
+        gt,
         text="Python executable to use for running Python code and the Python shell.\nNote: restart Python shell for this to take effect.",
     ).grid(column=0, row=6, sticky="w")
-    pr.button(master=gt, text="Change", command=changepyexec).grid(
+    ctk.Button(gt, text="Change", command=changepyexec).grid(
         column=0, row=7, sticky="ew"
     )
     tabs.add(tft, text="Theme & Font")
     tabs.select(tft)
-    tabs.pack(side="top", fill="x", padx=10, pady=10)
-    mf = pr.frame(master=tft)
+    tabs.pack(side="top", fill="both", expand=True, padx=10, pady=10)
+    mf = ctk.Frame(tft)
     mf.grid(column=0, row=0)
-    pr.text(text="UI Theme", master=mf).grid(column=0, row=0, padx=10, pady=10)
-    stsvar = pr.stringvar()
-    sts = pr.droptype(
-        options=tuple(sorted(state.root.themes())),
-        command=lambda: [
-            pr.sizabletrue(),
-            pr.style(sts.get()),
-            state.root.style(sts.get()),
-            pr.sizablefalse(),
-        ],
-        master=mf,
+    ctk.Label(mf, text="UI Theme").grid(column=0, row=0, padx=10, pady=10)
+    sts = ctk.OptionMenu(
+        mf,
+        None,
+        state.root.gettheme(),
+        *state.root.themes(),
+        command=lambda value: state.root.settheme(value),
     )
     sts.grid(column=1, row=0, padx=10, pady=10, sticky="ew")
-    sts.insert("end", state.root.gettheme())
-    sts.config(state="readonly")
-    pr.button(master=mf, text="Make your own!", command=makeowntheme).grid(
+    ctk.Button(mf, text="Make your own!", command=makeowntheme).grid(
         column=2, row=0, padx=10, pady=10, sticky="w"
     )
-    pr.text(text="Editor Font", master=mf).grid(column=0, row=1, padx=10, pady=10)
-    showfont = pr.textbox(master=tft, font=(state.defs[2], 12), wrap="word", height=5)
+    ctk.Label(mf, text="Editor Font").grid(column=0, row=1, padx=10, pady=10)
+    showfont = ctk.Textbox(tft, font=(state.defs[2], 12), wrap="word", height=5)
     showfont.insert(
         "end",
         "The quick brown fox jumped over the lazy dogs\nAaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n1234567890\n?.,<>;:'\"{}[]\\|\n!@#$%^&*()-_+=",
     )
-    showfont.grid(column=0, row=1)
-    f = pr.droptype(
-        options=[monospace] + sorted(pr.getfonts()),
-        master=mf,
-        command=lambda: [
-            pr.sizabletrue(),
+    showfont.grid(column=0, row=1, sticky="nsew", padx=10, pady=10)
+    f = ctk.OptionMenu(
+        mf,
+        None,
+        state.defs[2],
+        monospace,
+        *sorted(state.root.getfonts()),
+        command=lambda value: [
             [
-                buffer.type_.config(font=(f.get(), 12))
+                buffer.type_.config(font=(value, 12))
                 for buffer in state.all_buffers
                 if isinstance(buffer, editor.Editor)
             ],
-            showfont.config(font=(f.get(), 12)),
-            state.defs.__setitem__(2, f.get()),
-            pr.sizablefalse(),
+            showfont.config(font=(value, 12)),
+            state.defs.__setitem__(2, value),
         ],
     )
     f.grid(column=1, row=1, padx=10, pady=10, sticky="ew")
-    f.insert("end", state.defs[2])
-    f.config(state="readonly")
-    pr.text(master=tft, text="Colours:").grid(column=0, row=2, padx=10, pady=10)
-    colours = pr.textbox(master=tft, font=monospace, wrap="word", height=5)
+    ctk.Label(tft, text="Colours:").grid(column=0, row=2, padx=10, pady=10)
+    colours = ctk.Textbox(tft, font=monospace, wrap="word", height=5)
     colours.insert(
         "end",
-        str(state.theme)[:-1][1:].replace(
-            "type_.cget('font')[:-3].strip('{}')", "orgfont"
-        ),
+        str(state.theme)[:-1][1:].replace("state.defs[2]", "orgfont"),
     )
-    colours.grid(column=0, row=3)
+    colours.grid(column=0, row=3, sticky="nsew", padx=10, pady=10)
     pr.bind(
         "<Escape>",
         lambda event: [svprf(), utils.show("change / view preferences"), pr.destroy()],
     )
     tabs.add(et, text="Email")
-    pr.text(master=et, text="Dictionaries:").pack(
-        padx=10, pady=10, side="top", anchor="n"
-    )
-    dictlist = pr.listbox(master=et)
+    ctk.Label(et, text="Dictionaries:").pack(padx=10, pady=10, side="top", anchor="n")
+    dictlist = ctk.Listbox(et)
     for dictionary in state.dicts:
         dictlist.insert("end", dictionary)
     dictlist.pack(fill="both", expand=True, padx=10, pady=10, anchor="center")
-    pr.button(master=et, text="Remove", command=removedict).pack(
+    ctk.Button(et, text="Remove", command=removedict).pack(
         fill="x", expand=True, padx=10, pady=10, side="left", anchor="sw"
     )
-    pr.button(master=et, text="Add", command=adddict).pack(
+    ctk.Button(et, text="Add", command=adddict).pack(
         fill="x", expand=True, padx=10, pady=10, side="right", anchor="se"
     )
-    pr.button(
+    ctk.Button(
+        pr,
         text="OK",
         command=lambda: [
             svprf(),
@@ -304,7 +275,6 @@ Enter to close search""",
                 "Error!",
                 f'There was an error in setting up the preferences of the plugin "{os.path.basename(os.path.normpath(code[0]))}":\n{error}',
             )
-    pr.sizablefalse()
-    pr.style(state.root.gettheme())
+    utils.lock_window_size(pr)
     pr.focus()
     pycode.pcrunhook("after", "open-preferences")

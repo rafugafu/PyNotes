@@ -5,8 +5,9 @@ transcript."""
 
 import platform
 import state
+import canvastk as ctk
 from init import monospace
-from buffer import Buffer
+from buffer import Buffer, newbuffer
 from utils import bindrecur
 from python_scope_build import (
     _PYTHON_BUILTIN_MEMBERS,
@@ -33,7 +34,7 @@ class PythonShellBuffer(Buffer):
 
     def __init__(self, master, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
-        self.m = state.root.menu()
+        self.m = ctk.Menu(state.root)
         for label, menu in state.all_pythonshell_menus.items():
             self.m.add_cascade(label=label, menu=menu)
         self.setwanttitle(f"*Python Shell*")
@@ -247,13 +248,9 @@ class PythonShellBuffer(Buffer):
             self.shellcmd.restart()
             self.shellcmd.focus_set()
 
-        self._shellbuttons = state.root.frame(master=self)
-        clearshell = state.root.button(
-            master=self._shellbuttons, text="Clear Shell", command=cs
-        )
-        killshell = state.root.button(
-            master=self._shellbuttons, text="Restart Shell", command=ks
-        )
+        self._shellbuttons = ctk.Frame(self)
+        clearshell = ctk.Button(self._shellbuttons, text="Clear Shell", command=cs)
+        killshell = ctk.Button(self._shellbuttons, text="Restart Shell", command=ks)
         self._shellbuttons.pack(side="bottom", fill="x")
         clearshell.pack(anchor="sw", side="left", padx=10, pady=10)
         killshell.pack(anchor="sw", side="left", padx=10, pady=10)
@@ -1089,7 +1086,7 @@ def _init_pythonshell_hl_tags():
 
 def openpythonshell(orient="vertical"):
     """Open a new Python Shell buffer."""
-    newbuff = window.newbuffer(PythonShellBuffer, orient)
+    newbuff = newbuffer(PythonShellBuffer, orient)
     newbuff.shellcmd.focus()
     utils.show("opened python shell")
     return newbuff

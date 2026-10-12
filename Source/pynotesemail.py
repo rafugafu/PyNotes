@@ -10,9 +10,11 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 import state
+import canvastk as ctk
+import tkinter as tk
 from init import homedir, monospace
 from encrypter import encryptdecrypt
-from buffer import Buffer
+from buffer import Buffer, newbuffer
 from utils import bindrecur
 import dialogs
 import pycode
@@ -28,7 +30,7 @@ class EmailBuffer(Buffer):
 
     def __init__(self, master, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
-        self.m = state.root.menu()
+        self.m = ctk.Menu(state.root)
         for label, menu in state.all_buffer_menus.items():
             self.m.add_cascade(label=label, menu=menu)
         self.setwanttitle("*PyNotes Email*")
@@ -45,6 +47,8 @@ class EmailBuffer(Buffer):
             lambda event, buffer=self: window.setactive(
                 state.all_buffers.index(buffer)
             ),
+            True,
+            "+",
         )
         pycode.pcrunhook("after", "open-email-buffer")
 
@@ -78,8 +82,10 @@ class EmailBuffer(Buffer):
                 raw = state.root.subwin()
                 for i in range(len(self.attachmentslist)):
                     attachment = self.attachmentslist[i]
-                    raw.button(
-                        text=attachment, command=lambda i=i: actualremoveattachment(i)
+                    ctk.Button(
+                        raw,
+                        text=attachment,
+                        command=lambda i=i: actualremoveattachment(i),
                     ).grid(column=i % 5, row=mathmod.floor(i / 5), sticky="ew")
 
         def attach():
@@ -125,7 +131,7 @@ class EmailBuffer(Buffer):
                 self.buttonframe.pack(
                     padx=10, pady=10, fill="x", anchor="n", expand=True
                 )
-                self.mainwidget = self.emailtextbox.text
+                self.mainwidget = self.emailtextbox
                 self.emailtextbox.pack(fill="both", expand=True, padx=10, pady=10)
                 e = self.email.get()
                 p = self.password.get()
@@ -140,38 +146,40 @@ class EmailBuffer(Buffer):
             self.entryframe.pack_forget()
             self.buttonframe.pack_forget()
             self.emailtextbox.pack_forget()
-            self.loginframe = state.root.frame(master=self)
+            self.loginframe = ctk.Frame(self)
             self.loginframe.pack(expand=True)
-            state.root.text(master=self.loginframe, text="Email:").grid(
+            ctk.Label(self.loginframe, text="Email:").grid(
                 column=0, row=0, padx=10, pady=10
             )
-            self.email = state.root.entry(master=self.loginframe)
+            self.email = ctk.Entry(self.loginframe)
             self.email.grid(column=1, row=0, padx=10, pady=10)
             self.mainwidget = self.email
-            state.root.text(master=self.loginframe, text="Password:").grid(
+            ctk.Label(self.loginframe, text="Password:").grid(
                 column=0, row=1, padx=10, pady=10
             )
-            self.password = state.root.entry(master=self.loginframe, show="*")
+            self.password = ctk.Entry(self.loginframe, show="*")
             self.password.grid(column=1, row=1, padx=10, pady=10)
-            state.root.text(master=self.loginframe, text="Smtp Server:").grid(
+            ctk.Label(self.loginframe, text="Smtp Server:").grid(
                 column=0, row=2, padx=10, pady=10
             )
-            self.server = state.root.entry(master=self.loginframe)
+            self.server = ctk.Entry(self.loginframe)
             self.server.grid(column=1, row=2, padx=10, pady=10)
-            state.root.text(master=self.loginframe, text="Smtp Port:").grid(
+            ctk.Label(self.loginframe, text="Smtp Port:").grid(
                 column=0, row=3, padx=10, pady=10
             )
-            self.port = state.root.entry(master=self.loginframe)
+            self.port = ctk.Entry(self.loginframe)
             self.port.grid(column=1, row=3, padx=10, pady=10)
-            state.root.button(
-                master=self.loginframe, text="Done", command=emailsetupother
-            ).grid(column=1, row=4, padx=10, pady=10, sticky="e")
+            ctk.Button(self.loginframe, text="Done", command=emailsetupother).grid(
+                column=1, row=4, padx=10, pady=10, sticky="e"
+            )
             bindrecur(
                 self.loginframe,
                 "<FocusIn>",
                 lambda event, buffer=self: window.setactive(
                     state.all_buffers.index(buffer)
                 ),
+                True,
+                "+",
             )
 
         def sendemail():
@@ -229,7 +237,7 @@ class EmailBuffer(Buffer):
             n = "1.0"
             search = r"\w+"
             while True:
-                count = state.root.intvar()
+                count = tk.IntVar(state.root)
                 n = self.emailtextbox.search(
                     search, n, nocase=1, count=count, stopindex="end", regexp=True
                 )
@@ -277,43 +285,39 @@ class EmailBuffer(Buffer):
             s = file[2]
             po = file[3]
         self._email_logged_in = True
-        self.entryframe = state.root.frame(master=self)
-        self.recipiententry = state.root.entry(master=self.entryframe)
-        state.root.text(
-            master=self.entryframe, text="Recipients (separate by commas):"
-        ).grid(column=0, row=0, padx=10, pady=10, sticky="e")
+        self.entryframe = ctk.Frame(self)
+        self.recipiententry = ctk.Entry(self.entryframe)
+        ctk.Label(self.entryframe, text="Recipients (separate by commas):").grid(
+            column=0, row=0, padx=10, pady=10, sticky="e"
+        )
         self.recipiententry.grid(column=1, row=0, padx=10, pady=10, sticky="ew")
-        state.root.text(master=self.entryframe, text="Subject:").grid(
+        ctk.Label(self.entryframe, text="Subject:").grid(
             column=0, row=1, padx=10, pady=10, sticky="e"
         )
-        self.subjectentry = state.root.entry(master=self.entryframe)
+        self.subjectentry = ctk.Entry(self.entryframe)
         self.subjectentry.grid(column=1, row=1, padx=10, pady=10, sticky="ew")
         self.entryframe.pack(padx=10, pady=10, fill="both", anchor="n", expand=True)
         self.entryframe.columnconfigure(1, weight=1)
-        self.buttonframe = state.root.frame(master=self)
+        self.buttonframe = ctk.Frame(self)
         self.buttonframe.pack(padx=10, pady=10, fill="both", anchor="n", expand=True)
-        state.root.button(
-            master=self.buttonframe, text="Send (Ctrl + Enter)", command=sendemail
+        ctk.Button(
+            self.buttonframe, text="Send (Ctrl + Enter)", command=sendemail
         ).pack(fill="x", expand=True, padx=10, pady=10, side="left", anchor="n")
-        state.root.button(master=self.buttonframe, text="Attach", command=attach).pack(
+        ctk.Button(self.buttonframe, text="Attach", command=attach).pack(
             fill="x", expand=True, padx=10, pady=10, side="right", anchor="n"
         )
-        state.root.button(
-            master=self.buttonframe, text="Change Info", command=changeinfo
-        ).pack(fill="x", expand=True, padx=10, pady=10, side="left", anchor="n")
-        state.root.button(
-            master=self.buttonframe, text="Remove Attachment", command=removeattach
+        ctk.Button(self.buttonframe, text="Change Info", command=changeinfo).pack(
+            fill="x", expand=True, padx=10, pady=10, side="left", anchor="n"
+        )
+        ctk.Button(
+            self.buttonframe, text="Remove Attachment", command=removeattach
         ).pack(fill="x", expand=True, padx=10, pady=10, side="right", anchor="n")
         self.attachmentslist = []
-        self.attachmentslistwidget = state.root.text(
-            master=self.buttonframe, text="Attachments:"
-        )
+        self.attachmentslistwidget = ctk.Label(self.buttonframe, text="Attachments:")
         self.attachmentslistwidget.pack(fill="x", expand=True, padx=10, pady=10)
-        self.emailtextbox = state.root.textbox(
-            master=self, scrolled=True, font=(monospace, 15)
-        )
+        self.emailtextbox = ctk.Textbox(self, scrolled=True, font=(monospace, 15))
         self.emailtextbox.tag_config("wrong", underline=True, underlinefg="red")
-        self.mainwidget = self.emailtextbox.text
+        self.mainwidget = self.emailtextbox
         self.emailtextbox.pack(fill="both", expand=True, padx=10, pady=10)
         self.emailtextbox.bind("<Control-Return>", lambda event: sendemail())
         self.emailtextbox.bind("<KeyRelease>", lambda event: spellcheck())
@@ -323,6 +327,8 @@ class EmailBuffer(Buffer):
             lambda event, buffer=self: window.setactive(
                 state.all_buffers.index(buffer)
             ),
+            True,
+            "+",
         )
 
     def _email_session_active(self):
@@ -338,37 +344,39 @@ class EmailBuffer(Buffer):
     def _add_switch_account_loginframe(self):
         """Add a login form (to switch to a different account) below
         the already-built compose UI."""
-        self.loginframe = state.root.frame(master=self)
+        self.loginframe = ctk.Frame(self)
         self.loginframe.pack(expand=True)
-        state.root.text(master=self.loginframe, text="Email:").grid(
+        ctk.Label(self.loginframe, text="Email:").grid(
             column=0, row=0, padx=10, pady=10
         )
-        self.email = state.root.entry(master=self.loginframe)
+        self.email = ctk.Entry(self.loginframe)
         self.email.grid(column=1, row=0, padx=10, pady=10)
-        state.root.text(master=self.loginframe, text="Password:").grid(
+        ctk.Label(self.loginframe, text="Password:").grid(
             column=0, row=1, padx=10, pady=10
         )
-        self.password = state.root.entry(master=self.loginframe, show="*")
+        self.password = ctk.Entry(self.loginframe, show="*")
         self.password.grid(column=1, row=1, padx=10, pady=10)
-        state.root.text(master=self.loginframe, text="Smtp Server:").grid(
+        ctk.Label(self.loginframe, text="Smtp Server:").grid(
             column=0, row=2, padx=10, pady=10
         )
-        self.server = state.root.entry(master=self.loginframe)
+        self.server = ctk.Entry(self.loginframe)
         self.server.grid(column=1, row=2, padx=10, pady=10)
-        state.root.text(master=self.loginframe, text="Smtp Port:").grid(
+        ctk.Label(self.loginframe, text="Smtp Port:").grid(
             column=0, row=3, padx=10, pady=10
         )
-        self.port = state.root.entry(master=self.loginframe)
+        self.port = ctk.Entry(self.loginframe)
         self.port.grid(column=1, row=3, padx=10, pady=10)
-        state.root.button(
-            master=self.loginframe, text="Let's Go!", command=self.emailsetup
-        ).grid(column=1, row=4, padx=10, pady=10, sticky="e")
+        ctk.Button(self.loginframe, text="Let's Go!", command=self.emailsetup).grid(
+            column=1, row=4, padx=10, pady=10, sticky="e"
+        )
         bindrecur(
             self.loginframe,
             "<FocusIn>",
             lambda event, buffer=self: window.setactive(
                 state.all_buffers.index(buffer)
             ),
+            True,
+            "+",
         )
 
     def _email_tab_reload(self):
@@ -403,31 +411,31 @@ class EmailBuffer(Buffer):
         try:
             open(f"{homedir}/.pynotesemailconfig", "r", encoding="utf-8")
         except Exception:
-            self.loginframe = state.root.frame(master=self)
+            self.loginframe = ctk.Frame(self)
             self.loginframe.pack(expand=True)
-            state.root.text(master=self.loginframe, text="Email:").grid(
+            ctk.Label(self.loginframe, text="Email:").grid(
                 column=0, row=0, padx=10, pady=10
             )
-            self.email = state.root.entry(master=self.loginframe)
+            self.email = ctk.Entry(self.loginframe)
             self.email.grid(column=1, row=0, padx=10, pady=10)
-            state.root.text(master=self.loginframe, text="Password:").grid(
+            ctk.Label(self.loginframe, text="Password:").grid(
                 column=0, row=1, padx=10, pady=10
             )
-            self.password = state.root.entry(master=self.loginframe, show="*")
+            self.password = ctk.Entry(self.loginframe, show="*")
             self.password.grid(column=1, row=1, padx=10, pady=10)
-            state.root.text(master=self.loginframe, text="Smtp Server:").grid(
+            ctk.Label(self.loginframe, text="Smtp Server:").grid(
                 column=0, row=2, padx=10, pady=10
             )
-            self.server = state.root.entry(master=self.loginframe)
+            self.server = ctk.Entry(self.loginframe)
             self.server.grid(column=1, row=2, padx=10, pady=10)
-            state.root.text(master=self.loginframe, text="Smtp Port:").grid(
+            ctk.Label(self.loginframe, text="Smtp Port:").grid(
                 column=0, row=3, padx=10, pady=10
             )
-            self.port = state.root.entry(master=self.loginframe)
+            self.port = ctk.Entry(self.loginframe)
             self.port.grid(column=1, row=3, padx=10, pady=10)
-            state.root.button(
-                master=self.loginframe, text="Let's Go!", command=self.emailsetup
-            ).grid(column=1, row=4, padx=10, pady=10, sticky="e")
+            ctk.Button(self.loginframe, text="Let's Go!", command=self.emailsetup).grid(
+                column=1, row=4, padx=10, pady=10, sticky="e"
+            )
             self.mainwidget = self.email
             bindrecur(
                 self.loginframe,
@@ -435,6 +443,8 @@ class EmailBuffer(Buffer):
                 lambda event, buffer=self: window.setactive(
                     state.all_buffers.index(buffer)
                 ),
+                True,
+                "+",
             )
         else:
             try:
@@ -476,6 +486,6 @@ def openemailbuf(orient="horizontal"):
         window.setactive(state.all_buffers.index(existing))
         utils.show("switched to email buffer")
         return existing
-    newbuff = window.newbuffer(EmailBuffer, orient)
+    newbuff = newbuffer(EmailBuffer, orient)
     utils.show("opened email buffer")
     return newbuff

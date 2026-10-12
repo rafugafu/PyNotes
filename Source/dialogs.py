@@ -19,15 +19,15 @@ def faketerm(command):
     """Run a shell command in a small popup window, streaming its output
     live, then close the window after a short pause. Used to show the
     progress of a pip install."""
-    import easytk
+    import canvastk as ctk
 
-    termwin = easytk.win()
+    termwin = ctk.Window()
     termwin.title("Terminal")
-    term = termwin.textbox(font=(monospace, 12))
+    term = ctk.Textbox(termwin, font=(monospace, 12))
     term.insert("end", f"{getpass.getuser()}@PyNotes:~$ {command}\n")
     term.pack(fill="both")
     termwin.update()
-    termwin.sizablefalse()
+    utils.lock_window_size(termwin)
     try:
         process = subprocess.Popen(
             command,
@@ -115,11 +115,24 @@ def _race_console_box(title, prompttext, defaultinput, *args, **kwargs):
     return winner["result"]
 
 
-def _race_console_graphical(title, prompttext, zenity_args, native_dialog_call):
-    """Show a graphical file dialog (zenity on Linux, otherwise
-    native_dialog_call) while also polling a console prompt running in a
-    background thread; return whichever answers first and cancel/close
-    the other."""
+def _file_dialog_initial_dir_and_name(initialfile):
+    """Split initialfile (a file path, a directory, or None for the
+    current directory) into the (initialdir, initialfile) options of
+    a canvastk file dialog."""
+    if not initialfile:
+        return os.getcwd(), ""
+    if os.path.isdir(initialfile):
+        return initialfile, ""
+    return os.path.dirname(initialfile), os.path.basename(initialfile)
+
+
+def _race_console_graphical(title, prompttext, native_dialog_call):
+    """Show a graphical file dialog (native_dialog_call, a blocking
+    canvastk file dialog call) while also polling a console prompt
+    running in a background thread; return whichever answers first and
+    cancel/close the other. If the console wins, the dialog's
+    top-level windows (the ones created while it was open) are
+    destroyed to end it."""
     cancel_event = threading.Event()
     resultq = queue.Queue()
     threading.Thread(
@@ -128,55 +141,28 @@ def _race_console_graphical(title, prompttext, zenity_args, native_dialog_call):
         daemon=True,
     ).start()
     winner = {}
-    if platform.system() == "Linux":
-        proc = subprocess.Popen(
-            zenity_args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True
-        )
-        while "result" not in winner:
-            try:
-                value = resultq.get(timeout=0.1)
-            except queue.Empty:
-                value = None
-            else:
-                # Console answered first; kill the still-open zenity dialog.
-                winner["result"] = value or ""
-                if proc.poll() is None:
-                    proc.terminate()
-                    proc.wait()
-                break
-            if proc.poll() is not None:
-                # zenity closed first; take its output as the answer.
-                out, _ = proc.communicate()
-                winner["result"] = out.strip()
-                cancel_event.set()
-                break
-    else:
-        # No zenity on non-Linux platforms, so native_dialog_call (a
-        # blocking tkinter filedialog call) is used instead; track which
-        # top-level windows it creates so they can be torn down if the
-        # console answers first.
-        before = set(state.root.winfo_children())
+    before = set(state.root.winfo_children())
 
-        def poll():
-            if "result" in winner:
-                return
+    def poll():
+        if "result" in winner:
+            return
+        try:
+            value = resultq.get_nowait()
+        except queue.Empty:
+            state.root.after(50, poll)
+            return
+        winner["result"] = value or ""
+        for w in set(state.root.winfo_children()) - before:
             try:
-                value = resultq.get_nowait()
-            except queue.Empty:
-                state.root.after(50, poll)
-                return
-            winner["result"] = value or ""
-            for w in set(state.root.winfo_children()) - before:
-                try:
-                    w.destroy()
-                except Exception:
-                    pass
+                w.destroy()
+            except Exception:
+                pass
 
-        state.root.after(50, poll)
-        fn = native_dialog_call()
-        if "result" not in winner:
-            winner["result"] = fn or ""
-            cancel_event.set()
+    state.root.after(50, poll)
+    fn = native_dialog_call()
+    if "result" not in winner:
+        winner["result"] = fn or ""
+        cancel_event.set()
     return winner["result"]
 
 
@@ -190,26 +176,16 @@ def openfileget(
     path in the Alt-X minibuffer instead.
     """
     if not state.nographicalfiledialogs:
-        if platform.system() == "Linux":
-            zenity_args = [
-                "zenity",
-                "--file-selection",
-                f'--filename={initialfile or "./"}',
-                "--title=Open File",
-            ] + [f"--file-filter={ft[0]} | {ft[1]}" for ft in filetypes]
-            fn = _race_console_graphical("Open", prompttext, zenity_args, None)
-        else:
-            import easytk
+        from canvastk import filedialog
 
-            initialdir = os.path.dirname(initialfile)
-            initialfilename = os.path.basename(initialfile)
-            native_dialog_call = lambda: easytk.fd.askopenfilename(
-                title="Open File",
-                filetypes=filetypes,
-                initialfile=initialfilename or "",
-                initialdir=initialdir or "",
-            )
-            fn = _race_console_graphical("Open", prompttext, None, native_dialog_call)
+        initialdir, initialfilename = _file_dialog_initial_dir_and_name(initialfile)
+        native_dialog_call = lambda: filedialog.askopenfilename(
+            title="Open File",
+            filetypes=filetypes,
+            initialfile=initialfilename,
+            initialdir=initialdir,
+        )
+        fn = _race_console_graphical("Open", prompttext, native_dialog_call)
     else:
         if initialfile is None:
             initialfile = os.getcwd()
@@ -242,28 +218,13 @@ def saveasfileget(prompttext="Save File: ", initialfile=None):
     declined (the graphical dialogs handle both of these themselves).
     """
     if not state.nographicalfiledialogs:
-        if platform.system() == "Linux":
-            zenity_args = [
-                "zenity",
-                "--file-selection",
-                f'--filename={initialfile or "./"}',
-                "--save",
-                "--confirm-overwrite",
-                "--title=Save As",
-                "--file-filter=All Files | *",
-            ]
-            fn = _race_console_graphical("Save As", prompttext, zenity_args, None)
-        else:
-            import easytk
+        from canvastk import filedialog
 
-            initialdir = os.path.dirname(initialfile)
-            initialfilename = os.path.basename(initialfile)
-            native_dialog_call = lambda: easytk.fd.asksaveasfilename(
-                initialfile=initialfilename or "", initialdir=initialdir or ""
-            )
-            fn = _race_console_graphical(
-                "Save As", prompttext, None, native_dialog_call
-            )
+        initialdir, initialfilename = _file_dialog_initial_dir_and_name(initialfile)
+        native_dialog_call = lambda: filedialog.asksaveasfilename(
+            initialfile=initialfilename, initialdir=initialdir
+        )
+        fn = _race_console_graphical("Save As", prompttext, native_dialog_call)
         if not fn.strip():
             return ""
         state.filesavehistory.append(fn.strip())
@@ -312,11 +273,14 @@ def pdf(title):
             "The pdf could not be shown, there might have been an error in your code.\nDo you want to see the log?",
             ("yes", "no"),
         ):
+            import canvastk as ctk
+
             logwin = state.root.subwin()
             logwin.title(f"LaTeX log for {os.path.basename(title)}")
-            logtextboxscroll = logwin.scroll()
-            logtextbox = logwin.textbox(
-                yscrollcommand=logtextboxscroll.set, font=(monospace, 12)
+            logtextbox = utils.EnabledLookTextbox(
+                logwin,
+                scrolled=True,
+                font=(monospace, 12),
             )
             try:
                 logtextbox.insert(
@@ -332,10 +296,7 @@ def pdf(title):
                 )
                 logtextbox.insert("1.0", "log not found")
             logtextbox.config(state="disabled")
-            logtextboxscroll.config(command=logtextbox.yview)
-            logtextboxscroll.pack(fill="y", side="right")
-            logtextbox.pack(fill="both", expand=True, side="left")
-            logwin.style(state.root.gettheme())
+            logtextbox.pack(fill="both", expand=True)
     elif platform.system() == "Linux":
         subprocess.run(["xdg-open", pdf_], cwd=os.path.dirname(title))
     else:
