@@ -2326,8 +2326,13 @@ def pc():
     pcwin = state.root.subwin()
     pcwin.title("PyCode - PyNotes")
     gcframe = ctk.Frame(pcwin)
-    buttonframe = ctk.ScrolledFrame(gcframe, width=200)
+    buttonframe = ctk.ScrolledFrame(gcframe)
     buttonframe.pack(side="top", fill="y", expand=True)
+    buttonframe.bind(
+        "<Configure>",
+        lambda event: buttonframe.viewport.configure(width=buttonframe.winfo_reqwidth()),
+        add="+",
+    )
     _bf_active = [False]
     pccmddonebutton = ctk.Button(
         gcframe, text="Done", command=lambda: [setcommand("Done"), gcframe.update()]
