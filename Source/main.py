@@ -35,7 +35,7 @@ from cli import claht, clcht
 # later done for the rest of PyNotes' own modules. utils and dialogs
 # are imported after the Pillow check below, since they import canvastk.
 globals().update({_k: _v for _k, _v in vars(init).items() if not _k.startswith("__")})
-from cli import argparse, start_console
+from cli import argparse, start_console, CONSOLE_IS_TTY
 from tkinter import messagebox as mb
 
 state.options, state.files_to_open = argparse(
@@ -64,6 +64,7 @@ changelist = [
     "Fixed an editor which becomes a split view of another editor not stopping its old file change observer.",
     "Made the PyNotes syntax highlighting module registration search in the editor's working directory instead of PyNotes' own sys.path which would not include local project modules and packages, causing them to not be highlighted.",
     "Fixed some text-wrapping and width bugs in the console.",
+    "Made the terminal console not try to show and error when not in a tty and made Terminal=false on Linux launchers again.",
 ]
 state.changestr = ""
 for i in range(len(changelist) - 1):
@@ -321,8 +322,17 @@ import canvastk as ctk
 # (not print()/sys.stderr) are what actually reach the terminal, so
 # they can be shared with the console below instead of colliding with
 # whatever else PyNotes or its dependencies print.
-state.stdout = os.fdopen(os.dup(1), "w")
-state.stderr = os.fdopen(os.dup(2), "w")
+def _open_saved_stdio_stream(fd):
+    """Duplicate the given fd into a file object, or open /dev/null
+    instead if the fd doesn't exist (e.g. started without any console)."""
+    try:
+        return os.fdopen(os.dup(fd), "w")
+    except OSError:
+        return open(os.devnull, "w")
+
+
+state.stdout = _open_saved_stdio_stream(1)
+state.stderr = _open_saved_stdio_stream(2)
 devnullfd = os.open(os.devnull, os.O_WRONLY)
 os.dup2(devnullfd, 1)
 os.dup2(devnullfd, 2)
@@ -333,10 +343,11 @@ state.consoleq = queue.Queue()
 # the user queue up command-exec/pycode-eval/open-file/extra-pycode
 # console commands before anything actually launches.
 state.started = threading.Event()
-if not state.options["wait-start"]:
+if not state.options["wait-start"] or not CONSOLE_IS_TTY:
+    # Without a terminal there's no console to type "start" into.
     state.started.set()
 threading.Thread(target=start_console, args=(state.consoleq,), daemon=True).start()
-if not state.options["wait-start"]:
+if not state.options["wait-start"] and CONSOLE_IS_TTY:
     time.sleep(0.01)
     # Fake-echo "start" and its usual response, matching what the
     # console would print if the user had actually typed it themselves.

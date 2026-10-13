@@ -612,7 +612,10 @@ class Terminal(ctk.Textbox):
             self._cursor_widget.place(x=_bx, y=_by, width=_charw, height=_charh)
 
     def _term_on_scroll(self, *args):
+        """Any scroll (wheel, built-in scroll bar drag, keyboard) redraws
+        the cursor and re-checks whether the view is at the bottom."""
         self._cursor_schedule_redraw()
+        self.after_idle(self._term_update_follow)
 
     def _resolve_insert(self, idx):
         """Substitute the "insert" keyword in a tkinter index with this

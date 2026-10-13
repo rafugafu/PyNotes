@@ -14,43 +14,65 @@ import shutil
 import threading
 import platform
 
-if platform.system() == "Linux":
-    import termios
-    import tty
+# The console only does terminal things (raw mode, escape codes, key
+# reading) when both stdin and stdout are a terminal, checked here before
+# main.py redirects sys.stdout to /dev/null.
+CONSOLE_IS_TTY = all(
+    stream is not None and stream.isatty() for stream in (sys.stdin, sys.stdout)
+)
 
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
+if CONSOLE_IS_TTY:
+    if platform.system() == "Linux":
+        import termios
+        import tty
 
-    def set_raw_mode():
-        """Put stdin into raw mode so keys can be read one at a time."""
-        tty.setraw(fd)
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
 
-    def unset_raw_mode():
-        """Restore stdin's original terminal settings."""
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        def set_raw_mode():
+            """Put stdin into raw mode so keys can be read one at a time."""
+            tty.setraw(fd)
 
-    def get_key():
-        """Block for and return the next single character from stdin."""
-        return sys.stdin.read(1)
+        def unset_raw_mode():
+            """Restore stdin's original terminal settings."""
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+        def get_key():
+            """Block for and return the next single character from stdin."""
+            return sys.stdin.read(1)
+
+    else:
+        import msvcrt
+
+        def set_raw_mode():
+            # msvcrt.getch() already reads unbuffered/unechoed, no raw-mode
+            # setup needed on Windows.
+            pass
+
+        def unset_raw_mode():
+            pass
+
+        def get_key():
+            """Block for and return the next single character from stdin."""
+            return msvcrt.getch().decode("utf-8", errors="ignore")
 
 else:
-    import msvcrt
 
     def set_raw_mode():
-        # msvcrt.getch() already reads unbuffered/unechoed, no raw-mode
-        # setup needed on Windows.
         pass
 
     def unset_raw_mode():
         pass
 
     def get_key():
-        """Block for and return the next single character from stdin."""
-        return msvcrt.getch().decode("utf-8", errors="ignore")
+        """Without a terminal there are no keys: block forever."""
+        threading.Event().wait()
 
 
 def close():
-    """Clean up and close console"""
+    """Clean up and close the console."""
+    if not CONSOLE_IS_TTY:
+        return
     unset_raw_mode()
     print("\n\x1b[H\x1b[2J", end="", file=state.stdout)
 
@@ -203,7 +225,8 @@ class Console:
         self.curdoneevents = {}
         self.curresults = {}
         self.curactiveinput = "command"
-        threading.Thread(target=self.inputloop, daemon=True).start()
+        if CONSOLE_IS_TTY:
+            threading.Thread(target=self.inputloop, daemon=True).start()
         self.outpt("\x1b[H\x1b[2J", end="")
         self.outpt(f"\x1b[1mPyNotes terminal console. PyNotes v{init.v}.\x1b[0m")
         thefiles = []
@@ -226,7 +249,10 @@ class Console:
     def outpt(self, string, end="\n", *args, **kwargs):
         """Write string (with every \\n also carriage-returned, since
         the terminal is in raw mode) to the real stdout PyNotes saved
-        before redirecting sys.stdout to /dev/null."""
+        before redirecting sys.stdout to /dev/null. Skip and return if
+        not in a real terminal."""
+        if not CONSOLE_IS_TTY:
+            return
         string += end
         string = string.replace("\n", "\n\r")
         return print(string, end="", file=state.stdout, flush=True, *args, **kwargs)
@@ -482,7 +508,10 @@ class Console:
         return result
 
     def _get_terminal_width(self):
-        return os.get_terminal_size(state.stdout.fileno())[0]
+        try:
+            return os.get_terminal_size(state.stdout.fileno())[0]
+        except (OSError, ValueError):
+            return shutil.get_terminal_size()[0]
 
     def show(self, text):
         """Mirror a utils.show() status message above the command
@@ -913,4 +942,5 @@ def start_console(consoleq):
     """Create the Console and run its command loop; the thread target
     main.py starts alongside the GUI."""
     state.console = Console(consoleq)
-    state.console.loop()
+    if CONSOLE_IS_TTY:
+        state.console.loop()
