@@ -1165,7 +1165,8 @@ def _python_target_sys_path(buf):
     _interpreter = getattr(state, "pythonexecutable", None)
     if not _interpreter:
         return []
-    _cwd = os.path.dirname(buf.title) if buf.title else os.getcwd()
+    _title = getattr(buf, "title", None)
+    _cwd = os.path.dirname(_title) if _title else os.getcwd()
     _cache_key = (_interpreter, _cwd)
     if _cache_key in _PYTHON_TARGET_SYS_PATH_CACHE:
         return _PYTHON_TARGET_SYS_PATH_CACHE[_cache_key]
@@ -1198,11 +1199,12 @@ def _python_resolve_toplevel_fs(buf, name):
     modules are effectively universal across any CPython interpreter.
     Returns a _PythonModuleSpec, or None if it can't be found at
     all."""
-    if buf.title:
-        _own_spec = _python_toplevel_spec_in_dir(os.path.dirname(buf.title), name)
+    _title = getattr(buf, "title", None)
+    if _title:
+        _own_spec = _python_toplevel_spec_in_dir(os.path.dirname(_title), name)
         if _own_spec is not None:
             return _own_spec
-    _cwd = os.path.dirname(buf.title) if buf.title else os.getcwd()
+    _cwd = os.path.dirname(_title) if _title else os.getcwd()
     for _dir in _python_target_sys_path(buf):
         _spec = _python_toplevel_spec_in_dir(_dir or _cwd, name)
         if _spec is not None:
