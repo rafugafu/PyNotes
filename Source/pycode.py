@@ -2330,7 +2330,9 @@ def pc():
     buttonframe.pack(side="top", fill="y", expand=True)
     buttonframe.bind(
         "<Configure>",
-        lambda event: buttonframe.viewport.configure(width=buttonframe.winfo_reqwidth()),
+        lambda event: buttonframe.viewport.configure(
+            width=buttonframe.winfo_reqwidth()
+        ),
         add="+",
     )
     _bf_active = [False]

@@ -732,7 +732,7 @@ def creator():
         return_dark.set(True)
     return_theme_name = ""
     is_done = False
-    cwin = state.root.subwin()
+    cwin = state.root.subwin(appearance_mode="light", theme={})
     cwin.title("Theme Creator")
     cwin.geometry("1600x800")
     displays = {}
@@ -777,7 +777,7 @@ def creator():
         column=0, row=1, padx=10, pady=10, sticky="ew"
     )
     ctk.Entry(s1mf, placeholder="This is a disabled entry.", state="disabled").grid(
-        column=1, row=2, padx=10, pady=10, sticky="ew"
+        column=1, row=1, padx=10, pady=10, sticky="ew"
     )
     ctk.OptionMenu(
         s1mf,
@@ -787,13 +787,25 @@ def creator():
     ctk.OptionMenu(
         s1mf, default="This is a disabled optionmenu.", state="disabled"
     ).grid(column=1, row=2, padx=10, pady=10, sticky="ew")
+    ctk.OptionMenu(
+        s1mf,
+        values=["Option 1", "Option 2", "Option 3"],
+        placeholder="This is a solid optionmenu.",
+        solid=True,
+    ).grid(column=0, row=3, padx=10, pady=10, sticky="ew")
+    ctk.OptionMenu(
+        s1mf,
+        default="This is a disabled solid optionmenu.",
+        state="disabled",
+        solid=True,
+    ).grid(column=1, row=3, padx=10, pady=10, sticky="ew")
     ctk.Combobox(
         s1mf,
         values=["Option 1", "Option 2", "Option 3"],
         placeholder="This is a combobox.",
-    ).grid(column=0, row=3, padx=10, pady=10, sticky="ew")
+    ).grid(column=0, row=4, padx=10, pady=10, sticky="ew")
     ctk.Combobox(s1mf, default="This is a disabled combobox.", state="disabled").grid(
-        column=1, row=3, padx=10, pady=10, sticky="ew"
+        column=1, row=4, padx=10, pady=10, sticky="ew"
     )
     ctk.Textbox(
         s1f,
@@ -866,7 +878,7 @@ def creator():
     mainframe = ctk.ScrolledFrame(changepanes)
     changepanes.add(mainframe, weight=1)
     mainframe.grid_columnconfigure(0, weight=1)
-    dt = ctk.Toggle(topframe, "Dark background", return_dark, command=refresh_preview)
+    dt = ctk.Toggle(topframe, "Dark theme", return_dark, command=refresh_preview)
     dt.grid(
         column=0,
         row=1,
@@ -1004,7 +1016,11 @@ def creator():
             "Color of scrollbars and sliders when hovering or dragged.",
         ),
         ("tooltip", "Tooltip background:", "Color of the background of tooltips."),
-        ("button_border", "Button border color:", "Color of button borders."),
+        (
+            "button_border",
+            "Button border color:",
+            "Color of button and solid optionmenu borders.",
+        ),
         (
             "focus_ring",
             "Focus border color:",

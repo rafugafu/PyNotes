@@ -41,10 +41,10 @@ class pynoteswindow(ctk.Window):
         super().__init__(*args, **kwargs)
         self.theme = None
 
-    def subwin(self):
+    def subwin(self, *args, **kwargs):
         """Create a themed Toplevel sub-window of this window (kept
         above it, and minimized/restored together with it)."""
-        return ctk.Toplevel(self)
+        return ctk.Toplevel(self, *args, **kwargs)
 
     def themes(self):
         """The sorted names of every available theme."""
@@ -87,7 +87,7 @@ class pynoteswindow(ctk.Window):
         buttons (button_labels is in console order, so it's shown
         reversed); return it and a dict that press() fills in with the
         clicked button's label."""
-        top = ctk.Toplevel(self, theme=dict(ctk.window_theme(self)))
+        top = self.subwin()
         top.withdraw()
         top.title(title or "")
         top.resizable(False, False)
@@ -132,7 +132,7 @@ class pynoteswindow(ctk.Window):
         """Build (but don't yet show/grab) a text-entry dialog styled
         like canvastk's own message boxes; return it and a dict that
         submit() fills in with the entered text."""
-        top = ctk.Toplevel(self, theme=dict(ctk.window_theme(self)))
+        top = self.subwin()
         top.withdraw()
         top.title(title or "")
         top.resizable(False, False)

@@ -667,6 +667,7 @@ class Editor(Buffer):
             "Subsection",
             "Subsubsection",
             command=self.sectionlatex,
+            solid=True,
         )
         self.latexsection.grid(column=8, row=0, padx=10, pady=10)
         self.latexparagraph = ctk.Button(
@@ -695,6 +696,7 @@ class Editor(Buffer):
             "Alpha Upper",
             "Inline Math",
             command=self.mathlatex,
+            solid=True,
         )
         self.latexmath.grid(column=11, row=0, padx=10, pady=10)
         self.mf.pack(fill="both", expand=True)

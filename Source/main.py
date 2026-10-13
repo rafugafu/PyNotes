@@ -317,6 +317,7 @@ for _m in (utils, dialogs):
 del _m
 import canvastk as ctk
 
+
 # Save the real stdout/stderr fds, then redirect the process' own
 # stdout/stderr to /dev/null: from here on, state.stdout/state.stderr
 # (not print()/sys.stderr) are what actually reach the terminal, so

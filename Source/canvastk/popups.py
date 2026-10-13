@@ -15,6 +15,8 @@ from ._core import (
     hover_variant,
     layered_theme,
     starting_theme,
+    _CANVAS_DEFAULT_APPEARANCE_MODE,
+    _blend_colors,
     _CANVAS_CHROME_TAG,
     _WHEEL_SEQUENCES,
     _inside,
@@ -767,6 +769,7 @@ class OptionMenu(_DropdownOwner, CanvasWidget):
         "popup_font",
         "popup_max_height",
         "popup_scrollbar_width",
+        "solid",
     )
 
     def __init__(
@@ -776,6 +779,7 @@ class OptionMenu(_DropdownOwner, CanvasWidget):
         default=None,
         *choices,
         values=None,
+        solid=False,
         command=None,
         radius=None,
         border_width=1,
@@ -791,14 +795,18 @@ class OptionMenu(_DropdownOwner, CanvasWidget):
 
         variable: the StringVar that holds the choice (one is made if None). default: the
         initially selected value (added to the values if missing). The values are the
-        positional choices, and/or the list given as values=. command(value): after a
-        pick. radius / border_width / focus_border_width: border shape. popup_font /
+        positional choices, and/or the list given as values=. solid: fill the button
+        like a filled Button, with the same theme keys (accent, accent_hover,
+        accent_press, accent_text, button_border, focus_ring); the color options still
+        win when given, and it can be changed later with configure. command(value):
+        after a pick. radius / border_width / focus_border_width: border shape. popup_font /
         popup_max_height / popup_scrollbar_width: the list's font, the height (px) after
         which it scrolls, and the width (px) of its scroll bar. placeholder: text shown
         while nothing is chosen.
         """
         super().__init__(master, theme=theme, takefocus=True, **kwargs)
         self.placeholder = placeholder
+        self.solid = solid
         self.popup_font = popup_font
         self.popup_max_height = popup_max_height
         self.popup_scrollbar_width = popup_scrollbar_width
@@ -874,11 +882,30 @@ class OptionMenu(_DropdownOwner, CanvasWidget):
         """
         disabled = self.is_disabled()
         placeholder = self.showing_placeholder()
-        if disabled:
+        solid = self.solid and not disabled
+        opened = self._dropdown is not None
+        if solid:
+            # Like a filled Button, with the same theme keys: the accent color (hovered:
+            # accent_hover, open like a pressed button: accent_press), the button
+            # border, and the focus ring while focused or open. Disabled, it has the
+            # disabled look of a Button (the same keys as an unfilled dropdown).
+            if opened:
+                fill = self.part("fill_color", "accent_press")
+            elif self._hovered:
+                fill = self.hover_part("hover_fill_color", "fill_color", "accent_hover")
+            else:
+                fill = self.part("fill_color", "accent")
+            if opened or self._focused:
+                border = self.part("focus_color", "focus_ring")
+                ow = self.focus_border_width
+            else:
+                border = self.part("border_color", "button_border")
+                ow = self.border_width
+        elif disabled:
             fill = self.part("disabled_fill_color", "surface_disabled")
             border = self.part("disabled_border_color", "border")
             ow = self.border_width
-        elif self._dropdown is not None or self._focused:
+        elif opened or self._focused:
             fill = self.part("fill_color", "surface")
             border = self.part("focus_color", "focus_ring")
             ow = self.focus_border_width
@@ -899,7 +926,16 @@ class OptionMenu(_DropdownOwner, CanvasWidget):
         self.draw_box(
             0, 0, width, height, fill, border, ow, self.corner(self.radius, "radius")
         )
-        if placeholder:
+        if solid:
+            # The text of a filled Button (accent_text) unless a text color was given.
+            text_color = (
+                self.rc(self.fg) if self.fg else self.part("text_color", "accent_text")
+            )
+            if placeholder:
+                text_color = self._theme_overrides.get("placeholder_color") or (
+                    _blend_colors(text_color, self.rc(fill), 0.4)
+                )
+        elif placeholder:
             text_color = self.part(
                 "placeholder_color", "text_disabled" if disabled else "text_muted"
             )
@@ -914,15 +950,15 @@ class OptionMenu(_DropdownOwner, CanvasWidget):
             anchor="w",
             tags=_CANVAS_CHROME_TAG,
         )
+        if disabled:
+            arrow = self.part("disabled_arrow_color", "text_disabled")
+        else:
+            arrow = self.part("arrow_color", "accent_text" if solid else "text_muted")
         self.draw_chevron(
             width - self.ARROW_WIDTH / 2 - 2,
             height / 2,
-            "up" if self._dropdown is not None else "down",
-            (
-                self.part("disabled_arrow_color", "text_disabled")
-                if disabled
-                else self.part("arrow_color", "text_muted")
-            ),
+            "up" if opened else "down",
+            arrow,
         )
 
 
@@ -931,6 +967,8 @@ class Menu:
     entryconfigure/post API; submenus open as cascades."""
 
     COLOR_PARTS = tuple(_POPUP_COLOR_THEME_KEYS)
+    _appearance_mode = None  # set by reset_full_theme
+    _isolated = False  # no connection with the theme and mode outside it
     scrollbar_width = None  # the scroll bar width in px of a long menu (None = 12)
 
     def __init__(self, master=None, font=None, theme=None, tearoff=0, **options):
@@ -948,7 +986,9 @@ class Menu:
     def colors_for(self, owner=None):
         """The colors this menu's popups use when shown from owner: the
         global theme, the owner window's theme, then this menu's own."""
-        colors = layered_theme(owner, None, self._theme_overrides)
+        colors = layered_theme(
+            owner, self._appearance_mode, self._theme_overrides, self._isolated
+        )
         _apply_popup_color_options(colors, self._color_options.get)
         return colors
 
@@ -969,6 +1009,17 @@ class Menu:
     def reset_theme(self):
         """Remove every theme change made on this menu."""
         self._theme_overrides.clear()
+
+    def reset_full_theme(self):
+        """Reset this menu to the library's defaults completely: its theme and color
+        options are removed, and it uses the default appearance mode (light) and the
+        default theme, whatever the application or its window have (from the next time
+        it is shown).
+        """
+        self._theme_overrides.clear()
+        self._color_options.clear()
+        self._appearance_mode = _CANVAS_DEFAULT_APPEARANCE_MODE
+        self._isolated = True
 
     def configure(self, **options):
         """Set (or, with None, reset) the menu's popup color options."""
@@ -1361,6 +1412,9 @@ class MenuBar(CanvasWidget):
 class Tooltip:
     """A hover tooltip for widget (drawn on a canvas in a borderless window)."""
 
+    _appearance_mode = None  # set by reset_full_theme
+    _isolated = False  # no connection with the theme and mode outside it
+
     def __init__(
         self,
         widget,
@@ -1420,7 +1474,9 @@ class Tooltip:
             window.attributes("-topmost", True)
         except tk.TclError:
             pass
-        colors = layered_theme(self.widget, None, self._theme_overrides)
+        colors = layered_theme(
+            self.widget, self._appearance_mode, self._theme_overrides, self._isolated
+        )
         fill = resolve_color(window, colors["tooltip"])
         border = resolve_color(window, colors["border"])
         canvas = tk.Canvas(
@@ -1442,6 +1498,16 @@ class Tooltip:
         y = min(event.y_root + 16, window.winfo_screenheight() - height)
         window.geometry(f"{width}x{height}+{x}+{y}")
         self._window = window
+
+    def reset_full_theme(self):
+        """Reset this tooltip to the library's defaults completely: its theme and colors
+        are removed, and it uses the default appearance mode (light) and the default
+        theme, whatever the application or its window have (from the next time it is
+        shown).
+        """
+        self._theme_overrides.clear()
+        self._appearance_mode = _CANVAS_DEFAULT_APPEARANCE_MODE
+        self._isolated = True
 
     def set_theme(self, theme):
         """Change theme keys for this tooltip only (used the next time it
