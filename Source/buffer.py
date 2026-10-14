@@ -20,50 +20,7 @@ class Buffer(ctk.Frame):
         super().__init__(master, *args, **kwargs)
         self.active = False
         # this is intentionally evil
-        _, self.infos, self.fileinforelief, self.fileinfocolumn, self.fileinfoconfig = (
-            (setattr(self, "fileinfo", ctk.Frame(self)) or self.fileinfo).pack(
-                padx=10, pady=10, fill="x"
-            ),
-            {},
-            0,
-            0,
-            lambda relief=None, **infoconfigs: [
-                (
-                    self.infos[info].config(text=value)
-                    if info in self.infos
-                    else (
-                        self.infos.update(
-                            {
-                                info: ctk.Label(
-                                    self.fileinfo,
-                                    text=value,
-                                    padx=15,
-                                    pady=2,
-                                    **self.fileinfo_contrast_colors(),
-                                    relief=relief
-                                    or {0: "sunken", 1: "raised"}[
-                                        setattr(
-                                            self,
-                                            "fileinforelief",
-                                            not self.fileinforelief,
-                                        )
-                                        or self.fileinforelief
-                                    ],
-                                )
-                            }
-                        )
-                        or self.infos[info]
-                    ).grid(
-                        column=(
-                            setattr(self, "fileinfocolumn", self.fileinfocolumn + 1)
-                            or self.fileinfocolumn
-                        ),
-                        row=0,
-                    )
-                )
-                for info, value in infoconfigs.items()
-            ],
-        )
+        (((_,self.infos,self.fileinforelief,self.fileinfocolumn,self.fileinfoconfig)))=((((setattr(self,"fileinfo",ctk.Frame(self))or(self.fileinfo)).pack(padx=10,pady=10,fill="x"),{},0,0,lambda relief=None,**infoconfigs:[(self.infos[info].config(text=value)if(info)in(self.infos)else(self.infos.update({info:ctk.Label(self.fileinfo,text=value,padx=15,pady=2,**self.fileinfo_contrast_colors(),relief=(relief)or{0:"sunken",1:"raised"}[setattr(self,"fileinforelief",not(self.fileinforelief))or(self.fileinforelief)])})or(self.infos[info])).grid(column=(setattr(self,"fileinfocolumn",self.fileinfocolumn+1)or(self.fileinfocolumn)),row=0))for(info,value)in(infoconfigs.items())])))#fmt: skip
         self.wanttitle = ""
         for code in state.buffer_init_code:
             try:
