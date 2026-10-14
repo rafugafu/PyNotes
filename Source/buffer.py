@@ -109,10 +109,12 @@ def newbuffer(buffer, orient, *args, **kwargs):
     state.all_buffers.append(newbuff)
     pycode.pcrun(state.pycode_keybindings_cdt)
     if not state.panes.panes():
-        state.panes.add(newbuff)
+        state.panes.add(newbuff, handle=newbuff.fileinfo)
     else:
         target = state.active if state.active in state.panes.panes() else None
-        state.panes.split(target or state.panes.panes()[-1], newbuff, orient)
+        state.panes.split(
+            target or state.panes.panes()[-1], newbuff, orient, handle=newbuff.fileinfo
+        )
     state.root.update()
     window.balance(orient)
     state.root.update()

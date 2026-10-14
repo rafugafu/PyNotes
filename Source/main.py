@@ -59,7 +59,7 @@ state.options, state.files_to_open = argparse(
 
 # The changelog shown by --changes / the "What's new" menu item.
 changelist = [
-    "Rewrote PyNotes to use canvastk instead of easytk/ttkbootstrap for amazing aesthetics!\n  - Made many built-in common themes.\n  - Made a custom ttkcreator-like theme creator accessible in preferences.\n  - Made the Linux graphical filedialog also use canvastk's native filedialog instead of zenity.\n  - Made gridpanedwindows which are capable of splitting and reorganizing in any place and direction.",
+    "Rewrote PyNotes to use canvastk instead of easytk/ttkbootstrap for amazing aesthetics!\n  - Made many built-in common themes.\n  - Made a custom ttkcreator-like theme creator accessible in preferences.\n  - Made the Linux graphical filedialog also use canvastk's native filedialog instead of zenity.\n  - Made gridpanedwindows which are capable of splitting and reorganizing in any place and direction.\n  - Added drag-and-drop to buffers to move them (drag the fileinfo bar).",
     "Fixed the terminal not deleting old overflowing text on resize.",
     "Fixed an editor which becomes a split view of another editor not stopping its old file change observer.",
     "Made the PyNotes syntax highlighting module registration search in the editor's working directory instead of PyNotes' own sys.path which would not include local project modules and packages, causing them to not be highlighted.",
@@ -752,7 +752,7 @@ state.buffindex = -1
 # (state.panes) whose top row holds the buffers opened with
 # orient="horizontal" side by side, with each buffer opened with
 # orient="vertical" stacked below it as another pane of the layout.
-state.panes = ctk.GridPanedwindow(state.root)
+state.panes = ctk.GridPanedwindow(state.root, draggable=True)
 state.panes.pack(side="bottom", fill="both", expand=True)
 state.active = None
 state._resize_after_id = None
