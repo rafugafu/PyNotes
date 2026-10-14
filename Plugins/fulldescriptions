@@ -16,7 +16,6 @@ This is a plugin which makes a full simple web browser buffer inside PyNotes, us
 * local files opened with normal file://... urls.
 * native browser dropdown menus rendered by native canvastk.
 * www.google.com opening on every new tab.
-* custom tkinter closeable notebook (tabs) class instead of separate button.
 Not currently supported:
 * audio
 * file upload/download
