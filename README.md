@@ -30,7 +30,8 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 * **And much more!**  
 ## Screenshots  
 ![PyNotes](images/PyNotes.png)  
-![PyNotes Dark](images/PyNotes_2.png)  
+![PyNotes 2](images/PyNotes_2.png)  
+![PyNotes 3](images/PyNotes_3.png)  
 ![Preferences](images/Preferences.png)  
 ![Python Shell](images/Python_Shell.png)  
 ![PyCode](images/PyCode.png)  
