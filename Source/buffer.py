@@ -1,3 +1,6 @@
+"""The Buffer base class shared by every kind of PyNotes buffer, plus
+helpers to open a new buffer in a split pane and to close one."""
+
 import canvastk as ctk
 import state
 
