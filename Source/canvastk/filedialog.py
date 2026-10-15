@@ -337,7 +337,6 @@ def quote_names(names):
 def _ask_new_folder_name(parent):
     """Ask for the name of a new folder; returns the typed name, or None if cancelled."""
     window = Toplevel(parent)
-    window.follow_theme_of(parent)
     window.title("New folder")
     window.resizable(False, False)
     answer = [None]
@@ -359,8 +358,7 @@ def _ask_new_folder_name(parent):
     window.bind("<Return>", lambda _: finish(True))
     window.bind("<Escape>", lambda _: finish(False))
     window.protocol("WM_DELETE_WINDOW", lambda: finish(False))
-    entry.focus_set()
-    _make_modal(window, parent)
+    _make_modal(window, parent, focus=entry)
     return answer[0]
 
 
@@ -612,7 +610,6 @@ class _CompletionDropdown:
         self.head = head
         owner = self.entry.winfo_toplevel()
         window = Toplevel(owner, transient=False)
-        window.follow_theme_of(owner)
         window.withdraw()
         window.overrideredirect(True)
         try:
@@ -938,7 +935,7 @@ class _FileDialog:
             owner.withdraw()
         try:
             self._build(owner)
-            _make_modal(self.window, owner, self.SIZE)
+            _make_modal(self.window, owner, self.SIZE, focus=self.name_entry)
         finally:
             if temporary_root is not None:
                 temporary_root.destroy()
@@ -947,7 +944,6 @@ class _FileDialog:
     def _build(self, owner):
         """Create the window and every widget, then show the starting folder."""
         self.window = window = Toplevel(owner)
-        window.follow_theme_of(owner)
         window.title(self.title)
         window.geometry("%dx%d" % self.SIZE)
         window.minsize(580, 380)
@@ -1092,7 +1088,6 @@ class _FileDialog:
         self.navigate(self.start_directory)
         if self.initial_name and self.mode == "open":
             self._select_names([self.initial_name])
-        self.name_entry.focus_set()
 
     # ---- file types --------------------------------------------------------------
     @staticmethod

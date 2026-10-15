@@ -167,13 +167,17 @@ def _race_console_graphical(title, prompttext, native_dialog_call):
 
 
 def openfileget(
-    filetypes=(("All Files", "*"),), prompttext="Open File: ", initialfile=None
+    filetypes=(("All Files", "*"),),
+    prompttext="Open File: ",
+    initialfile=None,
+    parent=None,
 ):
     """Prompt for an existing file to open and return its absolute path,
     "" if cancelled, or None (after showing an error) if the chosen path
     doesn't exist or is a directory. Uses a graphical file dialog unless
     state.nographicalfiledialogs is set, in which case it prompts for a
-    path in the Alt-X minibuffer instead.
+    path in the Alt-X minibuffer instead. `parent` is the window the
+    graphical dialog belongs to (default: the main window).
     """
     if not state.nographicalfiledialogs:
         from canvastk import filedialog
@@ -184,6 +188,7 @@ def openfileget(
             filetypes=filetypes,
             initialfile=initialfilename,
             initialdir=initialdir,
+            parent=parent,
         )
         fn = _race_console_graphical("Open", prompttext, native_dialog_call)
     else:
@@ -209,7 +214,7 @@ def openfileget(
     return fn
 
 
-def saveasfileget(prompttext="Save File: ", initialfile=None):
+def saveasfileget(prompttext="Save File: ", initialfile=None, parent=None):
     """Prompt for a filename to save to and return its absolute path, or
     "" if cancelled. Uses a graphical file dialog unless
     state.nographicalfiledialogs is set, in which case it prompts for a
@@ -222,7 +227,7 @@ def saveasfileget(prompttext="Save File: ", initialfile=None):
 
         initialdir, initialfilename = _file_dialog_initial_dir_and_name(initialfile)
         native_dialog_call = lambda: filedialog.asksaveasfilename(
-            initialfile=initialfilename, initialdir=initialdir
+            initialfile=initialfilename, initialdir=initialdir, parent=parent
         )
         fn = _race_console_graphical("Save As", prompttext, native_dialog_call)
         if not fn.strip():

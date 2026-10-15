@@ -141,6 +141,10 @@ CANVAS_RADII = {
     "scrollbar_radius": 99,  # the track and thumb of every scroll bar
 }
 
+# The look of the tabs of a Notebook, a theme key like the radii: 'segmented', 'classic',
+# or 'underline' (a Notebook's own style option wins over it).
+CANVAS_TAB_STYLE_KEYS = {"tab_style": "segmented"}
+
 # Module state: the current mode, the live theme dict (rebuilt in place), and every
 # themed widget/window (weak, so destroyed ones disappear).
 _CANVAS_DEFAULT_APPEARANCE_MODE = "light"  # the mode of the library before any change
@@ -220,6 +224,7 @@ def _theme_for_mode(mode, user_theme=True):
     """
     dark = mode == "dark"
     theme = dict(CANVAS_RADII)
+    theme.update(CANVAS_TAB_STYLE_KEYS)
     theme.update(CANVAS_DARK_PALETTE if dark else CANVAS_LIGHT_PALETTE)
     theme.update(_derive_hover_keys(theme))
     theme.update(
@@ -320,22 +325,12 @@ def window_theme(widget):
         return {}
 
 
-def window_appearance_mode(widget):
-    """The appearance mode of the window that contains widget ('light' or 'dark'), or
-    None if that window follows the global one (or is not a canvastk Window/Toplevel).
-    """
-    if widget is None:
-        return None
-    try:
-        return widget.winfo_toplevel()._appearance_mode
-    except (AttributeError, tk.TclError):
-        return None
-
-
 def theme_scopes(widget):
     """The containers (frames and windows) that hold `widget`, the outermost first: the
     ones whose theme and appearance mode apply to everything inside them. The search
-    stops at the window, so a Toplevel does not inherit from the window it belongs to.
+    goes on past a window to the widget it was made with as its master, so a Toplevel
+    takes the theme and appearance mode of what it belongs to (unless it was given a
+    theme of its own, which cuts it off, see _theme_layers).
     """
     scopes = []
     current = widget
@@ -345,24 +340,20 @@ def theme_scopes(widget):
             scope = getattr(current, "_scope_owner", current)
             if not any(scope is other for other in scopes):
                 scopes.append(scope)
-        if getattr(current, "_is_window", False):
-            break
         current = getattr(current, "master", None)
     scopes.reverse()
     return scopes
 
 
 def refresh_theme_inside(root, skip=None):
-    """Make every themed widget inside the container `root` (not in other windows)
-    re-read its theme, the containers before what they hold. `skip` is left out.
+    """Make every themed widget inside the container `root` (also in the windows made
+    with it or with something inside it) re-read its theme, the containers before what
+    they hold. `skip` is left out.
     """
     inside = []
     for widget in list(_CANVAS_THEMED_WIDGETS):
         current = widget
         while current is not None and current is not root:
-            if getattr(current, "_is_window", False):
-                current = None
-                break
             current = getattr(current, "master", None)
         if current is root and widget is not skip:
             inside.append(widget)
@@ -665,6 +656,13 @@ def measure_widths(parent, font, texts):
         canvas.destroy()
 
 
+def shown_text(value):
+    """`value` as the text to show, the way tkinter does: anything that is not a string
+    (a number, say) goes through str(); None stays None (no text).
+    """
+    return value if value is None or isinstance(value, str) else str(value)
+
+
 def measure_content(text, image, font, wraplength=0, gap=6, canvas=None):
     """(width, height) of text with an optional image to its left.
 
@@ -672,6 +670,7 @@ def measure_content(text, image, font, wraplength=0, gap=6, canvas=None):
     than its length divided by the wraplength; so it is measured by `canvas` itself,
     which wraps it exactly as it will be drawn.
     """
+    text = shown_text(text)
     if wraplength and text:
         item = tk.Canvas.create_text(
             canvas, 0, 0, text=text, font=font, width=wraplength, anchor="nw"
@@ -748,6 +747,7 @@ class _WidgetPlumbing:
         containers around it any more.
         """
         self._theme_overrides.clear()
+        self._creation_theme = {}
         self._appearance_mode = _CANVAS_DEFAULT_APPEARANCE_MODE
         self._isolated = True
         self.refresh_theme()
@@ -771,6 +771,7 @@ class _WidgetPlumbing:
         """
         # An 'accent' in the theme also derives accent_hover, accent_text...
         self._theme_overrides = starting_theme(theme)
+        self._creation_theme = dict(self._theme_overrides)  # what reset_theme() keeps
         self.colors = self._merged_colors()
         _CANVAS_THEMED_WIDGETS.add(self)
         self._pending_calls = set()
@@ -797,8 +798,11 @@ class _WidgetPlumbing:
         return dict(self.colors)
 
     def reset_theme(self):
-        """Remove every color change made on this widget."""
+        """Remove every color change made on this widget since it was created: it has
+        the theme and colors it was created with again.
+        """
         self._theme_overrides.clear()
+        self._theme_overrides.update(self._creation_theme)
         self.refresh_theme()
 
     def on_theme_changed(self):
@@ -934,6 +938,12 @@ class CanvasWidget(_WidgetPlumbing, tk.Canvas):
     DEFAULT_FONT_SIZE = 11
     DEFAULT_FONT_WEIGHT = "normal"
     _CUSTOM_OPTIONS = ("bg", "background", "fg", "foreground", "state", "font")
+
+    def __setattr__(self, name, value):
+        """The text of a widget is shown the way tkinter shows it: a number given as the
+        text is str() of it.
+        """
+        super().__setattr__(name, shown_text(value) if name == "text" else value)
 
     def __init__(
         self, master, theme=None, takefocus=False, background_from=None, **kwargs
@@ -1262,6 +1272,7 @@ class CanvasWidget(_WidgetPlumbing, tk.Canvas):
         gap=6,
     ):
         """Draw an optional image and text side by side inside box."""
+        text = shown_text(text)
         x1, y1, x2, y2 = box
         text_item = None
         text_width = text_height = 0

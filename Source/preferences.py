@@ -92,7 +92,9 @@ def prf():
         """Prompt for a dictionary file, add it to the list, and rebuild
         the combined email spellcheck word list."""
         dicttoadd = dialogs.openfileget(
-            prompttext="Email Dictionary File: ", filetypes=(("Text Files", "*.txt"),)
+            prompttext="Email Dictionary File: ",
+            filetypes=(("Text Files", "*.txt"),),
+            parent=pr,
         )
         if dicttoadd:
             state.dicts.append(dicttoadd)
@@ -112,7 +114,9 @@ def prf():
         """Prompt for a new Python executable and update the shown path."""
         nonlocal pyexecshowtext
         fn = dialogs.openfileget(
-            prompttext="New Python Executable: ", filetypes=(("All Files", "*"),)
+            prompttext="New Python Executable: ",
+            filetypes=(("All Files", "*"),),
+            parent=pr,
         )
         if fn:
             state.pythonexecutable = fn

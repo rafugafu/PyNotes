@@ -601,27 +601,24 @@ def creator():
         preview_theme = previewframe.get_theme()
         for theme_key, display in displays.items():
             if theme_key not in return_theme:
-                display.config(color=preview_theme[theme_key])
+                display.set(preview_theme[theme_key])
 
-    def theme_change(what, type_="color", n=None, reset=False):
-        """Open the color chooser and change
-        the color in the theme to return if not
-        cancelled."""
+    def theme_change(what, new=None, reset=False):
+        """Open the color chooser and change the color in the theme to return
+        if not cancelled."""
+        if not reset and new is None:
+            return
         if reset:
             if what not in return_theme:
                 return
             del return_theme[what]
-        elif type_ == "color":
-            newcolor = askcolor(ctk.get_theme()["window"], title="Theme Creator")[1]
-            if newcolor is None:
-                return
-            displays[what].config(color=newcolor)
-            return_theme[what] = newcolor
-        elif type_ == "number":
-            return_theme[what] = n
+        else:
+            displays[what].set(new)
+            return_theme[what] = new
         refresh_preview()
 
     def done():
+        """Check if the theme name is given. If it is, return the theme."""
         nonlocal is_done
         nonlocal return_theme_name
         if not (return_theme_name := themenameentry.get().strip()):
@@ -631,12 +628,26 @@ def creator():
         cwin.destroy()
 
     def cancel():
+        """Prompt to cancel the changes and exit."""
         if state.root.ask(
             "Theme Creator", "Discard theme and exit?", ("yes", "no"), parent=cwin
         ):
             cwin.destroy()
 
-    def make_change_row(master, key, text, tooltip, type_="color", last=None):
+    def make_change_row(
+        master,
+        key,
+        text,
+        tooltip,
+        type_="color",
+        last=None,
+        options=None,
+        theme_options=None,
+    ):
+        """Make and return a frame which controls the given theme key. If the
+        type_ is "color", show a color display with a change button. If the type_
+        is "number", show a slider with a label showing its value. If the type_
+        is "option", show a dropdown."""
         frame = ctk.Frame(master)
         ctk.Label(frame, text=text).grid(
             column=0,
@@ -648,8 +659,9 @@ def creator():
         frame.grid_columnconfigure(0, weight=1)
         if type_ == "color":
             displays[key] = ctk.ColorDisplay(
-                frame, color=cwin.get_theme()[key], size=32
+                frame, color=previewframe.get_theme()[key], size=32
             )
+            displays[key].set = lambda c: displays[key].config(color=c)
             displays[key].grid(
                 column=1,
                 row=0,
@@ -658,7 +670,14 @@ def creator():
                 sticky="e",
             )
             cb = ctk.Button(
-                frame, text="Change", command=lambda key=key: theme_change(key)
+                frame,
+                text="Change",
+                command=lambda: theme_change(
+                    key,
+                    askcolor(ctk.get_theme()[key], title="Theme Creator", parent=cwin)[
+                        1
+                    ],
+                ),
             )
             cb.grid(
                 column=2,
@@ -668,62 +687,65 @@ def creator():
                 sticky="e",
             )
             ctk.Tooltip(cb, tooltip)
-            rb = ctk.Button(
-                frame,
-                text="Reset",
-                command=lambda key=key: theme_change(key, "color", reset=True),
-            )
-            rb.grid(
-                column=3,
-                row=0,
-                padx=10,
-                pady=10,
-                sticky="e",
-            )
         elif type_ == "number":
-            starting_radius = cwin.get_theme()[key]
-            nl = ctk.Label(frame, text=str(round(starting_radius)))
-            nl.grid(
+            starting_radius = previewframe.get_theme()[key]
+
+            class numberdisplay:
+                def __init__(self, l):
+                    self.l = l
+
+            displays[key] = numberdisplay(
+                [
+                    ctk.Label(frame, text=round(starting_radius)),
+                    ctk.Scale(
+                        frame,
+                        from_=0,
+                        to=last,
+                        length=300,
+                        value=starting_radius,
+                        command=lambda v: theme_change(key, v),
+                    ),
+                ]
+            )
+            displays[key].set = lambda n: [
+                displays[key].l[0].config(text=round(n)),
+                displays[key].l[1].set(n),
+            ]
+            displays[key].l[0].grid(
                 column=1,
                 row=0,
                 padx=10,
                 pady=10,
                 sticky="e",
             )
-            ns = ctk.Scale(
-                frame,
-                from_=0,
-                to=last,
-                length=300,
-                value=starting_radius,
-                command=lambda v, key=key, nl=nl: [
-                    theme_change(key, "number", v),
-                    nl.config(text=str(round(v))),
-                ],
-            )
-            ns.grid(
+            displays[key].l[1].grid(
                 column=2,
                 row=0,
                 padx=10,
                 pady=10,
                 sticky="e",
             )
-            ctk.Tooltip(ns, tooltip)
-            rb = ctk.Button(
+            ctk.Tooltip(displays[key].l[1], tooltip)
+        elif type_ == "option":
+            frame.grid_columnconfigure(2, weight=1)
+            displays[key] = ctk.OptionMenu(
                 frame,
-                text="Reset",
-                command=lambda key=key, ns=ns, starting_radius=starting_radius: [
-                    theme_change(key, "number", reset=True),
-                    ns.set(starting_radius),
-                ],
+                values=options,
+                command=lambda new: theme_change(
+                    key, theme_options[options.index(new)]
+                ),
             )
-            rb.grid(
-                column=3,
-                row=0,
-                padx=10,
-                pady=10,
-                sticky="e",
+            displays[key].set = lambda new: displays[key].variable.set(
+                options[theme_options.index(new)]
             )
+            displays[key].set(previewframe.get_theme()[key])
+            displays[key].grid(column=2, row=0, padx=10, pady=10, sticky="ew")
+            ctk.Tooltip(displays[key], tooltip)
+        ctk.Button(
+            frame,
+            text="Reset",
+            command=lambda: theme_change(key, reset=True),
+        ).grid(column=3, row=0, padx=10, pady=10, sticky="e")
         return frame
 
     import state
@@ -741,7 +763,10 @@ def creator():
     panes = ctk.Panedwindow(cwin)
     changeframe = ctk.Frame(cwin)
     previewframe = ctk.LabelFrame(
-        cwin, "Preview", font=("TkDefaultFont", 20), scrolled=True
+        cwin,
+        "Preview",
+        font=("TkDefaultFont", 20),
+        scrolled=True,
     )
     panes.add(changeframe, weight=1)
     panes.add(previewframe, weight=1)
@@ -936,7 +961,7 @@ def creator():
         (
             "tab_radius",
             "Tab radius:",
-            "The radius of all segmented tabs.",
+            "The radius of all tabs.",
             "number",
             20,
         ),
@@ -968,6 +993,15 @@ def creator():
             "Radius of scrollbars and their tracks.",
             "number",
             7,
+        ),
+        (
+            "tab_style",
+            "Tab style:",
+            "Style of tabs (segmented/classic/underline).",
+            "option",
+            None,
+            ("Segmented", "Classic", "Underline"),
+            ("segmented", "classic", "underline"),
         ),
     ]
     row = 0

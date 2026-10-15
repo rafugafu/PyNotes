@@ -27,6 +27,7 @@ from ._core import (
     measure_content,
     parent_background,
     resolve_color,
+    shown_text,
     wheel_direction,
 )
 from .popups import Tooltip
@@ -67,6 +68,7 @@ class _ThemedBackground:
         explicit bg), and keep its own theme overrides.
         """
         self._theme_overrides = starting_theme(theme)
+        self._creation_theme = dict(self._theme_overrides)  # what reset_theme() keeps
         self._isolated = theme is not None  # given a theme: no connection outside
         if background is None:
             provider = getattr(master, "child_background_color", None)
@@ -155,8 +157,11 @@ class _ThemedBackground:
         return effective_appearance_mode(self, self._appearance_mode, self._isolated)
 
     def reset_theme(self):
-        """Remove every theme change made on this container."""
+        """Remove every theme change made on this container since it was created: it
+        has the theme it was created with again.
+        """
         self._theme_overrides.clear()
+        self._theme_overrides.update(self._creation_theme)
         self._refresh_scope()
 
     def reset_full_theme(self):
@@ -166,6 +171,7 @@ class _ThemedBackground:
         the containers around it any more.
         """
         self._theme_overrides.clear()
+        self._creation_theme = {}
         self._appearance_mode = _CANVAS_DEFAULT_APPEARANCE_MODE
         self._isolated = True
         self._refresh_scope()
@@ -1161,15 +1167,17 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
     """Tabs above switchable pages, drawn on a canvas.
 
     Create each page with the Notebook as its master and add it with add().
-    Two styles: 'segmented' (a rounded segmented control above a rounded page;
-    the default) and 'classic' (folder-like tabs joined to the page). Tabs can
+    Three styles: 'segmented' (a rounded segmented control above a rounded page;
+    the default), 'classic' (folder-like tabs joined to the page), and 'underline'
+    (flat compact tabs with a bar along the bottom of the selected one). Tabs can
     be closable and draggable, and scroll with arrows when there are too many
     for the width. Generates <<NotebookTabChanged>>, <<NotebookTabClosed>> and
     <<NotebookTabMoved>>.
 
     Color options (keyword arguments or configure()): tab_color,
     tab_hover_color, tab_text_color, disabled_tab_text_color,
-    selected_tab_color, selected_tab_text_color, border_color, page_color
+    selected_tab_color, selected_tab_text_color, underline_color (the bar of the
+    underline style), border_color, page_color
     (also the background of the pages' Frames), track_color (the segmented
     pill), close_color, close_hover_color, arrow_color, arrow_hover_color,
     arrow_hover_text_color.
@@ -1183,7 +1191,7 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         "closable",
         "on_close",
         "destroy_on_close",
-        "segment_radius",
+        "tab_radius",
         "draggable",
         "style",
     )
@@ -1197,6 +1205,7 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         "border_color",
         "page_color",
         "track_color",
+        "underline_color",
         "close_color",
         "close_hover_color",
         "arrow_color",
@@ -1209,6 +1218,7 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
     CLOSE_GAP = 6
     CLOSE_RIGHT_PADDING = 10
     SEGMENT_GAP = 10
+    UNDERLINE_HEIGHT = 3  # the bar of the underline style
 
     def __init__(
         self,
@@ -1221,8 +1231,8 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         closable=False,
         on_close=None,
         destroy_on_close=True,
-        style="segmented",
-        segment_radius=None,
+        style=None,
+        tab_radius=None,
         draggable=False,
         **kwargs,
     ):
@@ -1230,11 +1240,15 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         can override with its own closable=True/False). on_close(child) is
         called before a tab closes and can return False to keep it;
         destroy_on_close destroys the page widget when its tab is closed.
-        style: 'segmented' (the default: a rounded segmented control above a
-        rounded page, like macOS / customtkinter) or 'classic' (folder-like tabs).
-        radius / segment_radius: the corner radius of the page and of the segmented
-        style's tabs (None = the theme's radius and tab_radius; a big number such as
-        99 makes the tabs fully rounded pills; the pill behind them follows it).
+        style: None (the theme key tab_style, 'segmented' unless it was changed),
+        'segmented' (a rounded segmented control above a
+        rounded page, like macOS / customtkinter), 'classic' (folder-like tabs), or
+        'underline' (flat compact tabs, as in a code editor, with a bar along
+        the bottom of the selected one).
+        radius / tab_radius: the corner radius of the page and of the tabs of the
+        segmented and classic styles (None = the theme's radius and tab_radius; a big
+        number such as 99 makes the segmented tabs fully rounded pills; the pill behind
+        them follows it).
         draggable: tabs can be reordered by dragging them along the strip."""
         self._check_style(style)
         theme_given = theme is not None
@@ -1260,12 +1274,13 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         self.tab_padx = tab_padx
         self.closable = closable
         self.style = style
-        self.segment_radius = segment_radius
+        self._shown_style = self.style
+        self.tab_radius = tab_radius
         self.draggable = draggable
         self._tab_drag = None
         self.on_close = on_close
         self.destroy_on_close = destroy_on_close
-        self.tab_height = self.font.metrics("linespace") + 16
+        self.tab_height = self._height_of_tabs()
         self._tab_records = []
         self._selected = None
         self._hover_tab = None
@@ -1315,11 +1330,35 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         """Redraws of the notebook are redraws of its chrome canvas."""
         self.chrome.schedule_redraw()
 
+    @property
+    def style(self):
+        """The look of the tabs: the notebook's own style, else the theme key
+        tab_style.
+        """
+        style = self._own_style or self.colors["tab_style"]
+        self._check_style(style)
+        return style
+
+    @style.setter
+    def style(self, value):
+        """Set the notebook's own style (None follows the theme key tab_style)."""
+        self._check_style(value)
+        self._own_style = value
+
+    def _height_of_tabs(self):
+        """The height of the tab strip for the font and the style: the underline
+        style's tabs are compact.
+        """
+        line = self.font.metrics("linespace")
+        if self.style == "underline":
+            return line + 10 + self.UNDERLINE_HEIGHT
+        return line + 16
+
     @staticmethod
     def _check_style(style):
         """Raise ValueError unless `style` is one of the two looks of the tabs."""
-        if style not in ("classic", "segmented"):
-            raise ValueError("style must be 'classic' or 'segmented'")
+        if style not in (None, "classic", "segmented", "underline"):
+            raise ValueError("style must be 'classic', 'segmented', or 'underline'")
 
     def apply_settable_options(self, options):
         """Store changed options; a new font recomputes the tab height, and a new style
@@ -1332,10 +1371,19 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
             if name == "font":
                 value = make_font(value)
             setattr(self, name, value)
-        if "font" in options:
-            self.tab_height = self.font.metrics("linespace") + 16
-        if "style" in options:
-            self._reveal_selected = True
+        if "font" in options or "style" in options:
+            self._refresh_tab_layout()
+        else:
+            self._place_selected()
+            self._tab_changed()
+
+    def _refresh_tab_layout(self):
+        """The font or the style changed: work out the height of the tabs again, and
+        place the page and lay the tabs out below them.
+        """
+        self._shown_style = self.style
+        self.tab_height = self._height_of_tabs()
+        self._reveal_selected = True
         self._place_selected()
         self._tab_changed()
 
@@ -1349,6 +1397,8 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         """
         if self.background_role:
             tk.Frame.configure(self, bg=self.color(self.background_role))
+        if self.style != self._shown_style:  # the theme key tab_style changed
+            self._refresh_tab_layout()
         self.chrome.refresh_theme()
 
     # ---- tab API -------------------------------------------------------------
@@ -1386,7 +1436,7 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         """
         record = {
             "child": child,
-            "text": text,
+            "text": shown_text(text),
             "state": state,
             "image": image,
             "closable": closable,
@@ -1475,6 +1525,8 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         """
         record = self._tab_records[self._record_index(tab_id)]
         if options:
+            if "text" in options:
+                options["text"] = shown_text(options["text"])
             record.update(options)
             if record["state"] != "normal" and self._selected is record["child"]:
                 self._select_neighbor(1) or self._select_neighbor(-1)
@@ -1799,6 +1851,8 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         self._close_boxes = []
         if self.style == "segmented":
             self._paint_segmented(chrome, width, height, *layout)
+        elif self.style == "underline":
+            self._paint_underline(chrome, width, height, *layout)
         else:
             self._paint_classic(chrome, width, height, *layout)
         self._paint_scroll_arrows(chrome, width, layout[3])
@@ -1811,7 +1865,7 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         self._arrow_boxes = []
         if not overflow:
             return
-        bottom_edge = tab_height - (1 if self.style == "classic" else 0)
+        bottom_edge = tab_height - (0 if self.style == "segmented" else 1)
         # Hide the parts of tabs scrolled under the arrows.
         for cover_left in (0, width - self.ARROW_WIDTH):
             chrome.create_rectangle(
@@ -1838,7 +1892,7 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
             if at_limit:
                 color = self.color("text_disabled")
             elif direction == self._arrow_under_pointer():
-                bottom = tab_height - (4 if self.style == "classic" else 3)
+                bottom = tab_height - (3 if self.style == "segmented" else 4)
                 chrome.draw_box(
                     box_left + 2,
                     3,
@@ -1901,11 +1955,11 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
             track_right,
             tab_height,
             self.part("track_color", "neutral"),
-            radius=self.corner(self.segment_radius, "tab_radius") + 3,
+            radius=self.corner(self.tab_radius, "tab_radius") + 3,
         )
         # Segments are 3 px inside the pill on every side.
         segment_height = tab_height - 6
-        segment_radius = self.corner(self.segment_radius, "tab_radius")
+        tab_radius = self.corner(self.tab_radius, "tab_radius")
         for i, record in visible:
             left, right = (v - offset for v in spans[i])
             disabled = record["state"] == "disabled"
@@ -1920,7 +1974,7 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
                 fill = None
             if fill is not None:
                 chrome.draw_box(
-                    left, 3, right, 3 + segment_height, fill, radius=segment_radius
+                    left, 3, right, 3 + segment_height, fill, radius=tab_radius
                 )
             if selected:
                 color = self.part("selected_tab_text_color", "accent_text")
@@ -1939,6 +1993,76 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
                 i,
                 color if selected else None,
             )
+            self._tab_boxes.append((left, right, i))
+
+    def _paint_underline(
+        self,
+        chrome,
+        width,
+        height,
+        visible,
+        spans,
+        selected_index,
+        overflow,
+        available,
+        total,
+    ):
+        """Paint the underline style: a boxed page under a row of flat compact tabs;
+        the selected tab has the color of the page and a bar along its bottom.
+        """
+        tab_height = self.tab_height
+        surface = self.part("page_color", "window")
+        selected_fill = (
+            self.rc(self._theme_overrides["selected_tab_color"])
+            if self._theme_overrides.get("selected_tab_color")
+            else surface
+        )
+        chrome.draw_box(
+            0,
+            tab_height - 1,
+            width,
+            height,
+            surface,
+            self.part("border_color", "border"),
+            1,
+            self.corner(self.radius, "radius"),
+            corners=(False, False, True, True),
+        )
+        label_bottom = tab_height - self.UNDERLINE_HEIGHT
+        for i, record in visible:
+            left, right = (v - self._tab_shift for v in spans[i])
+            disabled = record["state"] == "disabled"
+            selected = i == selected_index
+            if selected:
+                fill = selected_fill
+            elif i == self._hover_tab and not disabled:
+                fill = self.hover_part("tab_hover_color", "tab_color", "neutral_hover")
+            else:
+                fill = self.part("tab_color", "neutral")
+            # The selected tab covers the page's top border, so it joins the page.
+            chrome.create_rectangle(
+                left,
+                0,
+                right,
+                tab_height if selected else tab_height - 1,
+                fill=fill,
+                width=0,
+                tags=_CANVAS_CHROME_TAG,
+            )
+            if selected:
+                chrome.create_rectangle(
+                    left,
+                    label_bottom,
+                    right,
+                    tab_height,
+                    fill=self.part("underline_color", "accent"),
+                    width=0,
+                    tags=_CANVAS_CHROME_TAG,
+                )
+            self._draw_tab_label(
+                chrome, left, right, label_bottom, record, disabled, selected
+            )
+            self._draw_close_button(chrome, left, label_bottom, record, i)
             self._tab_boxes.append((left, right, i))
 
     def _paint_classic(
@@ -1965,6 +2089,7 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
         )
         border = self.part("border_color", "border")
         radius = self.corner(self.radius, "radius")
+        tab_radius = self.corner(self.tab_radius, "tab_radius")
         # The page's top-left corner is square when the first tab is selected (the tab
         # continues it).
         first_selected = bool(visible) and visible[0][0] == selected_index
@@ -1999,7 +2124,7 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
                 fill,
                 border,
                 1,
-                radius,
+                tab_radius,
                 corners=(True, True, False, False),
             )
             self._draw_tab_label(
@@ -2019,7 +2144,7 @@ class Notebook(_FrameColorParts, _WidgetPlumbing, tk.Frame):
                 selected_fill,
                 border,
                 1,
-                radius,
+                tab_radius,
                 corners=(True, True, False, False),
             )
             chrome.create_rectangle(

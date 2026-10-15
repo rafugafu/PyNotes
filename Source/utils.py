@@ -421,6 +421,7 @@ class ErrorHandler:
                 ).start()
                 if self.win == None or not self.win.winfo_exists():
                     self.win = state.root.subwin()
+                    self.win.lift()
                     self.win.title("Error")
                     self.win.bind("<Escape>", lambda event: self.win.destroy())
                     self.win.bind("<Return>", lambda event: self.win.destroy())
