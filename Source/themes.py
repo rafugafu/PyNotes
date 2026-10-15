@@ -625,13 +625,15 @@ def creator():
         nonlocal is_done
         nonlocal return_theme_name
         if not (return_theme_name := themenameentry.get().strip()):
-            state.root.info("Theme Creator", "Theme name not provided.")
+            state.root.info("Theme Creator", "Theme name not provided.", parent=cwin)
             return
         is_done = True
         cwin.destroy()
 
     def cancel():
-        if state.root.ask("Theme Creator", "Discard theme and exit?", ("yes", "no")):
+        if state.root.ask(
+            "Theme Creator", "Discard theme and exit?", ("yes", "no"), parent=cwin
+        ):
             cwin.destroy()
 
     def make_change_row(master, key, text, tooltip, type_="color", last=None):

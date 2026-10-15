@@ -293,6 +293,7 @@ def pdf(title):
                 state.root.error(
                     "Error!",
                     f'The log was not found at "{os.path.splitext(title)[0]}.log".',
+                    parent=logwin,
                 )
                 logtextbox.insert("1.0", "log not found")
             logtextbox.config(state="disabled")

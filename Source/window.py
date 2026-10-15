@@ -41,10 +41,11 @@ class pynoteswindow(ctk.Window):
         super().__init__(*args, **kwargs)
         self.theme = None
 
-    def subwin(self, *args, **kwargs):
-        """Create a themed Toplevel sub-window of this window (kept
-        above it, and minimized/restored together with it)."""
-        return ctk.Toplevel(self, *args, **kwargs)
+    def subwin(self, *args, parent=None, **kwargs):
+        """Create a themed Toplevel sub-window of this window, or of
+        `parent` (another window of PyNotes) if given (kept above it,
+        and minimized/restored together with it)."""
+        return ctk.Toplevel(parent or self, *args, **kwargs)
 
     def themes(self):
         """The sorted names of every available theme."""
@@ -80,14 +81,22 @@ class pynoteswindow(ctk.Window):
         return tkfont.families(self)
 
     def _build_message_dialog(
-        self, kind, title, message, button_labels, default_label=None, alert=False
+        self,
+        kind,
+        title,
+        message,
+        button_labels,
+        default_label=None,
+        alert=False,
+        parent=None,
     ):
         """Build (but don't yet show/grab) a message dialog laid out
         exactly like canvastk's own message boxes, with the given
         buttons (button_labels is in console order, so it's shown
         reversed); return it and a dict that press() fills in with the
-        clicked button's label."""
-        top = self.subwin()
+        clicked button's label. It belongs to `parent` (default: this
+        window)."""
+        top = self.subwin(parent=parent)
         top.withdraw()
         top.title(title or "")
         top.resizable(False, False)
@@ -121,18 +130,20 @@ class pynoteswindow(ctk.Window):
         top.bind("<Return>", lambda e: press(default_label))
         top.bind("<Escape>", lambda e: close_dialog())
         top.protocol("WM_DELETE_WINDOW", close_dialog)
-        ctk.messagebox._center_on(top, self)
+        ctk.messagebox._center_on(top, parent or self)
         top.deiconify()
+        top.lift()
         if alert:
             top.bell()
         top.focus_force()
         return top, state_
 
-    def _build_query_dialog(self, title, prompt):
+    def _build_query_dialog(self, title, prompt, parent=None):
         """Build (but don't yet show/grab) a text-entry dialog styled
         like canvastk's own message boxes; return it and a dict that
-        submit() fills in with the entered text."""
-        top = self.subwin()
+        submit() fills in with the entered text. It belongs to `parent`
+        (default: this window)."""
+        top = self.subwin(parent=parent)
         top.withdraw()
         top.title(title or "")
         top.resizable(False, False)
@@ -167,8 +178,9 @@ class pynoteswindow(ctk.Window):
         entry.bind("<KP_Enter>", submit)
         top.bind("<Escape>", cancel)
         top.protocol("WM_DELETE_WINDOW", cancel)
-        ctk.messagebox._center_on(top, self)
+        ctk.messagebox._center_on(top, parent or self)
         top.deiconify()
+        top.lift()
         entry.focus_force()
         return top, state_
 
@@ -216,13 +228,16 @@ class pynoteswindow(ctk.Window):
             )
         return clicked
 
-    def ask(self, title, question, options):
+    def ask(self, title, question, options, parent=None):
         """Ask a yes/no(/cancel)-style question and return the mapped
         boolean/None answer (or, for an options tuple with no preset,
-        the clicked label itself)."""
+        the clicked label itself). `parent` is the window it belongs to
+        (default: the main window)."""
         options_tuple = tuple(options)
         button_labels = _ASK_PRESET_LABELS.get(options_tuple, list(options))
-        top, state_ = self._build_message_dialog(None, title, question, button_labels)
+        top, state_ = self._build_message_dialog(
+            None, title, question, button_labels, parent=parent
+        )
         console_call = lambda cancel_event: state.console.ask(
             title, question, button_labels, cancel_event=cancel_event
         )
@@ -235,22 +250,23 @@ class pynoteswindow(ctk.Window):
             else clicked
         )
 
-    def askstring(self, title, prompt):
-        """Prompt for a line of text and return it (or "" if cancelled)."""
-        top, state_ = self._build_query_dialog(title, prompt)
+    def askstring(self, title, prompt, parent=None):
+        """Prompt for a line of text and return it (or "" if cancelled).
+        `parent` is the window it belongs to (default: the main window)."""
+        top, state_ = self._build_query_dialog(title, prompt, parent=parent)
         console_call = lambda cancel_event: state.console.prompt(
             title, prompt, cancel_event=cancel_event
         )
         return self._race_console(console_call, top, state_)
 
-    def _notice_with_buttons(self, kind, title, message, buttons, alert):
+    def _notice_with_buttons(self, kind, title, message, buttons, alert, parent=None):
         """Show an info/error/warning dialog with custom buttons and
         return the clicked label (used when info/error/warning are given
         a `buttons` argument instead of the plain OK-only default)."""
         color = "43m" if kind == "warning" else ("41m" if kind == "error" else "100m")
         button_labels = list(buttons)
         top, state_ = self._build_message_dialog(
-            kind, title, message, button_labels, alert=alert
+            kind, title, message, button_labels, alert=alert, parent=parent
         )
         console_call = lambda cancel_event: state.console.ask(
             title, message, button_labels, color=color, cancel_event=cancel_event
@@ -259,43 +275,43 @@ class pynoteswindow(ctk.Window):
             self._race_console(console_call, top, state_), button_labels
         )
 
-    def info(self, title, message, buttons=None, **kwargs):
+    def info(self, title, message, buttons=None, parent=None, **kwargs):
         """Show an info dialog. With buttons, it's answerable from the
         console like ask(); without, it's shown in the console only as a
         non-blocking mirror (via a background thread) while the
         graphical OK-only dialog is what actually blocks."""
         if buttons:
             return self._notice_with_buttons(
-                "info", title, message, buttons, alert=False
+                "info", title, message, buttons, alert=False, parent=parent
             )
         threading.Thread(
             target=state.console.dialog, args=(title, message), daemon=True
         ).start()
-        return ctk.messagebox.showinfo(title, message, **kwargs)
+        return ctk.messagebox.showinfo(title, message, parent=parent, **kwargs)
 
-    def error(self, title, message, buttons=None, **kwargs):
+    def error(self, title, message, buttons=None, parent=None, **kwargs):
         """Show an error dialog; see info() for the buttons/console
         behavior."""
         if buttons:
             return self._notice_with_buttons(
-                "error", title, message, buttons, alert=True
+                "error", title, message, buttons, alert=True, parent=parent
             )
         threading.Thread(
             target=state.console.dialog, args=(title, message, "41m"), daemon=True
         ).start()
-        return ctk.messagebox.showerror(title, message, **kwargs)
+        return ctk.messagebox.showerror(title, message, parent=parent, **kwargs)
 
-    def warning(self, title, message, buttons=None, **kwargs):
+    def warning(self, title, message, buttons=None, parent=None, **kwargs):
         """Show a warning dialog; see info() for the buttons/console
         behavior."""
         if buttons:
             return self._notice_with_buttons(
-                "warning", title, message, buttons, alert=True
+                "warning", title, message, buttons, alert=True, parent=parent
             )
         threading.Thread(
             target=state.console.dialog, args=(title, message, "43m"), daemon=True
         ).start()
-        return ctk.messagebox.showwarning(title, message, **kwargs)
+        return ctk.messagebox.showwarning(title, message, parent=parent, **kwargs)
 
 
 def saveforclose():

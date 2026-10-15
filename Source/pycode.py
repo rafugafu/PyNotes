@@ -2370,7 +2370,9 @@ def pc():
             codeedit.focus()
 
         if todefine == "Function":
-            funcname = state.root.askstring("Name", "Name of the Function:")
+            funcname = state.root.askstring(
+                "Name", "Name of the Function:", parent=pcwin
+            )
             if not funcname:
                 return
             prompttext = ctk.Label(buttonframe, text="Commands:")
@@ -2390,7 +2392,9 @@ def pc():
             commanddone.clear()
             prompttext.grid_forget()
         elif todefine == "Python Function":
-            pyfuncname = state.root.askstring("Name", "Name of the Python Function:")
+            pyfuncname = state.root.askstring(
+                "Name", "Name of the Python Function:", parent=pcwin
+            )
             if not pyfuncname:
                 return
             pyfunccodewin = state.root.subwin()
@@ -2405,10 +2409,14 @@ def pc():
             utils.lock_window_size(pyfunccodewin)
             pyfunccodewin.wait_window(pyfunccodewin)
         elif todefine == "Variable":
-            varname = state.root.askstring("Name", "Name of the Variable:")
+            varname = state.root.askstring(
+                "Name", "Name of the Variable:", parent=pcwin
+            )
             if not varname:
                 return
-            value = state.root.askstring("Value", "Value of the Variable:")
+            value = state.root.askstring(
+                "Value", "Value of the Variable:", parent=pcwin
+            )
             if not value:
                 return
             codeedit.insert("insert", f"\n[{varname}] :→ [{value}];")
@@ -2481,7 +2489,9 @@ def pc():
             commandtodo.clear()
             commanddone.clear()
         elif todefine == "Alt-X Command":
-            cmdname = state.root.askstring("Name", "Name of the Alt-X Command:")
+            cmdname = state.root.askstring(
+                "Name", "Name of the Alt-X Command:", parent=pcwin
+            )
             if not cmdname:
                 return
             prompttext = ctk.Label(buttonframe, text="Commands:")
@@ -2535,6 +2545,7 @@ def pc():
                 subcmd = state.root.askstring(
                     "Command Name",
                     f'{"Alt-X" if event == "alt-x-command" else "PyCode"} command (leave blank for all):',
+                    parent=pcwin,
                 )
                 if subcmd:
                     event = f"{event}:{subcmd.strip()}"

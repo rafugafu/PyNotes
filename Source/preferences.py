@@ -74,7 +74,7 @@ def prf():
                     )
         except Exception as error:
             error = str(error)
-            state.root.error("Error", error)
+            state.root.error("Error", error, parent=pr)
 
     def setts(val):
         state.taborspace = val
@@ -106,7 +106,7 @@ def prf():
                         )
             except Exception as error:
                 error = str(error)
-                state.root.error("Error", error)
+                state.root.error("Error", error, parent=pr)
 
     def changepyexec():
         """Prompt for a new Python executable and update the shown path."""
@@ -274,6 +274,7 @@ Enter to close search""",
             state.root.error(
                 "Error!",
                 f'There was an error in setting up the preferences of the plugin "{os.path.basename(os.path.normpath(code[0]))}":\n{error}',
+                parent=pr,
             )
     utils.lock_window_size(pr)
     pr.focus()
