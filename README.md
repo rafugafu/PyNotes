@@ -36,6 +36,8 @@ Links: [GitHub](https://github.com/rafugafu/pynotes), [Codeberg](https://codeber
 ![Python Shell](images/Python_Shell.png)  
 ![PyCode](images/PyCode.png)  
 ![MathGod](images/MathGod.png)  
+![Web Browser](images/Web_Browser.png)  
+![Theme Creator](images/Theme_Creator.png)  
 ![Terminal Colours](images/Terminal_Colours.png)  
 ![Terminal Running emacs -nw](images/Terminal_Emacs_NW.png)  
 ![Terminal Running Cacafire](images/Terminal_Cacafire.png)  
