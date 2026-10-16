@@ -34,7 +34,7 @@ import dialogs
 import pycode
 import speech
 import terminal
-import textbox
+import cursortextbox
 import utils
 import window
 import tika
@@ -274,10 +274,10 @@ class Editor(Buffer):
         content as master's) for this Editor to use as its own Text
         widget, copied from master's configuration."""
         name = "peertype%d" % id(self)
-        peer_box = textbox.CustomTextbox(
+        peer_box = cursortextbox.CustomTextbox(
             self.mf,
             scrolled=True,
-            cursor_shape=textbox.CURSOR_SHAPES[state.curcurtype],
+            cursor_shape=cursortextbox.CURSOR_SHAPES[state.curcurtype],
             font=(state.defs[2], 12),
             wrap="word",
             undo=True,
@@ -307,7 +307,7 @@ class Editor(Buffer):
         return peer_box
 
     def _attach_peer_cursor(self, peer_box):
-        """Move the cursor of peer_box (a textbox.CustomTextbox) over to the peer Text that
+        """Move the cursor of peer_box (a cursortextbox.CustomTextbox) over to the peer Text that
         replaced its own, as its cursor label, bindings and change event belonged to
         the Text that was destroyed.
         """
@@ -507,10 +507,10 @@ class Editor(Buffer):
             self.view_children = []
             old_type = self.type_
             self._cancel_type_after_ids()
-            self.type_ = textbox.CustomTextbox(
+            self.type_ = cursortextbox.CustomTextbox(
                 self.mf,
                 scrolled=True,
-                cursor_shape=textbox.CURSOR_SHAPES[state.curcurtype],
+                cursor_shape=cursortextbox.CURSOR_SHAPES[state.curcurtype],
                 font=(state.defs[2], 12),
                 wrap="word",
                 undo=True,
@@ -544,10 +544,10 @@ class Editor(Buffer):
                 master.view_children.remove(self)
             old_type = self.type_
             self._cancel_type_after_ids()
-            self.type_ = textbox.CustomTextbox(
+            self.type_ = cursortextbox.CustomTextbox(
                 self.mf,
                 scrolled=True,
-                cursor_shape=textbox.CURSOR_SHAPES[state.curcurtype],
+                cursor_shape=cursortextbox.CURSOR_SHAPES[state.curcurtype],
                 font=(state.defs[2], 12),
                 wrap="word",
                 undo=True,
@@ -729,10 +729,10 @@ class Editor(Buffer):
         self.latexmath.grid(column=11, row=0, padx=10, pady=10)
         self.mf.pack(fill="both", expand=True)
         if view_master is None:
-            self.type_ = textbox.CustomTextbox(
+            self.type_ = cursortextbox.CustomTextbox(
                 self.mf,
                 scrolled=True,
-                cursor_shape=textbox.CURSOR_SHAPES[state.curcurtype],
+                cursor_shape=cursortextbox.CURSOR_SHAPES[state.curcurtype],
                 font=(state.defs[2], 12),
                 wrap="word",
                 undo=True,

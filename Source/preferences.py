@@ -8,7 +8,7 @@ import canvastk as ctk
 import themes
 import tkinter as tk
 from init import v, homedir, monospace
-import textbox
+import cursortextbox
 import utils
 
 
@@ -131,7 +131,7 @@ def prf():
             if hasattr(buf, "setcursortype"):
                 buf.setcursortype(newtype.lower())
         state.cmdentry.set_cursor_shape(newtype.lower())
-        state.curcurtype = [t.capitalize() for t in textbox.CURSOR_SHAPES].index(
+        state.curcurtype = [t.capitalize() for t in cursortextbox.CURSOR_SHAPES].index(
             newtype
         )
 
@@ -207,11 +207,13 @@ Enter to close search""",
     ctk.Label(gt, text="Cursor shape:").grid(
         column=1, row=0, padx=10, pady=10, sticky="w"
     )
-    current_cursor = [t.capitalize() for t in textbox.CURSOR_SHAPES][state.curcurtype]
+    current_cursor = [t.capitalize() for t in cursortextbox.CURSOR_SHAPES][
+        state.curcurtype
+    ]
     ctk.OptionMenu(
         gt,
         default=current_cursor,
-        values=[t.capitalize() for t in textbox.CURSOR_SHAPES],
+        values=[t.capitalize() for t in cursortextbox.CURSOR_SHAPES],
         command=changecurtype,
     ).grid(column=2, row=0, padx=10, pady=10, sticky="ew")
     tabs.add(tft, text="Theme & Font")

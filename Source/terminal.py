@@ -23,7 +23,7 @@ if platform.system() != "Linux":
     from winpty import PtyProcess
 from buffer import Buffer, newbuffer, pcclosebuff
 from utils import bindrecur
-from textbox import CustomTextbox
+from cursortextbox import CustomTextbox
 import pycode
 import utils
 import window

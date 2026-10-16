@@ -479,7 +479,7 @@ state.cmdentry = utils.EnabledLookCursorTextbox(
     state="disabled",
     height=1,
     font=(monospace, 12),
-    cursor_shape=textbox.CURSOR_SHAPES[state.curcurtype],
+    cursor_shape=cursortextbox.CURSOR_SHAPES[state.curcurtype],
 )
 state.cmdentry.pack(padx=10, pady=10, fill="x", anchor="n")
 state.cmdautocomplete = utils.EnabledLookCursorTextbox(

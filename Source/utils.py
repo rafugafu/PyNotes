@@ -11,7 +11,7 @@ import tkinter as tk
 import time
 import weakref
 import canvastk as ctk
-import textbox
+import cursortextbox
 from init import homedir, rootdir, monospace
 
 
@@ -153,7 +153,7 @@ class EnabledLookTextbox(ctk.Textbox):
                 pass
 
 
-class EnabledLookCursorTextbox(EnabledLookTextbox, textbox.CustomTextbox):
+class EnabledLookCursorTextbox(EnabledLookTextbox, cursortextbox.CustomTextbox):
     """An enabled look textbox which is also a custom cursor textbox."""
 
 
