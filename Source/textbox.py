@@ -3,6 +3,7 @@ that it can have several shapes and any color, and so that its block shape shows
 the character under it. Meant for everything in PyNotes that needs more than
 tkinter's thin insertion cursor, such as the editors."""
 
+import itertools
 import tkinter as tk
 
 import canvastk as ctk
@@ -28,6 +29,10 @@ class CustomTextbox(ctk.Textbox):
     cursor_follows_text_colors: with no color of its own, the cursor takes the color
     of the character under it, and the block takes the background of it for the
     character it shows.
+
+    Mouse events on the cursor pass straight through to the text under it: clicks,
+    double and triple clicks, drags, the wheel, and the buttons, as if it were not
+    there.
 
     follow_insert (a constructor option only): whether the cursor is drawn at the
     insert mark and follows it by itself. Pass False for a text that keeps its cursor
@@ -61,6 +66,12 @@ class CustomTextbox(ctk.Textbox):
         "<Button-4>",
         "<Button-5>",
     )
+    # What tk counts as clicks of one multiple click: no further apart than this in ms
+    # and in px.
+    _CLICK_INTERVAL_MS = 500
+    _CLICK_DISTANCE = 5
+    _CURSOR_REPLAY_TAG = "CustomTextboxCursorReplay"  # a binding tag with no bindings
+    _cursor_tag_numbers = itertools.count()
     _cursor_label = None  # made at the end of __init__
 
     def __init__(
@@ -92,22 +103,50 @@ class CustomTextbox(ctk.Textbox):
         self._cursor_appearance = None  # what the label shows right now
         self._cursor_placement = None  # where the label is placed right now
         self._cursor_xview_command = None
+        self._cursor_presses = []  # (time, x, y) of the latest presses of button 1
+        self._cursor_left_for_label = False  # whether the text was told it was left
+        self._cursor_pointer_shape = None  # the mouse pointer shape of the label
         text = self.inner
         text.configure(insertwidth=0, insertontime=0)  # hide tkinter's own cursor
         self._cursor_label = self._make_cursor_label()
-        text.bind("<FocusIn>", self._cursor_focus_in, add="+")
-        text.bind("<FocusOut>", self._cursor_focus_out, add="+")
-        text.bind("<Configure>", lambda _: self.schedule_cursor_redraw(), add="+")
-        text.bind("<Map>", lambda _: self.schedule_cursor_redraw(), add="+")
-        text.bind("<Destroy>", self._cursor_text_destroyed, add="+")
+        # The cursor's bindings on the text are on a binding tag of their own, which
+        # comes before the text's, so that nothing that binds the text again (a plain
+        # bind() replaces what is bound already) can take them away, and so that they
+        # can keep an event from the rest.
+        self._cursor_tag = f"CustomTextboxCursor{next(self._cursor_tag_numbers)}"
+        self._cursor_bound = []
+        text.bindtags((self._cursor_tag,) + tuple(text.bindtags()))
+        self._bind_cursor("<FocusIn>", self._cursor_focus_in)
+        self._bind_cursor("<FocusOut>", self._cursor_focus_out)
+        self._bind_cursor("<Configure>", lambda _: self.schedule_cursor_redraw())
+        self._bind_cursor("<Map>", lambda _: self.schedule_cursor_redraw())
+        self._bind_cursor("<Destroy>", self._cursor_text_destroyed)
+        self._bind_cursor("<ButtonPress-1>", self._cursor_press_seen)
+        self._bind_cursor("<Leave>", self._cursor_text_left)
+        self._bind_cursor("<Enter>", self._cursor_text_entered)
         if follow_insert:
             # Every change of the text, the insert mark, and the view raises this
             # event (see canvastk's Textbox); the view scrolling sideways is followed
             # separately.
             self._install_change_event()
-            text.bind("<<TextboxChanged>>", self._cursor_changed, add="+")
+            self._bind_cursor("<<TextboxChanged>>", self._cursor_changed)
             self._cursor_follow_xview()
-        self.schedule_cursor_redraw()
+        # The first redraw. It is not scheduled with after_idle() of the box, which a
+        # subclass may override with a version that needs what it only sets up once
+        # this constructor is done.
+        self.inner.after_idle(self._cursor_first_redraw)
+
+    def _cursor_first_redraw(self):
+        """The first draw of the cursor, once the program is idle."""
+        try:
+            self.redraw_cursor()
+        except tk.TclError:
+            pass  # the text was destroyed before it came
+
+    def _bind_cursor(self, sequence, handler):
+        """Bind `handler` for `sequence` on the text, on the cursor's own tag."""
+        self.inner.bind_class(self._cursor_tag, sequence, handler, add="+")
+        self._cursor_bound.append(sequence)
 
     # ---- the cursor's label -------------------------------------------------------
     def _make_cursor_label(self):
@@ -133,21 +172,95 @@ class CustomTextbox(ctk.Textbox):
             )
         return label
 
+    # ---- mouse events on the cursor -------------------------------------------------
+    # The mouse events that happen on the cursor go to its label, and a click puts the
+    # cursor right where it was made, so the next click of a double click lands on it.
+    # Handing a click on to the text does not make it the second click of a double
+    # click there: tk counts the clicks that one window gets one after the other, and
+    # the first one went to the text, while a double click cannot be generated either.
+    # So the earlier clicks of the multiple click are generated on the text again before
+    # this one, and the text counts them itself.
+    def _cursor_press_seen(self, event):
+        """The text got a press of button 1: remember it, to count multiple clicks."""
+        press = (event.time, event.x, event.y)
+        self._cursor_presses = (self._cursor_presses + [press])[-3:]
+
+    def _cursor_earlier_clicks(self, time, x, y):
+        """The presses of button 1 on the text before one at (x, y) at `time` that it
+        makes a multiple click with, oldest first.
+        """
+        chain = []
+        for press_time, press_x, press_y in reversed(self._cursor_presses):
+            latest = chain[-1][0] if chain else time
+            if (
+                latest - press_time > self._CLICK_INTERVAL_MS
+                or abs(press_x - x) > self._CLICK_DISTANCE
+                or abs(press_y - y) > self._CLICK_DISTANCE
+            ):
+                break
+            chain.append((press_time, press_x, press_y))
+        return chain[::-1]
+
+    def _cursor_replay_clicks(self, clicks, keys):
+        """Generate the earlier clicks `clicks` of a multiple click on the text again,
+        for tk to count. They are generated with no binding tag on the text, so they
+        count but nothing is called for them: nothing sees a click that was not made.
+        """
+        text = self.inner
+        tags = text.bindtags()
+        text.bindtags((self._CURSOR_REPLAY_TAG,))
+        try:
+            for time, x, y in clicks:
+                options = {"x": x, "y": y, "state": keys}
+                text.event_generate("<ButtonPress-1>", time=time, **options)
+                text.event_generate("<ButtonRelease-1>", time=time + 20, **options)
+        finally:
+            text.bindtags(tags)
+
     def _cursor_pass_on(self, sequence, event):
         """Hand a mouse event that happened on the cursor on to the text under it, as if
         the cursor were not there.
         """
         label = self._cursor_label
-        options = {
-            "x": event.x + label.winfo_x(),
-            "y": event.y + label.winfo_y(),
-            "state": event.state & 0xFF,  # the keys; the pattern has the buttons
-            "time": event.time,
-        }
+        x = event.x + label.winfo_x()
+        y = event.y + label.winfo_y()
+        keys = event.state  # the keys and the buttons that are down (a drag needs them)
+        if sequence == "<ButtonPress-1>":
+            self._cursor_replay_clicks(
+                self._cursor_earlier_clicks(event.time, x, y), keys
+            )
+        options = {"x": x, "y": y, "state": keys, "time": event.time}
         if sequence == "<MouseWheel>":
             options["delta"] = event.delta
         self.inner.event_generate(sequence, **options)
         return "break"
+
+    # Moving the mouse pointer from the text onto its cursor, or back, makes the text
+    # get a leave and an enter event, as the label is a window inside it; as if the
+    # cursor were not there, they are kept from everything else.
+    def _cursor_on_label(self, event):
+        """Whether the pointer of a crossing event of the text is on the cursor."""
+        label = self._cursor_label
+        return (
+            label.winfo_ismapped()
+            and label.winfo_x() <= event.x < label.winfo_x() + label.winfo_width()
+            and label.winfo_y() <= event.y < label.winfo_y() + label.winfo_height()
+        )
+
+    def _cursor_text_left(self, event):
+        """The text was left: not if the pointer went onto the cursor."""
+        if self._cursor_on_label(event):
+            self._cursor_left_for_label = True
+            return "break"
+        self._cursor_left_for_label = False
+        return None
+
+    def _cursor_text_entered(self, event):
+        """The text was entered: not if the pointer came back from the cursor."""
+        if self._cursor_left_for_label:
+            self._cursor_left_for_label = False
+            return "break"
+        return None
 
     # ---- options ------------------------------------------------------------------
     @staticmethod
@@ -293,6 +406,8 @@ class CustomTextbox(ctk.Textbox):
         """The text is being destroyed: stop the timers of the cursor."""
         if event.widget is self.inner:
             self.stop_cursor_timers()
+            for sequence in self._cursor_bound:
+                self.inner.unbind_class(self._cursor_tag, sequence)
 
     # ---- blinking and scheduling -----------------------------------------------------
     def reset_cursor_blink(self):
@@ -398,6 +513,10 @@ class CustomTextbox(ctk.Textbox):
         else:
             box = (x, y, width, height)
             appearance = (char, color, glyph_color, font)
+        pointer_shape = str(self.inner.cget("cursor"))
+        if pointer_shape != self._cursor_pointer_shape:
+            self._cursor_pointer_shape = pointer_shape
+            label.configure(cursor=pointer_shape)
         if appearance != self._cursor_appearance:
             self._cursor_appearance = appearance
             text, background, foreground, label_font = appearance
