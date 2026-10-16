@@ -8,6 +8,7 @@ import canvastk as ctk
 import themes
 import tkinter as tk
 from init import v, homedir, monospace
+import textbox
 import utils
 
 
@@ -30,7 +31,7 @@ def svprf():
         .replace("orgfont", "state.defs[2]")
     )
     file.write(
-        f'{v}\n{str(state.bfr)}\n{font}\n{state.root.gettheme()}\n{",".join(state.dicts)}\n{state.emacskeysforsearch}\n{state.taborspace}\n{state.nographicalfiledialogs}\n{state.pythonexecutable}\n{state.theme}'
+        f'{v}\n{str(state.bfr)}\n{font}\n{state.root.gettheme()}\n{",".join(state.dicts)}\n{state.emacskeysforsearch}\n{state.taborspace}\n{state.nographicalfiledialogs}\n{state.pythonexecutable}\n{state.curcurtype}\n{state.theme}'
     )
     file.close()
     exec("theme = {" + state.theme + "}", vars(state))
@@ -124,6 +125,16 @@ def prf():
                 text=f"Python interpreter: '{state.pythonexecutable}'"
             )
 
+    def changecurtype(newtype):
+        """Change the cursor shape of all editors."""
+        for buf in state.all_buffers:
+            if hasattr(buf, "setcursortype"):
+                buf.setcursortype(newtype.lower())
+        state.cmdentry.set_cursor_shape(newtype.lower())
+        state.curcurtype = [t.capitalize() for t in textbox.CURSOR_SHAPES].index(
+            newtype
+        )
+
     def makeowntheme():
         """Launch custom canvastk creator so the user can design a
         custom canvastk theme, then apply the theme to canvastk."""
@@ -181,18 +192,28 @@ Enter to close search""",
         command=lambda: setnoguifd(varnoguifd.get()),
         variable=varnoguifd,
     ).grid(column=0, row=4, sticky="w")
-    ctk.Frame(gt, height=20).grid(column=0, row=4, sticky="w")
+    ctk.Separator(gt).grid(column=0, row=5, sticky="ew")
     pyexecshowtext = ctk.Label(
         gt, text=f"Python interpreter: '{state.pythonexecutable}'"
     )
-    pyexecshowtext.grid(column=0, row=5, sticky="w")
+    pyexecshowtext.grid(column=0, row=6, sticky="w")
     ctk.Label(
         gt,
         text="Python executable to use for running Python code and the Python shell.\nNote: restart Python shell for this to take effect.",
-    ).grid(column=0, row=6, sticky="w")
+    ).grid(column=0, row=7, sticky="w")
     ctk.Button(gt, text="Change", command=changepyexec).grid(
-        column=0, row=7, sticky="ew"
+        column=0, row=8, sticky="ew"
     )
+    ctk.Label(gt, text="Cursor shape:").grid(
+        column=1, row=0, padx=10, pady=10, sticky="w"
+    )
+    current_cursor = [t.capitalize() for t in textbox.CURSOR_SHAPES][state.curcurtype]
+    ctk.OptionMenu(
+        gt,
+        default=current_cursor,
+        values=[t.capitalize() for t in textbox.CURSOR_SHAPES],
+        command=changecurtype,
+    ).grid(column=2, row=0, padx=10, pady=10, sticky="ew")
     tabs.add(tft, text="Theme & Font")
     tabs.select(tft)
     tabs.pack(side="top", fill="both", expand=True, padx=10, pady=10)

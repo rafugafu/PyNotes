@@ -34,6 +34,7 @@ import dialogs
 import pycode
 import speech
 import terminal
+import textbox
 import utils
 import window
 import tika
@@ -268,14 +269,15 @@ class Editor(Buffer):
         self._focused_pane()._selectionpoint = value
 
     def _make_peer_type(self, master):
-        """Create a Textbox whose Text widget is a tkinter "peer" (Tk's
+        """Create a CustomTextbox whose Text widget is a tkinter "peer" (Tk's
         own peer_create, a second view onto the same underlying text
         content as master's) for this Editor to use as its own Text
         widget, copied from master's configuration."""
         name = "peertype%d" % id(self)
-        peer_box = ctk.Textbox(
+        peer_box = textbox.CustomTextbox(
             self.mf,
             scrolled=True,
+            cursor_shape=textbox.CURSOR_SHAPES[state.curcurtype],
             font=(state.defs[2], 12),
             wrap="word",
             undo=True,
@@ -299,12 +301,36 @@ class Editor(Buffer):
         )
         peer_box.scrollbar.config(command=peer.yview)
         peer.bind("<Control-a>", peer_box._select_all, add="+")
+        self._attach_peer_cursor(peer_box)
         peer_box.restyle_inner()
         peer_box.configure(line_numbers=True, line_number_justify="center")
         return peer_box
 
+    def _attach_peer_cursor(self, peer_box):
+        """Move the cursor of peer_box (a textbox.CustomTextbox) over to the peer Text that
+        replaced its own, as its cursor label, bindings and change event belonged to
+        the Text that was destroyed.
+        """
+        peer = peer_box.inner
+        peer_box.stop_cursor_timers()
+        peer_box._cursor_appearance = None
+        peer_box._cursor_placement = None
+        peer_box._cursor_xview_command = None
+        peer.configure(insertwidth=0, insertontime=0)
+        peer_box._cursor_label = peer_box._make_cursor_label()
+        peer.bind("<FocusIn>", peer_box._cursor_focus_in, add="+")
+        peer.bind("<FocusOut>", peer_box._cursor_focus_out, add="+")
+        peer.bind("<Configure>", lambda _: peer_box.schedule_cursor_redraw(), add="+")
+        peer.bind("<Map>", lambda _: peer_box.schedule_cursor_redraw(), add="+")
+        peer.bind("<Destroy>", peer_box._cursor_text_destroyed, add="+")
+        peer_box._change_event_installed = False  # the new Text has none yet
+        peer_box._install_change_event()
+        peer.bind("<<TextboxChanged>>", peer_box._cursor_changed, add="+")
+        peer_box._cursor_follow_xview()
+        peer_box.schedule_cursor_redraw()
+
     def _wire_type(self):
-        """Pack this pane's own Textbox and bind its events."""
+        """Pack this pane's own CustomTextbox and bind its events."""
         own_box = self._own_type
         own_box.focus_set()
         own_box.pack(side="right", fill="both", expand=True)
@@ -481,9 +507,10 @@ class Editor(Buffer):
             self.view_children = []
             old_type = self.type_
             self._cancel_type_after_ids()
-            self.type_ = ctk.Textbox(
+            self.type_ = textbox.CustomTextbox(
                 self.mf,
                 scrolled=True,
+                cursor_shape=textbox.CURSOR_SHAPES[state.curcurtype],
                 font=(state.defs[2], 12),
                 wrap="word",
                 undo=True,
@@ -517,9 +544,10 @@ class Editor(Buffer):
                 master.view_children.remove(self)
             old_type = self.type_
             self._cancel_type_after_ids()
-            self.type_ = ctk.Textbox(
+            self.type_ = textbox.CustomTextbox(
                 self.mf,
                 scrolled=True,
+                cursor_shape=textbox.CURSOR_SHAPES[state.curcurtype],
                 font=(state.defs[2], 12),
                 wrap="word",
                 undo=True,
@@ -701,9 +729,10 @@ class Editor(Buffer):
         self.latexmath.grid(column=11, row=0, padx=10, pady=10)
         self.mf.pack(fill="both", expand=True)
         if view_master is None:
-            self.type_ = ctk.Textbox(
+            self.type_ = textbox.CustomTextbox(
                 self.mf,
                 scrolled=True,
+                cursor_shape=textbox.CURSOR_SHAPES[state.curcurtype],
                 font=(state.defs[2], 12),
                 wrap="word",
                 undo=True,
@@ -799,6 +828,9 @@ class Editor(Buffer):
             except Exception as error:
                 error = str(error)
                 state.root.error("Error", f"Error in editor init code:\n{error}")
+
+    def setcursortype(self, new):
+        self._own_type.set_cursor_shape(new)
 
     def close(self):
         """Confirm/save before closing this pane. Only actually asks

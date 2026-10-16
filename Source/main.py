@@ -65,6 +65,7 @@ changelist = [
     "Made the PyNotes syntax highlighting module registration search in the editor's working directory instead of PyNotes' own sys.path which would not include local project modules and packages, causing them to not be highlighted.",
     "Fixed some text-wrapping and width bugs in the console.",
     "Made the terminal console not try to show and error when not in a tty and made Terminal=false on Linux launchers again.",
+    "Added an option to have block cursors, line cursors, and underline cursors (in preferences).",
 ]
 state.changestr = ""
 for i in range(len(changelist) - 1):
@@ -473,11 +474,15 @@ state.pcbeforehooks = {}
 state.pcafterhooks = {}
 
 
-state.cmdentry = utils.EnabledLookTextbox(
-    state.root, state="disabled", height=1, font=(monospace, 12)
+state.cmdentry = utils.EnabledLookCursorTextbox(
+    state.root,
+    state="disabled",
+    height=1,
+    font=(monospace, 12),
+    cursor_shape=textbox.CURSOR_SHAPES[state.curcurtype],
 )
 state.cmdentry.pack(padx=10, pady=10, fill="x", anchor="n")
-state.cmdautocomplete = utils.EnabledLookTextbox(
+state.cmdautocomplete = utils.EnabledLookCursorTextbox(
     state.root, state="disabled", font=(monospace, 10), wrap="word"
 )
 

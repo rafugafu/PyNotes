@@ -11,6 +11,7 @@ import tkinter as tk
 import time
 import weakref
 import canvastk as ctk
+import textbox
 from init import homedir, rootdir, monospace
 
 
@@ -150,6 +151,10 @@ class EnabledLookTextbox(ctk.Textbox):
                 textbox.refresh_enabled_look()
             except tk.TclError:
                 pass
+
+
+class EnabledLookCursorTextbox(EnabledLookTextbox, textbox.CustomTextbox):
+    """An enabled look textbox which is also a custom cursor textbox."""
 
 
 def lock_window_size(window):

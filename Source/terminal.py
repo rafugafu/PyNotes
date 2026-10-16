@@ -1,5 +1,5 @@
 """PyNotes' terminal buffer: a from-scratch VT100/xterm terminal
-emulator (the Terminal widget, a canvastk Textbox subclass) driving a real
+emulator (the Terminal widget, a CustomTextbox subclass) driving a real
 shell/command subprocess over a PTY (Python's pty module on Linux,
 pywinpty elsewhere), plus TerminalBuffer, the Buffer wrapper around it,
 and term()/termexec(), the public ways to open one or run a one-off
@@ -23,6 +23,7 @@ if platform.system() != "Linux":
     from winpty import PtyProcess
 from buffer import Buffer, newbuffer, pcclosebuff
 from utils import bindrecur
+from textbox import CustomTextbox
 import pycode
 import utils
 import window
@@ -285,8 +286,8 @@ def _term_sgr_resolve(state, default_fg, default_bg):
     return fg, bg
 
 
-class Terminal(ctk.Textbox):
-    """A VT100/xterm terminal emulator built on a canvastk Textbox:
+class Terminal(CustomTextbox):
+    """A VT100/xterm terminal emulator built on PyNotes' CustomTextbox:
     runs a real subprocess over a PTY (see _term_start_process()),
     parses its output as a stream of ANSI/VT escape sequences (see
     _process(), the emulator's core), and reflects the resulting
@@ -345,17 +346,23 @@ class Terminal(ctk.Textbox):
         (a string) and fontsize: its size (a number), always used
         explicitly for the text, the bold/italic variants and the
         cell size."""
-        import tkinter as tk
 
         kwargs["font"] = (font, fontsize)
         kwargs.setdefault("wrap", "none")
         kwargs.setdefault("scrolled", True)
+        # The emulator keeps the cursor position itself (see cursor_index()) and
+        # redraws the cursor whenever it moves, so the text does not have to follow
+        # the insert mark; the cursor takes the colors of the cell it is on.
+        kwargs.setdefault("cursor_shape", "block")
+        kwargs.setdefault("cursor_follows_text_colors", True)
+        kwargs.setdefault("follow_insert", False)
+        # The textbox schedules its cursor redraws while it is created.
+        self._pending_after_ids = set()
         super().__init__(master, *args, **kwargs)
         self.unbind("<Control-a>")
         self._term_font_name = font
         self._term_font_size = fontsize
         self._term_font = tkfont.Font(family=font, size=fontsize)
-        self._pending_after_ids = set()
         import queue as _queue
 
         self.endmessage = endmessage
@@ -368,33 +375,10 @@ class Terminal(ctk.Textbox):
         self._term_default_fg = self.cget("foreground")
         self._default_fg_rgb = self.winfo_rgb(self._term_default_fg)
         self._default_bg_rgb = self.winfo_rgb(self._term_default_bg)
-        self.config(insertwidth=0, insertontime=0)
         self._cx = 0
-        self._cursor_shape = "block"
-        self._cursor_color = self._term_default_fg
-        self._cursor_color_custom = False
-        self._cursor_blink_enabled = False
-        self._cursor_dectcem_visible = True
-        self._cursor_has_focus = True
-        self._cursor_blink_visible = True
-        self._cursor_blink_after_id = None
-        self._cursor_redraw_pending = False
-        self._cursor_widget = ctk.Label(
-            self.inner,
-            bg=self._cursor_color,
-            text_color=self._term_default_bg,
-            text="",
-            font=(self._term_font_name, self._term_font_size),
-            padx=0,
-            pady=0,
-            anchor="nw",
-        )
-        self._cursor_widget.bind("<Map>", lambda event: "break")
-        self._cursor_widget.bind("<Unmap>", lambda event: "break")
         self.config(
             yscrollcommand=self._term_on_scroll, xscrollcommand=self._term_on_scroll
         )
-        self._cursor_set_blink_enabled(True)
         self.running = True
         self._closed = False
         self._out_q = _queue.Queue(maxsize=64)
@@ -482,148 +466,47 @@ class Terminal(ctk.Textbox):
         self.edit_modified(False)
         self.bind("<<Modified>>", self._on_modified)
         self.bind("<Control-Shift-V>", self._paste_clipboard)
-        self.inner.bind("<Configure>", self._term_on_configure)
+        self.inner.bind("<Configure>", self._term_on_configure, add="+")
         self.bind("<Map>", self._term_on_map)
         self.bind("<Destroy>", lambda e: self._terminate_process())
         self.realbind = self.inner.bind
         self.bind = lambda *_, **__: None
         self.inner.bind = lambda *_, **__: None
 
-    # The cursor is drawn as PyNotes' own Label widget (self._cursor_widget,
-    # placed on top of the Text) rather than tkinter's built-in insertion
-    # cursor, since a terminal cursor needs shapes (block/bar/underline),
-    # custom colors, and (for "block") the character under it rendered
-    # in inverted colors, none of which the built-in cursor supports.
+    # The cursor itself (its shapes, blinking, colors, and drawing) is the
+    # CustomTextbox's; what follows is only what a terminal adds to it.
 
     def setcursortype(self, to="block"):
         """Set the cursor shape ('block', 'bar', or 'underline'), as
         requested by a DECSCUSR escape sequence."""
-        self._cursor_shape = to
-        self._cursor_schedule_redraw()
+        self.set_cursor_shape("line" if to == "bar" else to)
 
-    def _cursor_set_color(self, color, custom=True):
-        """Set the cursor's color; custom=False marks it as the
-        terminal's default color rather than one set by an OSC 12
-        escape (ignored in nocolor mode)."""
-        if custom and self.nocolor:
+    def _cursor_set_color(self, color):
+        """Set the cursor's color as requested by an OSC 12 escape
+        sequence (ignored in nocolor mode), or, with None, go back to
+        the cursor taking the colors of the cell it is on."""
+        if color is not None and self.nocolor:
             return
-        self._cursor_color = color
-        self._cursor_color_custom = custom
-        self._cursor_schedule_redraw()
+        self.set_color_part("cursor_color", color)
+        self.schedule_cursor_redraw()
 
-    def _cursor_set_visible(self, visible):
-        """Show/hide the cursor (DECTCEM, '\\x1b[?25h'/'\\x1b[?25l')."""
-        self._cursor_dectcem_visible = visible
-        self._cursor_schedule_redraw()
+    def cursor_index(self):
+        """The cursor is drawn at the emulator's own cursor position,
+        since the text widget's insert mark is not used to track it."""
+        return f"{self._cur_line}.{self._cx}"
 
-    def _cursor_set_blink_enabled(self, enabled):
-        self._cursor_blink_enabled = enabled
-        self._cursor_reset_blink_phase()
-        self._cursor_schedule_redraw()
-
-    def _cursor_reset_blink_phase(self):
-        """Restart the blink cycle with the cursor visible (called on
-        any cursor move/input)."""
-        self._cursor_blink_visible = True
-        if self._cursor_blink_after_id is not None:
-            self.after_cancel(self._cursor_blink_after_id)
-            self._cursor_blink_after_id = None
-        if self._cursor_blink_enabled:
-            self._cursor_blink_after_id = self.after(600, self._cursor_blink_tick)
-
-    def _cursor_blink_tick(self):
-        self._cursor_blink_after_id = None
-        if self._closed:
-            return
-        self._cursor_blink_visible = not self._cursor_blink_visible
-        self._cursor_redraw()
-        self._cursor_blink_after_id = self.after(
-            600 if self._cursor_blink_visible else 300, self._cursor_blink_tick
-        )
-
-    def _cursor_schedule_redraw(self):
-        """Coalesce cursor-affecting changes into a single redraw, run
-        once idle."""
-        if self._cursor_redraw_pending:
-            return
-        self._cursor_redraw_pending = True
-        self.after_idle(self._cursor_redraw_now)
-
-    def _cursor_redraw_now(self):
-        self._cursor_redraw_pending = False
-        self._cursor_redraw()
-
-    def _cursor_char_colors(self):
-        """The fg/bg colors of the character currently under the
-        cursor, from its own SGR highlight tag if it has one."""
-        fg = self._term_default_fg
-        bg = self._term_default_bg
-        try:
-            for _tag in self.tag_names(f"{self._cur_line}.{self._cx}"):
-                if not _tag.startswith("sgr"):
-                    continue
-                _tfg = self.tag_cget(_tag, "foreground")
-                _tbg = self.tag_cget(_tag, "background")
-                if _tfg:
-                    fg = _tfg
-                if _tbg:
-                    bg = _tbg
-        except Exception:
-            pass
-        return fg, bg
-
-    def _cursor_redraw(self):
-        """Reposition/redraw (or hide) the cursor widget to match its
-        current grid position, shape, color, and visibility."""
-        if not self.winfo_exists():
-            return
-        if (
-            self.charwidth is None
-            or not self._cursor_dectcem_visible
-            or not self._cursor_has_focus
-            or (self._cursor_blink_enabled and not self._cursor_blink_visible)
-        ):
-            self._cursor_widget.place_forget()
-            return
-        try:
-            _box = super().bbox(f"{self._cur_line}.{self._cx}")
-        except Exception:
-            _box = None
-        if not _box:
-            self._cursor_widget.place_forget()
-            return
-        _bx, _by, _bw, _bh = _box
-        _chrome = int(self.cget("borderwidth")) + int(self.cget("highlightthickness"))
-        _bx -= _chrome + int(self.cget("padx"))
-        _by -= _chrome + int(self.cget("pady"))
-        _charw, _charh = self.charwidth, self.charheight
-        try:
-            _char = self.get(
-                f"{self._cur_line}.{self._cx}", f"{self._cur_line}.{self._cx + 1}"
-            )
-        except Exception:
-            _char = ""
-        _char_fg, _char_bg = self._cursor_char_colors()
-        _cursor_bg = self._cursor_color if self._cursor_color_custom else _char_fg
-        _cursor_fg = self._term_default_bg if self._cursor_color_custom else _char_bg
-        if self._cursor_shape == "bar":
-            self._cursor_widget.config(text="", bg=_cursor_bg)
-            self._cursor_widget.place(x=_bx, y=_by, width=2, height=_charh)
-        elif self._cursor_shape == "underline":
-            self._cursor_widget.config(text="", bg=_cursor_bg)
-            self._cursor_widget.place(x=_bx, y=_by + _charh - 2, width=_charw, height=2)
-        else:
-            self._cursor_widget.config(
-                text=_char if _char and _char != "\n" else " ",
-                bg=_cursor_bg,
-                text_color=_cursor_fg,
-            )
-            self._cursor_widget.place(x=_bx, y=_by, width=_charw, height=_charh)
+    def cursor_text_tags(self, index):
+        """Only SGR highlight tags give a cell its colors; the cursor
+        ignores the other tags the text has (the Python shell's syntax
+        highlighting among them)."""
+        return [
+            _tag for _tag in super().cursor_text_tags(index) if _tag.startswith("sgr")
+        ]
 
     def _term_on_scroll(self, *args):
         """Any scroll (wheel, built-in scroll bar drag, keyboard) redraws
         the cursor and re-checks whether the view is at the bottom."""
-        self._cursor_schedule_redraw()
+        self.schedule_cursor_redraw()
         self.after_idle(self._term_update_follow)
 
     def _resolve_insert(self, idx):
@@ -641,8 +524,8 @@ class Terminal(ctk.Textbox):
             return self.inner.mark_set(mark, *args, **kwargs)
         _idx = self.inner.index(self._resolve_insert(args[0]))
         self._cur_line, self._cx = (int(_x) for _x in _idx.split("."))
-        self._cursor_reset_blink_phase()
-        self._cursor_schedule_redraw()
+        self.reset_cursor_blink()
+        self.schedule_cursor_redraw()
 
     # index/delete/compare/see/bbox all resolve "insert" the same way,
     # so they can be used with this terminal's tracked cursor just like
@@ -721,7 +604,7 @@ class Terminal(ctk.Textbox):
             self._term_started = True
             self._term_refresh_default_colors()
             self._term_start_process()
-        self._cursor_schedule_redraw()
+        self.schedule_cursor_redraw()
 
     def _term_refresh_default_colors(self):
         """Re-read the terminal's default fg/bg from the current
@@ -734,7 +617,6 @@ class Terminal(ctk.Textbox):
             "sel", background=self._term_default_fg, foreground=self._term_default_bg
         )
         self._term_retheme_tags()
-        self._cursor_set_color(self._term_default_fg, custom=False)
 
     def _term_reset_tabs(self):
         """Reset tab stops to the default every-8-columns (HTS/TBC use
@@ -844,7 +726,7 @@ class Terminal(ctk.Textbox):
         cols, rows = self._term_compute_size()
         if self._follow_bottom:
             self._term_follow_view()
-        self._cursor_schedule_redraw()
+        self.schedule_cursor_redraw()
         if cols == self._GRID_COLS and rows == self._GRID_ROWS:
             return
         self._term_resize_grid(cols, rows)
@@ -920,7 +802,7 @@ class Terminal(ctk.Textbox):
                 os.killpg(self.proc.pid, signal.SIGWINCH)
             except Exception:
                 pass
-        self._cursor_schedule_redraw()
+        self.schedule_cursor_redraw()
 
     def _term_preexec(self):
         """subprocess.Popen preexec_fn (Linux): make the child its own
@@ -1011,7 +893,6 @@ class Terminal(ctk.Textbox):
                 pass
         self._poll_after_id = None
         self._blink_after_id = None
-        self._cursor_blink_after_id = None
         self._resize_after_id = None
         for _aid in list(self._pending_after_ids):
             try:
@@ -1019,10 +900,10 @@ class Terminal(ctk.Textbox):
             except Exception:
                 pass
         self._pending_after_ids.clear()
-        # The pending cursor redraw was just cancelled, so its "already
-        # scheduled" flag has to be cleared too, or no cursor redraw can
-        # ever be scheduled again after a restart.
-        self._cursor_redraw_pending = False
+        # The cursor's blink timer and pending redraw were just cancelled
+        # too, so it has to forget them, or no cursor redraw can ever be
+        # scheduled again after a restart.
+        self.stop_cursor_timers()
         try:
             state._open_terminal_closers.remove(self._terminate_process)
         except Exception:
@@ -1067,9 +948,9 @@ class Terminal(ctk.Textbox):
         self._alt_saved = None
         self._alt_mode = False
         self.setcursortype("block")
-        self._cursor_set_blink_enabled(True)
-        self._cursor_set_visible(True)
-        self._cursor_set_color(self._term_default_fg, custom=False)
+        self.set_cursor_blink(True)
+        self.set_cursor_visible(True)
+        self._cursor_set_color(None)
         import queue as _queue
 
         self._out_q = _queue.Queue(maxsize=64)
@@ -1339,7 +1220,9 @@ class Terminal(ctk.Textbox):
         elif body.startswith("12;"):
             _spec = body[3:]
             if _spec == "?":
-                self._osc_colour_reply("12", self._cursor_color)
+                self._osc_colour_reply(
+                    "12", self.cget("cursor_color") or self._term_default_fg
+                )
             else:
                 _col = self._osc_parse_colour(_spec)
                 if _col:
@@ -1349,7 +1232,7 @@ class Terminal(ctk.Textbox):
                         pass
         elif body == "112" or body.startswith("112;"):
             try:
-                self._cursor_set_color(self._term_default_fg, custom=False)
+                self._cursor_set_color(None)
             except Exception:
                 pass
 
@@ -2285,13 +2168,13 @@ class Terminal(ctk.Textbox):
                             _cs = p[0]
                             if _cs in (0, 1, 2):
                                 self.setcursortype("block")
-                                self._cursor_set_blink_enabled(_cs != 2)
+                                self.set_cursor_blink(_cs != 2)
                             elif _cs in (3, 4):
                                 self.setcursortype("underline")
-                                self._cursor_set_blink_enabled(_cs == 3)
+                                self.set_cursor_blink(_cs == 3)
                             elif _cs in (5, 6):
                                 self.setcursortype("bar")
-                                self._cursor_set_blink_enabled(_cs == 5)
+                                self.set_cursor_blink(_cs == 5)
                         elif cmd == "n":
                             if p[0] == 6:
                                 cur_col = self._term_index_to_col(
@@ -2333,9 +2216,9 @@ class Terminal(ctk.Textbox):
                                 self._origin_mode = True
                                 self._cursor_home()
                             elif p[0] == 25:
-                                self._cursor_set_visible(True)
+                                self.set_cursor_visible(True)
                             elif p[0] == 12:
-                                self._cursor_set_blink_enabled(True)
+                                self.set_cursor_blink(True)
                             elif p[0] == 5:
                                 if not self._reverse_screen:
                                     self._reverse_screen = True
@@ -2366,9 +2249,9 @@ class Terminal(ctk.Textbox):
                                 self._origin_mode = False
                                 self._cursor_home()
                             elif p[0] == 25:
-                                self._cursor_set_visible(False)
+                                self.set_cursor_visible(False)
                             elif p[0] == 12:
-                                self._cursor_set_blink_enabled(False)
+                                self.set_cursor_blink(False)
                             elif p[0] == 5:
                                 if self._reverse_screen:
                                     self._reverse_screen = False
@@ -2570,9 +2453,9 @@ class Terminal(ctk.Textbox):
                         self._recompute_sgr_tag()
                     self.mark_set("insert", "1.0")
                     self.setcursortype("block")
-                    self._cursor_set_blink_enabled(True)
-                    self._cursor_set_visible(True)
-                    self._cursor_set_color(self._term_default_fg, custom=False)
+                    self.set_cursor_blink(True)
+                    self.set_cursor_visible(True)
+                    self._cursor_set_color(None)
                     i += 2
                 elif nxt == "7":
                     if self._alt_mode:
@@ -2742,7 +2625,7 @@ class Terminal(ctk.Textbox):
             else:
                 i += 1
         self._term_materialize_screen()
-        self._cursor_schedule_redraw()
+        self.schedule_cursor_redraw()
 
     def _poll(self):
         """Periodic (self.after) callback: drain and _process() queued
@@ -2813,8 +2696,8 @@ class Terminal(ctk.Textbox):
         self._unpost_menu()
         if not self.running:
             return "break"
-        self._cursor_reset_blink_phase()
-        self._cursor_schedule_redraw()
+        self.reset_cursor_blink()
+        self.schedule_cursor_redraw()
         sym = event.keysym
         ch = event.char
         if ch or sym in (
@@ -2904,8 +2787,8 @@ class Terminal(ctk.Textbox):
         self._unpost_menu()
         if not self.running:
             return "break"
-        self._cursor_reset_blink_phase()
-        self._cursor_schedule_redraw()
+        self.reset_cursor_blink()
+        self.schedule_cursor_redraw()
         self._clear_selection()
         sym = event.keysym
         ch = event.char
@@ -3255,11 +3138,8 @@ class Terminal(ctk.Textbox):
             self.see(f"{self.screen_top}.0")
 
     def _focus_in(self, e):
-        """Show/resume-blinking the cursor and report focus gained
-        (CSI I) if the subprocess asked for focus events (DECSET 1004)."""
-        self._cursor_has_focus = True
-        self._cursor_reset_blink_phase()
-        self._cursor_schedule_redraw()
+        """Report focus gained (CSI I) if the subprocess asked for
+        focus events (DECSET 1004)."""
         if self._focus_reporting and self.running:
             try:
                 self._write(b"\x1b[I")
@@ -3267,10 +3147,8 @@ class Terminal(ctk.Textbox):
                 pass
 
     def _focus_out(self, e):
-        """Hide the cursor and report focus lost (CSI O) if the
-        subprocess asked for focus events."""
-        self._cursor_has_focus = False
-        self._cursor_schedule_redraw()
+        """Report focus lost (CSI O) if the subprocess asked for
+        focus events."""
         if self._focus_reporting and self.running:
             try:
                 self._write(b"\x1b[O")
@@ -3289,7 +3167,7 @@ class Terminal(ctk.Textbox):
         """Adopt the new theme's colors as the default fg/bg (unless
         currently showing the alternate screen or a reverse-video
         screen, where the "default" colors are deliberately different
-        from the theme) and update the cursor color to match."""
+        from the theme)."""
         try:
             _bg = self.cget("background")
             _fg = self.cget("foreground")
@@ -3303,8 +3181,6 @@ class Terminal(ctk.Textbox):
                 self._default_bg_rgb = self.winfo_rgb(_bg)
                 self.tag_configure("sel", background=_fg, foreground=_bg)
                 self._term_retheme_tags()
-        if not self._cursor_color_custom:
-            self._cursor_set_color(_fg, custom=False)
 
 
 class TerminalBuffer(Buffer):

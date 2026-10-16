@@ -277,6 +277,7 @@ False
 False
 False
 {defaultpythonexec}
+0
 'pynotes:found': \"foreground = '#FFFFFF', background = '#16A34A'\", 'pynotes:foundhighlight': \"foreground = '#FFFFFF', background = '#1F2937'\", 'pynotes:marked': \"background = 'yellow'\", 'python:keywords': \"foreground = '#7C3AED', font = (state.defs[2], 12, 'bold')\", 'python:inbuilt': \"foreground = '#D97706'\", 'python:comments': \"foreground = '#6B7280', font = (state.defs[2], 12, 'italic')\", 'python:strings': \"foreground = '#15803D'\", 'python:variable_names': \"foreground = '#DC2626'\", 'python:function_names': \"foreground = '#2563EB'\", 'python:class_names': \"foreground = '#0891B2'\", 'python:class_instances': \"foreground = '#155E75'\", 'python:function_arguments': \"foreground = '#0F766E'\", 'python:operators': \"foreground = 'white', background = 'light grey'\", 'python:module_names': \"foreground = '#0369A1'\", 'latex:inlinemath': \"foreground = '#15803D'\", 'latex:environment': \"background = '#DCFCE7'\", 'latex:comments': \"foreground = '#6B7280', font = (state.defs[2], 12, 'italic')\", 'latex:commands': \"foreground = '#C026D3'\", 'latex:arguments': \"foreground = '#2563EB'\", 'latex:operators': \"foreground = 'white', background = 'light grey'\", 'latex:square_brackets': \"foreground = '#92400E'\", 'html:attributes': \"foreground = '#DC2626'\", 'html:tags': \"foreground = '#047857'\", 'html:comments': \"foreground = '#6B7280', font = (state.defs[2], 12, 'italic')\", 'html:quotes': \"foreground = '#2563EB'\", 'markdown:headers1': \"foreground = '#111827', font = (state.defs[2], 29, 'bold')\", 'markdown:headers2': \"foreground = '#1F2937', font = (state.defs[2], 26, 'bold')\", 'markdown:headers3': \"foreground = '#374151', font = (state.defs[2], 23, 'bold')\", 'markdown:headers4': \"foreground = '#4B5563', font = (state.defs[2], 20, 'bold')\", 'markdown:headers5': \"foreground = '#6B7280', font = (state.defs[2], 17, 'bold')\", 'markdown:headers6': \"foreground = '#9CA3AF', font = (state.defs[2], 14, 'bold')\", 'markdown:bold': \"font = (state.defs[2], 12, 'bold')\", 'markdown:italic': \"font = (state.defs[2], 12, 'italic')\", 'markdown:bold_italic': \"font = (state.defs[2], 12, 'bold italic')\", 'markdown:strike': 'overstrike = True', 'markdown:inlinecode': \"foreground = '#BE123C', background = '#F3F4F6'\", 'markdown:links': \"foreground = '#2563EB', underline = True, underlinefg = '#2563EB'\", 'markdown:blockquotes': \"foreground = '#374151', background = '#F3F4F6'\", 'markdown:codeblocks': \"background = '#F3F4F6'\""""
     new = False
     try:
@@ -484,7 +485,7 @@ def setup_app():
 def load_config(file, defaultdefs):
     """Parse the defs file (opened by load_or_create_defs()) into
     state.defs/dicts/bfr/emacskeysforsearch/taborspace/
-    nographicalfiledialogs/pythonexecutable/theme. If it's missing
+    nographicalfiledialogs/pythonexecutable/curcurtype/theme. If it's missing
     settings added since it was saved (an older-version defs file) and
     fails to parse, offer to reset it to defaultdefs; otherwise, if it's
     just from an older PyNotes version, notify the user and update its
@@ -519,10 +520,11 @@ def load_config(file, defaultdefs):
         elif state.defs[7] == "False":
             state.nographicalfiledialogs = False
         state.pythonexecutable = state.defs[8]
+        state.curcurtype = int(state.defs[9])
         exec(
             "theme = "
             + "{"
-            + state.defs[9].replace(
+            + state.defs[10].replace(
                 "type_.cget('font')[:-3].strip('{}')", "state.defs[2]"
             )
             + "}",
