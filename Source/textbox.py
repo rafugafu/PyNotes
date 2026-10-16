@@ -386,22 +386,22 @@ class CustomTextbox(ctk.Textbox):
         if look is None:
             self._cursor_hide()
             return
-        x, y, width, height, char, font, glyph_top, color, glyph_color = look
+        x, y, width, height, char, font, color, glyph_color = look
         thickness = max(1, int(self.cursor_thickness))
         if self.cursor_shape == "line":
             box = (x, y, thickness, height)
-            appearance = ("", color, color, "", 0)
+            appearance = ("", color, color, "")
         elif self.cursor_shape == "underline":
             thickness = min(thickness, height)
             box = (x, y + height - thickness, width, thickness)
-            appearance = ("", color, color, "", 0)
+            appearance = ("", color, color, "")
         else:
             box = (x, y, width, height)
-            appearance = (char, color, glyph_color, font, glyph_top)
+            appearance = (char, color, glyph_color, font)
         if appearance != self._cursor_appearance:
             self._cursor_appearance = appearance
-            text, background, foreground, label_font, top = appearance
-            options = {"text": text, "bg": background, "fg": foreground, "pady": top}
+            text, background, foreground, label_font = appearance
+            options = {"text": text, "bg": background, "fg": foreground}
             if label_font:
                 options["font"] = label_font
             label.configure(**options)
@@ -438,31 +438,54 @@ class CustomTextbox(ctk.Textbox):
 
     def _cursor_look(self):
         """What is needed to draw the cursor now: (x, y, width, height) of the cell it
-        covers in the text widget, the character in it, the font that character has,
-        how far below the top of the cell that font has to draw it to share the baseline
-        of the line, and the colors of the cursor and of the character on it. None when
-        the character is not on screen.
+        covers in the text widget, the character to show in it, the font of that cell,
+        and the colors of the cursor and of the character on it. None when the
+        character is not on screen.
+
+        The cell is what editors draw:
+        - On a character, the cell of that character, however wide (a wide character
+          is covered whole), in its font.
+        - On a tab, one ordinary cell at the start of the tab, not the whole tab (Emacs
+          does the same by default; Vim also uses a single cell there).
+        - Where there is no character (the end of a line or of the text), one ordinary
+          cell that continues the character before it, in the font that new text would
+          take there; on an empty line, in the font of the line itself.
+        Its height is that of its font, standing on the baseline of the line, rather
+        than that of the whole line, which a larger font on the line would stretch.
         """
         text = self.inner
         index = self.cursor_index()
         box = text.bbox(index)
         if not box:
             return None
-        x, y, width, height = box
+        x, y, width, _ = box
         char = self._cursor_character(index)
-        font = self._cursor_font(index)
-        if char in ("", "\n") or width < 1:
-            # Nothing there to measure: the cell of a space in the font that applies.
+        if char in ("", "\n"):
+            font = self._cursor_font(self._cursor_continued_index(index))
             width = self._font_measure(font, " ")
-        glyph_top = 0
-        if char not in ("", "\n"):
-            ascent = self._font_metric(font, "-ascent")
-            line = text.dlineinfo(index)
-            baseline = line[1] + line[4] if line else y + ascent
-            glyph_top = max(0, baseline - y - ascent)
+        else:
+            font = self._cursor_font(index)
+            if char == "\t" or width < 1:
+                width = self._font_measure(font, " ")
+        ascent = self._font_metric(font, "-ascent")
+        descent = self._font_metric(font, "-descent")
+        # The cell stands on the baseline of the line, whichever font it has. (The box
+        # the text reports for a character is that character's own, so it is not
+        # where the top of a cell of another font is, such as the cell after a large
+        # word, which is reported for the ordinary character that ends the line.)
+        line = text.dlineinfo(index)
+        top = line[1] + line[4] - ascent if line else y
         color, glyph_color = self._cursor_colors(index)
         shown = char if char and char.isprintable() and not char.isspace() else " "
-        return x, y, width, height, shown, font, glyph_top, color, glyph_color
+        return x, top, width, ascent + descent, shown, font, color, glyph_color
+
+    def _cursor_continued_index(self, index):
+        """The index whose font a cursor with no character under it takes: the character
+        before it on its line, else `index` itself.
+        """
+        if self.inner.compare(index, ">", f"{index} linestart"):
+            return f"{index}-1c"
+        return index
 
     def _cursor_character(self, index):
         """The character at `index` ("" at the end of the text, "\\n" at the end of a
