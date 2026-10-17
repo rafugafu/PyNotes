@@ -585,7 +585,11 @@ class CustomTextbox(ctk.Textbox):
             width = self._font_measure(font, " ")
         else:
             font = self._cursor_font(index)
-            if char == "\t" or width < 1:
+            if char.isspace():
+                # A space where the line wraps is reported as wide as the rest of
+                # the line, so any whitespace gets one ordinary cell (a tab, too).
+                width = self._font_measure(font, " ")
+            elif width < 1:
                 width = self._font_measure(font, " ")
         ascent = self._font_metric(font, "-ascent")
         descent = self._font_metric(font, "-descent")
