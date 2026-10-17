@@ -315,7 +315,7 @@ class Editor(Buffer):
         peer.bind("<Control-a>", peer_box._select_all, add="+")
         self._attach_peer_cursor(peer_box)
         peer_box.restyle_inner()
-        peer_box.configure(line_numbers=True, line_number_justify="center")
+        peer_box.configure(line_numbers=True)
         return peer_box
 
     def _attach_peer_cursor(self, peer_box):
@@ -594,7 +594,6 @@ class Editor(Buffer):
                 undo=True,
                 autoseparators=True,
                 line_numbers=True,
-                line_number_justify="center",
             )
             self.mainwidget = self.type_
             self._wire_type()
@@ -631,7 +630,6 @@ class Editor(Buffer):
                 undo=True,
                 autoseparators=True,
                 line_numbers=True,
-                line_number_justify="center",
             )
             self.mainwidget = self.type_
             self._wire_type()
@@ -819,7 +817,6 @@ class Editor(Buffer):
                 undo=True,
                 autoseparators=True,
                 line_numbers=True,
-                line_number_justify="center",
             )
         else:
             self.type_ = self._make_peer_type(view_master)
