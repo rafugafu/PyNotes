@@ -465,7 +465,13 @@ for code in first_plugin:
             f'There was an error in the first part of the plugin "{os.path.basename(os.path.normpath(code[0]))}":\n{error}',
         )
 # Remaining core state PyNotes needs before any buffer can be created.
-state._EDITOR_HL_SKIP_REMOVE_TAGS = {"sel", "marked", "found", "foundhighlight"}
+state._EDITOR_HL_SKIP_REMOVE_TAGS = {
+    "sel",
+    "marked",
+    "found",
+    "foundhighlight",
+    "overscroll",
+}
 state._PYTHON_SHELL_HL_SKIP_REMOVE_TAGS = {"sel", "prompt", "wrapcont"}
 state.skiptags = {}
 state.skiptagspythonshell = {}

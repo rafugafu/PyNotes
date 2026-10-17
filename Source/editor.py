@@ -348,6 +348,65 @@ class Editor(Buffer):
         own_box.pack(side="right", fill="both", expand=True)
         self._bind_type_events()
         self._bind_focus_recursive(own_box)
+        self._install_overscroll(own_box)
+
+    def _install_overscroll(self, box):
+        """Let the view of box scroll on past the last line until it is a quarter
+        of the way down the box, by giving the last line spacing below it that is
+        3/4 of the height of the text. The tag with the spacing is shared by the peer
+        views of one buffer.
+        """
+        text = box.inner
+        box._overscroll_gap = None
+        box._install_change_event()
+
+        def update(_=None):
+            """Put the spacing on the last line only. The new last line is tagged
+            before the old one is untagged, as a moment without the spacing would
+            shrink the scroll range and snap the view back up.
+            """
+            gap = text.winfo_height() * 3 // 4
+            if box._overscroll_gap != gap:
+                box._overscroll_gap = gap
+                text.tag_configure("overscroll", spacing3=gap)
+            last_line_start = text.index("end-1c linestart")
+            if tuple(map(str, text.tag_ranges("overscroll"))) == (
+                last_line_start,
+                text.index("end"),
+            ):
+                return
+            text.tag_add("overscroll", last_line_start, "end")
+            text.tag_remove("overscroll", "1.0", last_line_start)
+
+        def update_now():
+            """update() for the Tcl procedure below."""
+            try:
+                update()
+            except tk.TclError:  # the text is being destroyed
+                pass
+
+        # The spacing has to be right the moment the text changes: the key bindings
+        # of the text scroll to the cursor right after they insert, and a character
+        # typed at the start of the last line is not tagged yet, which would scroll
+        # the view down to the last line for a moment. <<TextboxChanged>> comes too
+        # late for that, so the command of the text calls update() itself.
+        name = text._w
+        wrapped = name + "_overscroll"
+        text.tk.call("rename", name, wrapped)
+        text.tk.eval(
+            """
+            proc {name} args {{
+                set result [{wrapped} {{*}}$args]
+                if {{[lindex $args 0] in {{insert replace delete}}}} {{
+                    {update_now}
+                }}
+                return $result
+            }}
+            """.format(name=name, wrapped=wrapped, update_now=text.register(update_now))
+        )
+        text.bind("<<TextboxChanged>>", update, add="+")
+        text.bind("<Configure>", update, add="+")
+        update()
 
     def _bind_focus_recursive(self, widget, skip_widgets=()):
         """Bind <FocusIn> (to make this buffer active) on widget and
