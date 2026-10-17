@@ -480,7 +480,6 @@ def setup_app():
         "Edit": state.tem,
         **state.all_buffer_menus,
     }
-    os.makedirs(f"{homedir}/.local/share/PyNotes/tempfiles", exist_ok=True)
     sys.stderr = utils.ErrorHandler()
     state.pcsettitle = False
     state.prompting = False

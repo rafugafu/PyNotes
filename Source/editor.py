@@ -3720,13 +3720,13 @@ class Editor(Buffer):
         """
         if not self.title:
             f = open(
-                f"{homedir}/.local/share/PyNotes/tempfiles/tempcode",
+                f"{homedir}/.local/share/PyNotes/tempcode",
                 "w",
                 encoding="utf-8",
             )
             f.write(self.type_.get("1.0", "end-1c"))
             f.close()
-            file = f"{homedir}/.local/share/PyNotes/tempfiles/tempcode"
+            file = f"{homedir}/.local/share/PyNotes/tempcode"
         else:
             file = self.title
             self.sv(file)
@@ -3743,13 +3743,13 @@ class Editor(Buffer):
         """
         if not self.title:
             f = open(
-                f"{homedir}/.local/share/PyNotes/tempfiles/tempcode",
+                f"{homedir}/.local/share/PyNotes/tempcode",
                 "w",
                 encoding="utf-8",
             )
             f.write(self.type_.get("1.0", "end-1c"))
             f.close()
-            file = f"{homedir}/.local/share/PyNotes/tempfiles/tempcode"
+            file = f"{homedir}/.local/share/PyNotes/tempcode"
         else:
             file = self.title
             self.sv(file)
@@ -3765,13 +3765,13 @@ class Editor(Buffer):
         """
         if not self.title:
             f = open(
-                f"{homedir}/.local/share/PyNotes/tempfiles/tempcode",
+                f"{homedir}/.local/share/PyNotes/tempcode",
                 "w",
                 encoding="utf-8",
             )
             f.write(self.type_.get("1.0", "end-1c"))
             f.close()
-            file = f"{homedir}/.local/share/PyNotes/tempfiles/tempcode"
+            file = f"{homedir}/.local/share/PyNotes/tempcode"
         else:
             file = self.title
             self.sv(file)

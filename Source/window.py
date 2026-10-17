@@ -514,8 +514,8 @@ def ext():
         except Exception:
             pass
         try:
-            if os.path.exists(f"{homedir}/.local/share/PyNotes/tempfiles"):
-                shutil.rmtree(f"{homedir}/.local/share/PyNotes/tempfiles")
+            if os.path.exists(f"{homedir}/.local/share/PyNotes/tempcode"):
+                os.remove(f"{homedir}/.local/share/PyNotes/tempcode")
         except Exception:
             pass
         sys.stderr = open(os.devnull, "w")
