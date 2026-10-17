@@ -1,6 +1,7 @@
 """File dialogs and other prompts that PyNotes can answer either from its
 graphical window or from its terminal console (whichever the user
-responds to first "wins the race" and cancels the other)."""
+responds to first "wins the race" and cancels the other).
+"""
 
 import os
 import sys
@@ -18,7 +19,8 @@ import utils
 def faketerm(command):
     """Run a shell command in a small popup window, streaming its output
     live, then close the window after a short pause. Used to show the
-    progress of a pip install."""
+    progress of a pip install.
+    """
     import canvastk as ctk
 
     termwin = ctk.Window()
@@ -53,7 +55,8 @@ def faketerm(command):
 
 def fileautocompletefunc(typed):
     """Return filesystem-path completions for typed, for use as the
-    autocompletefunc of utils.prompt() in console-mode file dialogs."""
+    autocompletefunc of utils.prompt() in console-mode file dialogs.
+    """
     typed = typed.strip()
     dir_ = os.path.abspath(os.path.expanduser(os.path.dirname(typed)))
     if not os.path.exists(dir_):
@@ -77,14 +80,16 @@ def fileautocompletefunc(typed):
 
 def _console_prompt_worker(title, prompttext, cancel_event, resultq):
     """Background-thread target: block on the console prompt and put its
-    result (or "" if cancel_event caused it to give up) into resultq."""
+    result (or "" if cancel_event caused it to give up) into resultq.
+    """
     resultq.put(state.console.prompt(title, prompttext, cancel_event=cancel_event))
 
 
 def _race_console_box(title, prompttext, defaultinput, *args, **kwargs):
     """Prompt for a filename via the Alt-X minibuffer, while also polling
     a console prompt running in a background thread; return whichever
-    answers first and cancel the other."""
+    answers first and cancel the other.
+    """
     cancel_event = threading.Event()
     resultq = queue.Queue()
     threading.Thread(
@@ -118,7 +123,8 @@ def _race_console_box(title, prompttext, defaultinput, *args, **kwargs):
 def _file_dialog_initial_dir_and_name(initialfile):
     """Split initialfile (a file path, a directory, or None for the
     current directory) into the (initialdir, initialfile) options of
-    a canvastk file dialog."""
+    a canvastk file dialog.
+    """
     if not initialfile:
         return os.getcwd(), ""
     if os.path.isdir(initialfile):
@@ -132,7 +138,8 @@ def _race_console_graphical(title, prompttext, native_dialog_call):
     running in a background thread; return whichever answers first and
     cancel/close the other. If the console wins, the dialog's
     top-level windows (the ones created while it was open) are
-    destroyed to end it."""
+    destroyed to end it.
+    """
     cancel_event = threading.Event()
     resultq = queue.Queue()
     threading.Thread(
@@ -266,7 +273,8 @@ def saveasfileget(prompttext="Save File: ", initialfile=None, parent=None):
 
 def pdf(title):
     """Open the PDF for LaTeX file title in the system PDF viewer, or, if
-    it wasn't produced (compile failed), offer to show the LaTeX log."""
+    it wasn't produced (compile failed), offer to show the LaTeX log.
+    """
     if os.path.splitext(title)[1] == ".tex":
         pdf_ = os.path.splitext(title)[0]
     else:

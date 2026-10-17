@@ -13,7 +13,8 @@ _PYTHON_BUILTIN_METHOD_RETURNS below.
 
 _python_build_scopes() is the main entry point, called by both
 editor.py's Editor.ha()/python_trigger_name_scan() and
-pythonshell.py's PythonShellBuffer._hapyshell_body()."""
+pythonshell.py's PythonShellBuffer._hapyshell_body().
+"""
 
 import os
 import sys
@@ -46,7 +47,8 @@ def _python_build_builtin_callable_params():
     """Every builtin callable's keyword-capable parameter names (used
     to recognize/highlight `name=value` call arguments as keyword
     arguments for builtins, the same way it's done for user-defined
-    functions elsewhere in this module)."""
+    functions elsewhere in this module).
+    """
     import builtins
     import inspect
 
@@ -279,7 +281,8 @@ _PYTHON_BUILTIN_METHOD_RETURNS = {
 class _PythonScanCancelled(BaseException):
     """Raised to abort an in-progress scan (see _python_build_scopes())
     when the buffer has changed since it started, so a stale result
-    isn't produced."""
+    isn't produced.
+    """
 
     pass
 
@@ -296,7 +299,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
     This is pure bookkeeping - it makes no attempt to resolve a name to
     what it actually refers to; that resolution happens afterward in
     _python_build_scopes(), which is what everything gathered here
-    feeds into."""
+    feeds into.
+    """
 
     def __init__(self):
         self.scopes = [
@@ -338,7 +342,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         """Record a binding of name (kind: "var"/"func"/"class"/
         "func_arg"/"first_param"/"module"/...) at lineno in the current
         scope - or, if name was declared global/nonlocal in this scope,
-        in the scope that declaration actually targets."""
+        in the scope that declaration actually targets.
+        """
         sc_idx = self.scope_stack[-1]
         sc = self.scopes[sc_idx]
         if name in sc.get("globals", {}):
@@ -361,7 +366,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
     def targets(self, node):
         """Flatten an assignment target (a Name, Attribute, or a
         Tuple/List/Starred of them, e.g. from `a, (b, *c) = ...`) into
-        the individual Name/Attribute nodes actually being assigned."""
+        the individual Name/Attribute nodes actually being assigned.
+        """
         out = []
         if isinstance(node, ast.Name):
             out.append(node)
@@ -377,7 +383,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
     def push_scope(self, start, end, kind="function", start_col=0, end_col=None):
         """Open a new nested scope (function/class/lambda/comprehension)
         spanning lines start..end, and make it current; the caller is
-        responsible for popping self.scope_stack when done visiting it."""
+        responsible for popping self.scope_stack when done visiting it.
+        """
         idx = len(self.scopes)
         self.scopes.append(
             {
@@ -400,7 +407,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         the current (just-pushed) function scope; is_method marks the
         first positional parameter as "first_param" (self/cls) rather
         than a regular "func_arg", so it can be highlighted/treated
-        differently."""
+        differently.
+        """
         all_args = list(args.posonlyargs) + list(args.args) + list(args.kwonlyargs)
         for i, a in enumerate(all_args):
             self.add_name(
@@ -424,7 +432,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         keyword arguments (func_accepts_any, i.e. has **kwargs), visit
         its decorators/default values in the enclosing scope (where
         they're actually evaluated), then push a new scope for its
-        parameters/body."""
+        parameters/body.
+        """
         self.add_name(node.name, node.lineno, "func")
         self.def_names.append((node.lineno, node.name, "func"))
         params = set()
@@ -459,7 +468,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         """The full dotted name of a chain of attribute accesses on a
         plain Name (e.g. Attribute(Attribute(Name('a'),'b'),'c') ->
         ['a','b','c']), or None if it isn't one (e.g. it's a call's
-        result being accessed, not a plain name)."""
+        result being accessed, not a plain name).
+        """
         parts = []
         cur = node
         while isinstance(cur, ast.Attribute):
@@ -476,7 +486,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         passes, both for later validating them against the callee's
         actual parameters (pending_calls, resolved in
         _python_build_scopes()) and for highlighting the `name=`
-        part (kwarg_positions)."""
+        part (kwarg_positions).
+        """
         func_name = None
         is_name = isinstance(node.func, ast.Name)
         if is_name:
@@ -511,7 +522,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         if the class defines __init__, treat its parameters as the
         class's own "callable parameters" too, for validating/
         highlighting `ClassName(kwarg=...)` construction calls the same
-        way a plain function call's keyword arguments are."""
+        way a plain function call's keyword arguments are.
+        """
         self.add_name(node.name, node.lineno, "class")
         self.def_names.append((node.lineno, node.name, "class"))
         for _ckw in node.keywords:
@@ -569,7 +581,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
     def visit_comp(self, node):
         """Shared body for list/set/dict comprehensions and generator
         expressions: they get their own scope (Python 3 semantics) for
-        their loop variables."""
+        their loop variables.
+        """
         end = getattr(node, "end_lineno", node.lineno)
         self.push_scope(
             node.lineno,
@@ -606,7 +619,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
     def _register_lambda(self, name, lineno, lam):
         """Record a lambda assigned directly to a name (`name = lambda
         ...: ...`) as if it were a def, so calls to name can have their
-        keyword arguments validated/highlighted the same way."""
+        keyword arguments validated/highlighted the same way.
+        """
         _largs = lam.args
         _lparams = set(a.arg for a in list(_largs.args) + list(_largs.kwonlyargs))
         self.func_params.setdefault(name, []).append(
@@ -626,7 +640,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         callable (also alias_assigns, via _python_partial_target()) -
         so later attribute/call access on the target can be resolved
         through to whatever it's really an alias of. Also handles
-        tuple/list unpacking assignment (`a, b = x, y`) element-wise."""
+        tuple/list unpacking assignment (`a, b = x, y`) element-wise.
+        """
         _is_lambda = isinstance(node.value, ast.Lambda)
         for t in node.targets:
             if _is_lambda and isinstance(t, ast.Name):
@@ -700,7 +715,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         statement; None otherwise. (is_builtin_import is True for
         __import__(), which - unless a nonempty fromlist is given -
         actually binds the top-level package, not the full dotted
-        submodule, unlike import_module().)"""
+        submodule, unlike import_module().)
+        """
         fn = call.func
         is_builtin_import = isinstance(fn, ast.Name) and fn.id == "__import__"
         is_importlib = isinstance(fn, ast.Attribute) and fn.attr == "import_module"
@@ -740,7 +756,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
     def visit_for(self, node):
         """Shared visit_For/visit_AsyncFor body: bind the loop
         variable(s) (note: no new scope - a for loop's variables leak
-        into the enclosing scope, unlike a comprehension's)."""
+        into the enclosing scope, unlike a comprehension's).
+        """
         for nm in self.targets(node.target):
             if not isinstance(nm, ast.Attribute):
                 self.add_name(nm.id, node.lineno, "var")
@@ -758,7 +775,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 
     def visit_with(self, node):
         """Shared visit_With/visit_AsyncWith body: bind each `as`
-        target."""
+        target.
+        """
         for item in node.items:
             self.visit(item.context_expr)
             if item.optional_vars is not None:
@@ -783,7 +801,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         (module_aliases and friends, for resolving later attribute
         access through the alias), and the dotted path's own positions
         (import_dotted_lines, so each dotted component can be
-        highlighted as a module name)."""
+        highlighted as a module name).
+        """
         for alias in node.names:
             imported_name = alias.name
             top_name = imported_name.split(".")[0]
@@ -809,7 +828,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         _python_build_scopes()), plus the module path's own position
         for highlighting (import_dotted_lines) and, for a renamed
         import, the original name's position (import_orig_names, so it
-        can still be tagged even though the bound name is different)."""
+        can still be tagged even though the bound name is different).
+        """
         if node.module:
             self.module_literals.append((node.lineno, node.module.split(".")[0]))
             if "." in node.module:
@@ -853,7 +873,8 @@ class _PythonScopeBuilder(ast.NodeVisitor):
 
 def _python_method_has_implicit_first_param(node):
     """Whether a method def implicitly receives self/cls as its first
-    parameter - true unless it's decorated @staticmethod."""
+    parameter - true unless it's decorated @staticmethod.
+    """
     for dec in getattr(node, "decorator_list", []):
         _dn = None
         if isinstance(dec, ast.Name):
@@ -881,7 +902,8 @@ def _python_c3_linearize(cls, bases_map, seen, depth=0):
     attribute/method lookup on an instance can search base classes in
     the same order Python itself would. seen guards against a
     base-class cycle, depth against runaway recursion on malformed
-    input."""
+    input.
+    """
     if cls in seen or depth > 40:
         return [cls]
     _seen2 = seen | {cls}
@@ -917,7 +939,8 @@ def _python_c3_linearize(cls, bases_map, seen, depth=0):
 def _python_partial_target(call):
     """If call is a functools.partial(name, ...) call, return the
     wrapped callable's name; None otherwise. Lets a `p =
-    partial(some_func, ...)` alias resolve through to some_func."""
+    partial(some_func, ...)` alias resolve through to some_func.
+    """
     if not isinstance(call, ast.Call) or not call.args:
         return None
     _fn = call.func
@@ -933,7 +956,8 @@ def _python_partial_target(call):
 
 def _python_unwrap_descriptor(val):
     """Strip any staticmethod(...)/classmethod(...) wrapper call(s)
-    around val, returning the underlying wrapped value/function."""
+    around val, returning the underlying wrapped value/function.
+    """
     while (
         isinstance(val, ast.Call)
         and isinstance(val.func, ast.Name)
@@ -949,7 +973,8 @@ def _python_import_fromlist_is_nonempty(call):
     """Whether an __import__(...) call's fromlist argument (positional
     or keyword) is a non-empty list/tuple/set - if so, __import__
     returns the leaf submodule rather than the top-level package (see
-    _PythonScopeBuilder._dynamic_import_module())."""
+    _PythonScopeBuilder._dynamic_import_module()).
+    """
     _fl = None
     if len(call.args) >= 4:
         _fl = call.args[3]
@@ -974,7 +999,8 @@ def _python_static_value_kind(val, members, prefix):
     see _python_inspect_ast_members()); members is the {name: kind}
     map already known for the containing scope/class (prefix), checked
     first before falling back to whether val's name is a known
-    builtin."""
+    builtin.
+    """
     val = _python_unwrap_descriptor(val)
     if isinstance(val, ast.Lambda):
         return "func"
@@ -1001,7 +1027,8 @@ def _python_inspect_ast_members(node_list, prefix=""):
     that aren't directly in the class body. A class decorated with
     enum's @global_enum also gets its own members re-exposed at the
     containing scope, matching global_enum's real runtime effect of
-    injecting them into the module namespace."""
+    injecting them into the module namespace.
+    """
     members = {}
     for node in node_list:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1119,7 +1146,8 @@ class _PythonModuleSpec:
     just enough (origin path, package search locations) for this module
     to locate and statically inspect the module's source, without
     actually using importlib's own (heavier, import-triggering) spec
-    machinery."""
+    machinery.
+    """
 
     def __init__(self, name, origin, search_locations):
         self.name = name
@@ -1131,7 +1159,8 @@ def _python_toplevel_spec_in_dir(_dir, name):
     """_python_resolve_toplevel_fs()'s single-directory lookup: does
     _dir itself (not searched recursively) contain name as a package,
     namespace-package directory, single .py file, or compiled
-    extension module? Returns a _PythonModuleSpec, or None."""
+    extension module? Returns a _PythonModuleSpec, or None.
+    """
     _pkg = os.path.join(_dir, name, "__init__.py")
     if os.path.isfile(_pkg):
         return _PythonModuleSpec(name, _pkg, [os.path.dirname(_pkg)])
@@ -1161,7 +1190,8 @@ def _python_target_sys_path(buf):
     change picks up a fresh cwd/interpreter pair (and so a fresh
     subprocess run) automatically, nothing to invalidate by hand.
     Returns [] if it can't be queried at all (interpreter missing,
-    times out, isn't actually Python, ...)."""
+    times out, isn't actually Python, ...).
+    """
     _interpreter = getattr(state, "pythonexecutable", None)
     if not _interpreter:
         return []
@@ -1198,7 +1228,8 @@ def _python_resolve_toplevel_fs(buf, name):
     then finally sys.builtin_module_names, since those compiled-in
     modules are effectively universal across any CPython interpreter.
     Returns a _PythonModuleSpec, or None if it can't be found at
-    all."""
+    all.
+    """
     _title = getattr(buf, "title", None)
     if _title:
         _own_spec = _python_toplevel_spec_in_dir(os.path.dirname(_title), name)
@@ -1225,7 +1256,8 @@ def _python_module_src_path(spec):
     with, and every spec this module itself ever constructs already
     has a definitive origin - a real .py path, None, "built-in", or an
     extension-suffixed path - none of which that fallback could ever
-    usefully improve on.)"""
+    usefully improve on.)
+    """
     if spec is None or not spec.origin:
         return None
     if spec.origin.endswith(".py") and os.path.isfile(spec.origin):
@@ -1237,7 +1269,8 @@ def _python_relative_import_target(name, level, module, is_package):
     """Resolve a relative `from .[.[.]]module import ...` (level = the
     number of leading dots, module = the name after them, possibly
     empty) against the importing module's own dotted name, the same
-    way Python's import system does."""
+    way Python's import system does.
+    """
     if level == 0:
         return module
     base = name.split(".")
@@ -1254,7 +1287,8 @@ def _python_reset_scan_state(buf):
     content is replaced wholesale - loading a new file, disconnecting
     from a peer view) and, if it's in Python HMode, kick off a fresh
     scan; bumping the edit generation cancels any scan already in
-    flight for the old content (see _PythonScanCancelled)."""
+    flight for the old content (see _PythonScanCancelled).
+    """
     buf._python_edit_generation[0] += 1
     buf._python_scopes = [{"start": 1, "end": 1, "parent": None, "names": {}}]
     buf._python_call_kwargs = {}
@@ -1276,7 +1310,8 @@ def _python_reset_scan_state(buf):
 def _python_find_spec_cached(buf, name):
     """_python_resolve_spec_fs(buf, name), cached per-buffer
     (buf._python_module_spec_cache) since resolving the same import
-    repeatedly on every scan would be wasteful."""
+    repeatedly on every scan would be wasteful.
+    """
     if name in buf._python_module_spec_cache:
         return buf._python_module_spec_cache[name]
     spec = _python_resolve_spec_fs(buf, name)
@@ -1289,7 +1324,8 @@ def _python_resolve_spec_fs(buf, name):
     each dotted component's parent package (recursively, via
     _python_find_spec_cached()) and then searching its
     submodule_search_locations for the next one. Returns a
-    _PythonModuleSpec, or None if any component can't be found."""
+    _PythonModuleSpec, or None if any component can't be found.
+    """
     parts = name.split(".")
     if "" in parts or not parts:
         return None
@@ -1329,7 +1365,8 @@ def _python_resolve_module_members(buf, name, visited=None):
     actually ends up bound in the module's namespace; imports inside a
     class body or an ordinary (non-global) function don't count.
     Cached per-buffer (buf._python_module_members_cache); visited
-    guards against an import cycle between modules."""
+    guards against an import cycle between modules.
+    """
     if name in buf._python_module_members_cache:
         return buf._python_module_members_cache[name]
     if visited is None:
@@ -1363,7 +1400,8 @@ def _python_resolve_module_members(buf, name, visited=None):
         declaration inside a function (_globals is the set of names
         that function declared global, tracked as it's entered).
         Imports inside a class body are excluded outright (a fresh
-        empty _globals is passed for those, which no import can match)."""
+        empty _globals is passed for those, which no import can match).
+        """
         if _depth > 60:
             return
         for _st in _stmts:
@@ -1468,7 +1506,8 @@ def _python_resolve_module_member_kind(buf, mod, class_name, member, seen=None):
     classes (however they're spelled - a plain name, a dotted path
     through an imported module, ...) the same way Python's own
     attribute lookup would. seen prevents infinite recursion through a
-    base-class/import cycle."""
+    base-class/import cycle.
+    """
     if seen is None:
         seen = set()
     key = (mod, class_name)
@@ -1523,7 +1562,8 @@ def _python_resolve_module_class_members(buf, mod, class_name, seen=None):
     the same alias/base-class chasing, everything inherited), returning
     a {member: kind} map. Cached per (mod, class_name) at the top-level
     call (buf._python_module_class_members_cache); seen (only set on a
-    recursive call) guards against a cycle."""
+    recursive call) guards against a cycle.
+    """
     _top_call = seen is None
     if _top_call and (mod, class_name) in buf._python_module_class_members_cache:
         return buf._python_module_class_members_cache[(mod, class_name)]
@@ -4755,7 +4795,8 @@ def _python_scan_names(buf, text, gen=None):
     the (name/type/import/etc.) results directly on buf's
     _python_* attributes, then queue a re-highlight. Called on a
     background thread by _python_scan_start(); does nothing if the
-    scan was cancelled (buffer changed mid-scan) or otherwise failed."""
+    scan was cancelled (buffer changed mid-scan) or otherwise failed.
+    """
     result = _python_build_scopes(buf, text, gen)
     if result is not None:
         (
@@ -4810,7 +4851,8 @@ def _python_scan_start(buf):
     content, deferring (retrying every 10ms) if a previous scan is
     still running rather than starting a second one concurrently.
     Called (debounced) by Editor.python_trigger_name_scan() after an
-    edit."""
+    edit.
+    """
     buf._python_scan_after_id = None
     if (
         buf._python_names_scan_thread is not None
@@ -4847,7 +4889,8 @@ def _python_resolve_module_func_params(buf, name):
     through an import to resolve it. `from x import *` re-exports
     are folded in afterward from the starred module's own map, without
     overwriting anything name already defines locally. Cached per
-    (buffer, module name) in buf._python_module_func_params_cache."""
+    (buffer, module name) in buf._python_module_func_params_cache.
+    """
     if name in buf._python_module_func_params_cache:
         return buf._python_module_func_params_cache[name]
     spec = _python_find_spec_cached(buf, name)
@@ -4950,7 +4993,8 @@ def _python_resolve_module_method(buf, mod, class_name, method, seen=None):
     searching its own methods first, then (through an alias or base
     class, the same chasing as _python_resolve_module_member_kind())
     its ancestors. Returns (found, params); params is None if found
-    but the method accepts arbitrary kwargs."""
+    but the method accepts arbitrary kwargs.
+    """
     if seen is None:
         seen = set()
     key = (mod, class_name)
@@ -5002,7 +5046,8 @@ def _python_resolve_dotted_module(buf, dotted):
     path it refers to, walking one component at a time and following
     any re-export aliasing along the way (via each package's
     "@modtarget:" entries from _python_resolve_module_members());
-    returns None if any component isn't actually a module."""
+    returns None if any component isn't actually a module.
+    """
     parts = dotted.split(".")
     cur = parts[0]
     if _python_find_spec_cached(buf, cur) is None:
@@ -5035,7 +5080,8 @@ _PYTHON_OP_PAT = re.compile(
 def _python_bytecol_to_charcol(line_str, bytecol):
     """Convert a UTF-8 byte offset within line_str (as ast gives column
     offsets for non-ASCII source) to a character offset (as tkinter
-    text indices need)."""
+    text indices need).
+    """
     if bytecol <= 0:
         return bytecol
     encoded = line_str.encode("utf-8")

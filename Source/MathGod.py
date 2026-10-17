@@ -3,7 +3,8 @@ MathGod's own curly-brace math syntax (see translate()), translated
 into sympy/Python calls, run in a persistent interactive shell so
 variables/functions/equations carry over between cells, and rendered
 as LaTeX images below each cell. Launched as its own process (see
-utils.mathgod()), not imported by the rest of PyNotes."""
+utils.mathgod()), not imported by the rest of PyNotes.
+"""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,7 +35,8 @@ class MathGod:
     """Sympy/matplotlib operations MathGod's translated code calls
     through a single `engine` instance (see translate()), mostly thin
     wrappers around the matching sympy function plus a few that also
-    plot with matplotlib."""
+    plot with matplotlib.
+    """
 
     def __init__(self):
         pass
@@ -123,7 +125,8 @@ class MathGod:
         **kwargs,
     ):
         """Plot func(var) over [start, end] onto the current matplotlib
-        figure (func may instead be a plain number for a constant)."""
+        figure (func may instead be a plain number for a constant).
+        """
         plt.title(title)
         if x_label != None:
             plt.xlabel(x_label)
@@ -164,7 +167,8 @@ class MathGod:
     ):
         """Show a new 3D surface plot of func(x, y) over the se1 x se2
         rectangle (func may instead be a plain number for a constant
-        height)."""
+        height).
+        """
         fig = plt.figure()
         ax = fig.add_subplot(111, projection="3d")
         ax.set_title(title)
@@ -201,7 +205,8 @@ class MathGod:
         **kwargs,
     ):
         """Plot the (x, y) coordinate list onto the current matplotlib
-        figure."""
+        figure.
+        """
         plt.plot(x, y, label=label, *args, **kwargs)
         if label:
             plt.legend()
@@ -235,7 +240,8 @@ class interactive_shell:
     module's globals, so variables/functions/equations defined in one
     cell are visible to every other cell, run silently to capture its
     printed output as a string instead of writing to the real
-    terminal."""
+    terminal.
+    """
 
     def __init__(self):
         self.locals = globals()
@@ -243,7 +249,8 @@ class interactive_shell:
 
     def ragoae(self, string):
         """Run string as one line/statement of REPL input and return
-        everything it printed (stdout and stderr combined)."""
+        everything it printed (stdout and stderr combined).
+        """
         output = io.StringIO()
         error = io.StringIO()
         old_stdout = sys.stdout
@@ -266,7 +273,8 @@ def _auto_symbols(code_str):
     """Define a sympy Symbol for every name code_str reads that isn't
     already defined or a builtin, so undeclared variables (e.g. typing
     'x' before ever assigning it) act as math symbols instead of
-    raising NameError."""
+    raising NameError.
+    """
     try:
         tree = ast.parse(code_str)
     except Exception:
@@ -284,14 +292,16 @@ def _auto_symbols(code_str):
 
 def _gexec(code_str):
     """exec() code_str against this module's globals, auto-defining any
-    undeclared names as sympy symbols first."""
+    undeclared names as sympy symbols first.
+    """
     _auto_symbols(code_str)
     exec(code_str, globals())
 
 
 def _geval(code_str):
     """eval() code_str against this module's globals, auto-defining any
-    undeclared names as sympy symbols first."""
+    undeclared names as sympy symbols first.
+    """
     _auto_symbols(code_str)
     return eval(code_str, globals())
 
@@ -313,7 +323,8 @@ def _translate_innermost_brace(m):
     """re.sub callback for expand_braces(): translate one innermost
     {keyword args} match to a direct engine call if keyword is one of
     _MATH_OPS, otherwise leave it as-is (it's handled elsewhere, e.g.
-    translate()'s func/eq/plot handling, or is literal curly braces)."""
+    translate()'s func/eq/plot handling, or is literal curly braces).
+    """
     content = m.group(1).strip()
     km = refind.match(r"(\w+)\s+(.*)", content, refind.DOTALL)
     if not km:
@@ -328,7 +339,8 @@ def expand_braces(line):
     """Repeatedly translate every innermost {...} group in line via
     _translate_innermost_brace() until no more changes are made,
     letting nested/nested-like brace groups resolve from the inside
-    out."""
+    out.
+    """
     pattern = r"\{([^{}]*)\}"
     prev = None
     while prev != line:
@@ -347,7 +359,8 @@ output_cache = {}
 def _render_latex_img(latex_str, size=24, scale=1.0):
     """Render latex_str to a PIL Image via ziamath (LaTeX -> SVG) and
     cairosvg (SVG -> PNG), downscaling if it would exceed the maximum
-    image size cairosvg/Pillow can handle."""
+    image size cairosvg/Pillow can handle.
+    """
     math_obj = zm.Math.fromlatex(latex_str, size=size)
     svg_text = math_obj.svg()
     svg_bytes = svg_text.encode("utf-8")
@@ -374,7 +387,8 @@ def _render_latex_img(latex_str, size=24, scale=1.0):
 def _render_text_img(text):
     """Render text (possibly multiline) to a PIL Image using a monospace
     font, as a fallback for output that isn't (or failed to render as)
-    LaTeX."""
+    LaTeX.
+    """
     for path in [
         "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
@@ -413,7 +427,8 @@ def render_output(label, items):
     """Render items (a list of (type, content) pairs, type "latex" or
     "text") each to an image, stack them vertically into one combined
     image (shrinking it to fit the window if needed), and show it in
-    label (a cell's output box)."""
+    label (a cell's output box).
+    """
     if not items:
         label.config(image="", text="")
         return
@@ -602,7 +617,8 @@ def translate(code_str):
 
 def retranslateandprint(items):
     """Cache and render the current cell's (the id set by setid())
-    translated output items. Bound to Control-Return in a cell's entry."""
+    translated output items. Bound to Control-Return in a cell's entry.
+    """
     global id
     if not items:
         items = []
@@ -674,7 +690,8 @@ def ha(entry=None):
     color, then separately tag ^(...) / _(...) power/subscript groups so
     they're drawn raised/lowered in a smaller italic font (matching how
     a single trailing ^x / _x character, tagged 'sym', is hidden and
-    handled by the 'power'/'subscript' tag_config effects above)."""
+    handled by the 'power'/'subscript' tag_config effects above).
+    """
     searchs = [
         r"\yplotlist\y",
         r"\yeval\y",
@@ -890,7 +907,8 @@ def setid(x):
 
 def newcell():
     """Add a new (In/entry/Out/output) cell row at the bottom of the
-    notebook."""
+    notebook.
+    """
     global innum
     global row
     text = ctk.Label(scrolledframe, text=f"In[{innum}]:")
@@ -948,7 +966,8 @@ def save():
     (each itself joined across cells by '`|!'), plus the persistent
     plotlist script. An output item is serialized as "type\\x1fcontent",
     multiple items joined by '\\x1e' (see retranslateandprint()); load()
-    parses this same format back."""
+    parses this same format back.
+    """
     path = fd.asksaveasfilename()
     if not path:
         return
@@ -977,7 +996,8 @@ def load():
     """Discard the current notebook and load one from a file chosen via
     a file dialog (see save() for the file format), rebuilding every
     cell and re-rendering each one's cached output without re-running
-    it."""
+    it.
+    """
     global inputentries
     global inputtexts
     global outputboxes

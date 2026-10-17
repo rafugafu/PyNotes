@@ -4,7 +4,8 @@ CLI-only mode that exits before the GUI, e.g. --version/--plugin-*),
 bootstrap the Python environment and optional dependencies, start the
 terminal console, build the root window/menus, load preferences, and
 finally run any startup PyCode/commands and open the requested files
-before handing control to the tkinter main loop at the very end."""
+before handing control to the tkinter main loop at the very end.
+"""
 
 import os
 import sys
@@ -326,7 +327,8 @@ import canvastk as ctk
 # whatever else PyNotes or its dependencies print.
 def _open_saved_stdio_stream(fd):
     """Duplicate the given fd into a file object, or open /dev/null
-    instead if the fd doesn't exist (e.g. started without any console)."""
+    instead if the fd doesn't exist (e.g. started without any console).
+    """
     try:
         return os.fdopen(os.dup(fd), "w")
     except OSError:
@@ -820,7 +822,8 @@ if new:
 def consoleexec(task):
     """Run a task queued by the console thread (see cli.py's Console)
     on the GUI thread; task is one of the (name, ...) tuples the console
-    commands put on state.consoleq."""
+    commands put on state.consoleq.
+    """
     if task[0] == "command-exec":
         cmdrun(task[1])
     elif task[0] == "pycode-eval":
@@ -848,7 +851,8 @@ def consoleqempty():
     """Drain and run every task currently queued on state.consoleq, then
     reschedule itself 200ms later. Runs on the GUI thread (via
     state.root.after) so it's safe for consoleexec() to touch widgets,
-    even though tasks are queued from the console's own thread."""
+    even though tasks are queued from the console's own thread.
+    """
     while True:
         try:
             task = state.consoleq.get_nowait()

@@ -59,7 +59,8 @@ def prf():
 
     def removedict():
         """Remove the selected dictionary from the list and rebuild the
-        combined email spellcheck word list from what remains."""
+        combined email spellcheck word list from what remains.
+        """
         try:
             state.dicts.remove(dictlist.selection_get())
         except Exception:
@@ -91,7 +92,8 @@ def prf():
 
     def adddict():
         """Prompt for a dictionary file, add it to the list, and rebuild
-        the combined email spellcheck word list."""
+        the combined email spellcheck word list.
+        """
         dicttoadd = dialogs.openfileget(
             prompttext="Email Dictionary File: ",
             filetypes=(("Text Files", "*.txt"),),
@@ -137,7 +139,8 @@ def prf():
 
     def makeowntheme():
         """Launch custom canvastk creator so the user can design a
-        custom canvastk theme, then apply the theme to canvastk."""
+        custom canvastk theme, then apply the theme to canvastk.
+        """
         newtheme = themes.creator()
         if newtheme is None:
             return

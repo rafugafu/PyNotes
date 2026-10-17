@@ -1,6 +1,7 @@
 """Early startup: platform paths, first-run bootstrapping (venv,
 optional dependency installation), and building the root window, its
-menus, and loading/validating saved preferences."""
+menus, and loading/validating saved preferences.
+"""
 
 import os
 import sys
@@ -35,7 +36,8 @@ else:
 
 def info(title, inf):
     """Show a standalone info popup with a Close button, blocking (its
-    own mainloop) until closed. Used before state.root exists yet."""
+    own mainloop) until closed. Used before state.root exists yet.
+    """
     import canvastk as ctk
 
     infowin = ctk.Window()
@@ -50,7 +52,8 @@ def info(title, inf):
 def ask(title, askinput):
     """Show a standalone Yes/No popup, blocking (its own mainloop) until
     answered, and return the answer as a bool. Used before state.root
-    exists yet (e.g. to ask about installing a missing dependency)."""
+    exists yet (e.g. to ask about installing a missing dependency).
+    """
 
     import canvastk as ctk
 
@@ -83,7 +86,8 @@ def switchvenv():
     """On Linux, create PyNotes' own virtual environment on first run,
     then re-exec the current process under that venv's Python if not
     already running from it (so dependencies installed via
-    ensure_dependencies() stay isolated from the system Python)."""
+    ensure_dependencies() stay isolated from the system Python).
+    """
     if platform.system() != "Linux":
         return
     venvdir = f"{homedir}/.local/share/PyNotes/venv"
@@ -101,7 +105,8 @@ def ensure_dependencies():
     """Check every optional third-party dependency PyNotes needs; for
     each missing one, ask to pip-install it (locally, via
     dialogs.faketerm) or quit. Finishes by re-importing everything to
-    confirm the installs actually succeeded, quitting if not."""
+    confirm the installs actually succeeded, quitting if not.
+    """
     import dialogs
 
     try:
@@ -266,7 +271,8 @@ def load_or_create_defs():
     """Open the saved preferences (defs) file, creating it (from
     defaultdefs, the built-in default preferences/theme) with a welcome
     message on first run. Returns (open file handle positioned at the
-    start, whether it was just created, defaultdefs)."""
+    start, whether it was just created, defaultdefs).
+    """
     defaultpythonexec = "/usr/bin/python3" if platform.system() == "Linux" else "python"
     defaultdefs = f"""{v}
 False
@@ -302,7 +308,8 @@ def load_plugins(no_load_plugins):
     buffer/editor classes are even imported (so it can populate
     state.buffer_init_functions etc. for their class bodies to pick up),
     "first" once the root window exists, and "last" once startup is
-    otherwise complete."""
+    otherwise complete.
+    """
     init = []
     first = []
     last = []

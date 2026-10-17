@@ -1,7 +1,8 @@
 """The Python Shell buffer: a real Python REPL running in an embedded
 terminal (see terminal.Terminal), with the same scope-aware Python
 syntax highlighting as the editor's Python HMode applied to its
-transcript."""
+transcript.
+"""
 
 import platform
 import state
@@ -30,7 +31,8 @@ class PythonShellBuffer(Buffer):
     _pyshell_session_* attributes carry name/type/scope information
     forward across statements already executed in this REPL session, so
     later input is highlighted using bindings made by earlier input,
-    the same way a real Python session remembers them."""
+    the same way a real Python session remembers them.
+    """
 
     def __init__(self, master, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
@@ -98,7 +100,8 @@ class PythonShellBuffer(Buffer):
         appearance from the current theme (state.theme). The theme
         strings are Python attribute-config expressions written in
         terms of a `type_` placeholder, substituted here with
-        `self.shellcmd` and exec'd to apply them."""
+        `self.shellcmd` and exec'd to apply them.
+        """
         exec(
             "self.shellcmd.tag_config('hpa',"
             + state.theme["python:keywords"].replace("type_", "self.shellcmd")
@@ -158,13 +161,15 @@ class PythonShellBuffer(Buffer):
     def shellpy(self):
         """Build the shell UI: the Clear/Restart Shell buttons and the
         embedded terminal running the Python interpreter, and start the
-        periodic redraw that keeps the visible transcript highlighted."""
+        periodic redraw that keeps the visible transcript highlighted.
+        """
         lenprompt = len(">>> ")
         _hl_pending = [False]
 
         def colourprompts():
             """Bold-color every '>>> '/'... ' prompt prefix in the
-            transcript so far."""
+            transcript so far.
+            """
             lines = int(self.shellcmd.index("end-1c").split(".")[0])
             self.shellcmd.tag_remove("prompt", "1.0", "end")
             for i in range(1, lines + 1):
@@ -180,7 +185,8 @@ class PythonShellBuffer(Buffer):
 
         def _schedule_hl():
             """Coalesce bursts of terminal output into a single
-            hapyshell() re-highlight, run once idle."""
+            hapyshell() re-highlight, run once idle.
+            """
             if not _hl_pending[0]:
                 _hl_pending[0] = True
 
@@ -192,13 +198,15 @@ class PythonShellBuffer(Buffer):
 
         def _on_output(event):
             """Re-tag prompts and schedule a re-highlight after the
-            terminal processes new output from the REPL process."""
+            terminal processes new output from the REPL process.
+            """
             colourprompts()
             _schedule_hl()
 
         def _make_shellcmd():
             """Create the embedded terminal running the Python
-            interpreter as its subprocess."""
+            interpreter as its subprocess.
+            """
             widget = terminal.Terminal(
                 self, [state.pythonexecutable], None, nocolor=True
             )
@@ -211,7 +219,8 @@ class PythonShellBuffer(Buffer):
             """Clear Shell: wipe the visible transcript and send a
             fresh prompt (Ctrl-L on Linux, or a plain Enter elsewhere)
             without restarting the underlying Python process, so the
-            session's variables/imports are kept."""
+            session's variables/imports are kept.
+            """
             self._pyshell_last_scan_key = None
             self._pyshell_cached_scope_result = None
             self.shellcmd.delete("1.0", "end")
@@ -225,7 +234,8 @@ class PythonShellBuffer(Buffer):
             """Restart Shell: kill and restart the underlying Python
             process, clearing all of this session's remembered
             variables/types/classes (the _pyshell_session_* state) along
-            with it."""
+            with it.
+            """
             self._pyshell_last_scan_key = None
             self._pyshell_cached_scope_result = None
             self._pyshell_session_names.clear()
@@ -259,7 +269,8 @@ class PythonShellBuffer(Buffer):
         def shell_setview():
             """Re-highlight periodically (every 50ms) so highlighting
             keeps up as the process prints new output on its own, not
-            just after a keypress."""
+            just after a keypress.
+            """
             if not self.winfo_exists():
                 return
             self.hapyshell()
@@ -269,7 +280,8 @@ class PythonShellBuffer(Buffer):
 
     def hapyshell(self):
         """Re-highlight the shell transcript; re-entrancy guard around
-        _hapyshell_body() (which can trigger further tkinter events)."""
+        _hapyshell_body() (which can trigger further tkinter events).
+        """
         if self._hapyshell_running[0]:
             return
         self._hapyshell_running[0] = True
@@ -1056,7 +1068,8 @@ class PythonShellBuffer(Buffer):
 
     def close(self):
         """Confirm before closing while the Python process is still
-        running, since closing kills it."""
+        running, since closing kills it.
+        """
         if not self.shellcmd.running:
             return True
         answer = state.root.ask(
@@ -1078,7 +1091,8 @@ class PythonShellBuffer(Buffer):
 
 def _init_pythonshell_hl_tags():
     """Reconfigure every open Python Shell buffer's highlight tags
-    (after a theme change)."""
+    (after a theme change).
+    """
     for buffer in state.all_buffers:
         if isinstance(buffer, PythonShellBuffer):
             buffer.init_pythonshell_hl_tags()

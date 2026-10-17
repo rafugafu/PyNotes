@@ -4,7 +4,8 @@ find/find-replace, undo/redo, and syntax highlighting for every HMode
 highlighting/autocomplete is scope-aware, backed by python_scope_build.
 An Editor can also be a "view" (a synced peer of another Editor already
 showing the same file - see _make_peer_type()/view_master/
-view_children) so the same file can be open in more than one pane."""
+view_children) so the same file can be open in more than one pane.
+"""
 
 import os
 import platform
@@ -51,7 +52,8 @@ class Editor(Buffer):
     of _SHARED_STATE_ATTRS on a view (via __setattr__) is redirected to
     the master instead, so every peer view of a file shares one copy of
     its unsaved-state, title, HMode, and Python-scan caches, while each
-    keeps its own widgets/UI state (_PER_PANE_ATTRS)."""
+    keeps its own widgets/UI state (_PER_PANE_ATTRS).
+    """
 
     for code in state.editor_init_functions:
         try:
@@ -64,7 +66,8 @@ class Editor(Buffer):
         """watchdog event handler that flags outer's file as externally
         changed (queuing _file_watch_prompt() onto the GUI thread) when
         the file on disk is modified/created/moved into place by
-        something other than outer's own save."""
+        something other than outer's own save.
+        """
 
         def __init__(self, outer):
             self.outer = outer
@@ -73,7 +76,8 @@ class Editor(Buffer):
         def _handle(self, path):
             """Flag a file-watch prompt as pending, unless path isn't
             outer's file, outer is the one currently writing it
-            (file_editing_own), or a prompt is already pending."""
+            (file_editing_own), or a prompt is already pending.
+            """
             if os.path.abspath(path) != self.outer.title:
                 return
             if self.outer.file_editing_own:
@@ -194,7 +198,8 @@ class Editor(Buffer):
     def __setattr__(self, name, value):
         """Redirect setting a _SHARED_STATE_ATTRS attribute to
         view_master, if this is a view of one, so every peer view
-        stays in sync automatically."""
+        stays in sync automatically.
+        """
         if (
             name in Editor._SHARED_STATE_ATTRS
             and self.__dict__.get("view_master") is not None
@@ -207,7 +212,8 @@ class Editor(Buffer):
         """Fall back to reading a _SHARED_STATE_ATTRS attribute from
         view_master (only reached when name isn't set on this instance
         itself, which - given __setattr__ above - is always true for a
-        view's own shared attributes)."""
+        view's own shared attributes).
+        """
         if name in Editor._SHARED_STATE_ATTRS:
             master = self.__dict__.get("view_master")
             if master is not None:
@@ -218,7 +224,8 @@ class Editor(Buffer):
     def mainwidget(self):
         """The active pane's own Text widget: on the master (view_master
         is None), whichever view (including itself) currently has focus;
-        on a view, always its own widget."""
+        on a view, always its own widget.
+        """
         if self.view_master is None:
             for child in self.view_children:
                 if child.active:
@@ -232,7 +239,8 @@ class Editor(Buffer):
     @property
     def type_(self):
         """Same resolution as mainwidget; the name used throughout the
-        rest of this file to mean "the Text widget to act on"."""
+        rest of this file to mean "the Text widget to act on".
+        """
         if self.view_master is None:
             for child in self.view_children:
                 if child.active:
@@ -245,13 +253,15 @@ class Editor(Buffer):
 
     def _group_members(self):
         """This Editor's view_master (or self, if it is the master)
-        plus every peer view of it."""
+        plus every peer view of it.
+        """
         resolved = self.view_master if self.view_master else self
         return [resolved] + list(resolved.view_children)
 
     def _focused_pane(self):
         """Whichever pane in this Editor's view group currently has
-        focus, or self if none does."""
+        focus, or self if none does.
+        """
         for member in self._group_members():
             if member.active:
                 return member
@@ -261,7 +271,8 @@ class Editor(Buffer):
     def selectionpoint(self):
         """The selection-point index (see setselpoint()), tracked per
         focused pane rather than shared, since each view can have its
-        own cursor position/selection into the same file."""
+        own cursor position/selection into the same file.
+        """
         return self._focused_pane()._selectionpoint
 
     @selectionpoint.setter
@@ -272,7 +283,8 @@ class Editor(Buffer):
         """Create a CustomTextbox whose Text widget is a tkinter "peer" (Tk's
         own peer_create, a second view onto the same underlying text
         content as master's) for this Editor to use as its own Text
-        widget, copied from master's configuration."""
+        widget, copied from master's configuration.
+        """
         name = "peertype%d" % id(self)
         peer_box = cursortextbox.CustomTextbox(
             self.mf,
@@ -339,7 +351,8 @@ class Editor(Buffer):
 
     def _bind_focus_recursive(self, widget, skip_widgets=()):
         """Bind <FocusIn> (to make this buffer active) on widget and
-        every descendant, except any in skip_widgets."""
+        every descendant, except any in skip_widgets.
+        """
         if widget in skip_widgets:
             return
         widget.bind(
@@ -388,7 +401,8 @@ class Editor(Buffer):
         """<KeyPress> handler while a selection point is set (see
         setselpoint()): typing/editing keys clear it (since the
         selection they'd have extended is about to change), other keys
-        (e.g. arrows) extend the selection to the new cursor position."""
+        (e.g. arrows) extend the selection to the new cursor position.
+        """
         if not self.selectionpoint:
             return
         if event.keysym in ("BackSpace", "Delete", "Return", "Tab") or (
@@ -401,7 +415,8 @@ class Editor(Buffer):
     def _sync_chrome(self):
         """Copy the master's file-info bar text and LaTeX-toolbar/
         PNG-view visibility onto this view (chrome that mirrors
-        shared state but, being actual widgets, isn't itself shared)."""
+        shared state but, being actual widgets, isn't itself shared).
+        """
         master = self.view_master
         if master is None:
             return
@@ -429,7 +444,8 @@ class Editor(Buffer):
         - both the ones scheduled on this pane's Text widget and
         self._ha_apply_after_id, scheduled on state.root - before
         replacing/destroying the widget, e.g. in
-        _connect_to()/_disconnect()."""
+        _connect_to()/_disconnect().
+        """
         for name in (
             "_main_poll_after_id",
             "_ha_after_id",
@@ -456,7 +472,8 @@ class Editor(Buffer):
     def _cancel_all_after_ids(self):
         """_cancel_type_after_ids() plus the pane-frame-level .after()
         callbacks (type_setview, do_backup); called when this pane is
-        actually closing for good."""
+        actually closing for good.
+        """
         self._cancel_type_after_ids()
         for name, widget in (
             ("_type_setview_after_id", self.mf),
@@ -475,7 +492,8 @@ class Editor(Buffer):
         master: swap in a Text peer widget onto master's content, drop
         this instance's own copies of the shared-state attributes (so
         they read through to master via __getattr__), and register
-        self in master.view_children."""
+        self in master.view_children.
+        """
         old_type = self.type_
         self._cancel_type_after_ids()
         self.type_ = self._make_peer_type(master)
@@ -501,7 +519,8 @@ class Editor(Buffer):
         blank, standalone editor (its own plain Text widget and fresh
         state) in place, without closing the pane. If it currently has
         peer views (self.view_children), one is first promoted to take
-        over as their new master (see _promote_new_master())."""
+        over as their new master (see _promote_new_master()).
+        """
         if self.view_children:
             _promote_new_master(self)
             self.view_children = []
@@ -617,7 +636,8 @@ class Editor(Buffer):
         editor - there's no point, since it's closing anyway):
         promote a peer to take over as master if this was one, or just
         remove self from its master's view_children if this was a
-        view."""
+        view.
+        """
         if self.view_children:
             _promote_new_master(self)
             self.view_children = []
@@ -629,7 +649,8 @@ class Editor(Buffer):
     def _smart_open(self, path):
         """Load path into this pane: no-op if it's already showing it,
         otherwise become a view of the already-open Editor for it if
-        there is one, or load it fresh (ld()) if not."""
+        there is one, or load it fresh (ld()) if not.
+        """
         abspath = os.path.abspath(path)
         resolved = self.view_master if self.view_master else self
         if resolved.title == abspath:
@@ -647,7 +668,8 @@ class Editor(Buffer):
         is created as a peer view of it (a peer Text widget, joining
         its view_children, sharing its state) instead of getting its
         own blank document; otherwise, if file (a path) is given, it's
-        loaded via ld()."""
+        loaded via ld().
+        """
         super().__init__(master, *args, **kwargs)
         self.view_master = view_master
         self.view_children = []
@@ -836,7 +858,8 @@ class Editor(Buffer):
         """Confirm/save before closing this pane. Only actually asks
         to save if this is the last reference to the file (not a view
         with other peers still open on it, and not itself a master
-        that peers are viewing)."""
+        that peers are viewing).
+        """
         if self._file_watch_prompt_pending:
             utils.show(
                 "select 'Discard Changes & Reload' or 'Ignore' external changes before closing the editor"
@@ -863,7 +886,8 @@ class Editor(Buffer):
     def _file_watch_prompt(self):
         """Ask whether to reload the file (discarding unsaved changes)
         or keep editing and overwrite it on next save, after
-        FileChangeHandler detected an external change."""
+        FileChangeHandler detected an external change.
+        """
         answer = state.root.warning(
             "Warning",
             f'The file "{self.title}" has changed on disk. Should PyNotes discard unsaved changes and reload the file, or overwrite the file on next save?',
@@ -877,7 +901,8 @@ class Editor(Buffer):
         """Set the selection point at index (the cursor if not given):
         an anchor that subsequent cursor movement (selkeypress()) then
         extends into a selection from, an Emacs-style alternative to
-        drag-selecting."""
+        drag-selecting.
+        """
         if index is None:
             index = self.type_.index("insert")
         self.selectionpoint = index
@@ -898,7 +923,8 @@ class Editor(Buffer):
 
     def lld(self):
         """PyCode's/Alt-X's `openfile` command: prompt for a file and
-        load it into this pane (via _smart_open())."""
+        load it into this pane (via _smart_open()).
+        """
         if self._file_watch_prompt_pending:
             utils.show(
                 "select 'Discard Changes & Reload' or 'Ignore' external changes before loading another file"
@@ -925,7 +951,8 @@ class Editor(Buffer):
         """Save to nm if given, otherwise just clear the title (via
         clt()) - the shared save-to-known-path logic behind sssv()
         (Save) and saveforclose(); redirects to view_master if this is
-        a view, since only the master actually owns the file state."""
+        a view, since only the master actually owns the file state.
+        """
         if self.view_master:
             return self.view_master.ssssv(nm)
         if self._file_watch_prompt_pending:
@@ -938,7 +965,8 @@ class Editor(Buffer):
 
     def _sync_wanttitle(self):
         """Update the buffer/window title from the current filename and
-        unsaved state."""
+        unsaved state.
+        """
         self.setwanttitle(
             os.path.basename(self.title) + (" *" if self.unsaved else "")
             if self.title
@@ -950,7 +978,8 @@ class Editor(Buffer):
         writing any file content: updates the file-info bar/window
         title, marks unsaved False, and (re)starts the file-watcher for
         the new path. Used both after an actual save (sv()) and to
-        just rename/detitle without touching disk."""
+        just rename/detitle without touching disk.
+        """
         if self.view_master:
             return self.view_master.clt(nt)
         if self is state.active:
@@ -993,7 +1022,8 @@ class Editor(Buffer):
     def sssv(self):
         """PyCode's/Alt-X's `savefile` command (Save): save to the
         current title, or prompt for one (ssv()) if there isn't one
-        yet."""
+        yet.
+        """
         if self.view_master:
             return self.view_master.sssv()
         if self._file_watch_prompt_pending:
@@ -1009,7 +1039,8 @@ class Editor(Buffer):
     def saveforclose(self):
         """Save before closing (see Buffer/window.saveforclose()):
         same logic as sssv(), but returning whether it actually
-        succeeded so the caller can abort the close on failure/cancel."""
+        succeeded so the caller can abort the close on failure/cancel.
+        """
         if self.view_master:
             return self.view_master.saveforclose()
         if not self.title == "":
@@ -1026,7 +1057,8 @@ class Editor(Buffer):
         from any existing view-sharing). Tries to read it as plain
         text; if that fails, tries it as a PNG, then a PDF, then an
         ePub (extracting each to text/a PNG view as appropriate),
-        setting the matching HMode/file-info for whichever succeeds."""
+        setting the matching HMode/file-info for whichever succeeds.
+        """
         if os.path.isdir(nm):
             state.root.error("Error", f'"{nm}" is a directory.')
             return
@@ -1149,7 +1181,8 @@ class Editor(Buffer):
     def llld(self):
         """PyCode's/Alt-X's `open` command: confirm discarding unsaved
         changes (offering to save first) if needed, then prompt for and
-        load a file (lld())."""
+        load a file (lld()).
+        """
         if self._file_watch_prompt_pending:
             utils.show(
                 "select 'Discard Changes & Reload' or 'Ignore' external changes before loading another file"
@@ -1177,7 +1210,8 @@ class Editor(Buffer):
         into and stripped, creating it if needed), skipping the write
         entirely (and returning True) if the content hasn't actually
         changed. Refuses for png/pdf/epub HModes, which have no
-        editable text to write back."""
+        editable text to write back.
+        """
         if self.view_master:
             return self.view_master.sv(nm)
         if self._file_watch_prompt_pending:
@@ -1229,7 +1263,8 @@ class Editor(Buffer):
         """PyCode's/Alt-X's `saveasfile` command (Save As): prompt for
         a filename and save to it. Temporarily highlight the active
         editor to let the user know which file is being saved instead
-        of making the first line of the editor the initial filename."""
+        of making the first line of the editor the initial filename.
+        """
         if self.view_master:
             return self.view_master.ssv()
         if self._file_watch_prompt_pending:
@@ -1252,7 +1287,8 @@ class Editor(Buffer):
     def nw(self):
         """PyCode's/Alt-X's `newfile` command: confirm discarding
         unsaved changes (offering to save first) if needed, then reset
-        this pane to a blank, untitled document."""
+        this pane to a blank, untitled document.
+        """
         is_last_reference = self.view_master is None and not self.view_children
         answer = (
             state.root.ask(
@@ -1299,7 +1335,8 @@ class Editor(Buffer):
         match (fnext()/fback()), each optionally replacing the current
         match with the typed replacement text first. dir picks where
         the initial search position/direction starts from ("forward"/
-        "backward" from the cursor, or "beginning" of the file)."""
+        "backward" from the cursor, or "beginning" of the file).
+        """
         if dir == "forward":
             utils.show("find & replace text forward")
         elif dir == "backward":
@@ -1311,7 +1348,8 @@ class Editor(Buffer):
         def fback(replacetext=None):
             """Step to the previous match, or (replacetext given)
             replace the current match then step to the previous one
-            relative to the replacement."""
+            relative to the replacement.
+            """
             nonlocal i
             if searching[0]:
                 return
@@ -1363,7 +1401,8 @@ class Editor(Buffer):
         def fnext(replacetext=None):
             """Step to the next match, or (replacetext given) replace
             the current match then step to the next one relative to
-            the replacement."""
+            the replacement.
+            """
             nonlocal i
             if searching[0]:
                 return
@@ -1416,7 +1455,8 @@ class Editor(Buffer):
         def replaceall(replacetext):
             """Replace every match from the current one (i) through the
             end of the file - not matches before it - with
-            replacetext, then close the panel."""
+            replacetext, then close the panel.
+            """
             nonlocal i
             if searching[0]:
                 return
@@ -1439,7 +1479,8 @@ class Editor(Buffer):
         def clear_programmatic_edit():
             """Clear the flag that tells on_type_modified() to ignore
             an edit made by this search/replace itself, rather than by
-            the user, once tkinter's <<Modified>> event for it fires."""
+            the user, once tkinter's <<Modified>> event for it fires.
+            """
             programmatic_edit[0] = False
 
         def updatef():
@@ -1449,7 +1490,8 @@ class Editor(Buffer):
             already in progress first; applies the (possibly huge)
             result to the widget's tags in small batches
             (_apply_batch(), scheduled via .after) so highlighting a
-            large file's worth of matches doesn't freeze the UI."""
+            large file's worth of matches doesn't freeze the UI.
+            """
             nonlocal i
             nonlocal foundlist
             find = findbox.get()
@@ -1589,7 +1631,8 @@ class Editor(Buffer):
             change, except a bare Return (no Control held) - that's
             handled by the findbox's own <Return>/<Shift-Return>
             bindings below to step to the next/previous match instead,
-            so this just re-highlights the already-current match."""
+            so this just re-highlights the already-current match.
+            """
             if (
                 not event
                 or event
@@ -1661,7 +1704,8 @@ class Editor(Buffer):
 
         def replace_current():
             """Replace just the current match with the replacement
-            text, staying on (the now-shifted) same match index."""
+            text, staying on (the now-shifted) same match index.
+            """
             nonlocal i
             if searching[0] or not foundlist:
                 return
@@ -1700,7 +1744,8 @@ class Editor(Buffer):
 
         def close_find():
             """Cancel any in-flight search, clear the found/
-            foundhighlight tags, and close the panel."""
+            foundhighlight tags, and close the panel.
+            """
             if search_cancel[0]:
                 search_cancel[0].set()
             if self._find_apply_after_id is not None:
@@ -1714,7 +1759,8 @@ class Editor(Buffer):
         def on_type_modified(event):
             """Auto-close the panel if the user edits the text some
             other way while it's open (a search/replace's own edits
-            set programmatic_edit first to be excluded from this)."""
+            set programmatic_edit first to be excluded from this).
+            """
             event.widget.edit_modified(False)
             if programmatic_edit[0]:
                 return
@@ -1751,7 +1797,8 @@ class Editor(Buffer):
         """Open the Find panel: the find-only counterpart of fr()
         (search-as-you-type, batched background search, Enter/
         Shift-Enter to step to the next/previous match) with no
-        replace field."""
+        replace field.
+        """
         if dir == "forward":
             utils.show("find text forward")
         elif dir == "backward":
@@ -1807,7 +1854,8 @@ class Editor(Buffer):
             background thread, batching the (possibly huge) result's
             application to the widget's tags so it doesn't freeze the
             UI; see fr()'s updatef() for the same logic in more
-            detail."""
+            detail.
+            """
             nonlocal i
             nonlocal foundlist
             find = findbox.get()
@@ -2021,7 +2069,8 @@ class Editor(Buffer):
 
     def type_getvisible(self):
         """The (top, bottom) tkinter indices of the currently visible
-        text, padded by 2 lines on each side."""
+        text, padded by 2 lines on each side.
+        """
         self._own_type.update()
         top = self._own_type.index("@0,0-2l")
         bottom = self._own_type.index(f"@0,{self._own_type.winfo_height()}+2l")
@@ -2044,7 +2093,8 @@ class Editor(Buffer):
     def _set_undo_mark(self):
         """Insert an undo separator so the edits since the last one
         are grouped as a single undo step, if one hasn't already been
-        placed for this burst of typing."""
+        placed for this burst of typing.
+        """
         if not self.undoset:
             self.type_.edit_separator()
             self.undoset = True
@@ -2054,7 +2104,8 @@ class Editor(Buffer):
         of typing becomes one undo step instead of one per keystroke
         (the <<Modified>> handler in __init__ resets self.undoset as
         soon as any edit happens, so the next debounced call places a
-        fresh separator once typing pauses)."""
+        fresh separator once typing pauses).
+        """
         if self._setundo_after_id is not None:
             self._own_type.after_cancel(self._setundo_after_id)
         self._setundo_after_id = self._own_type.after(
@@ -2063,7 +2114,8 @@ class Editor(Buffer):
 
     def _update_unsaved(self):
         """Recompute whether the buffer differs from what's on disk
-        and update the title/every pane's info bar to match."""
+        and update the title/every pane's info bar to match.
+        """
         if self.title and self.hmode not in ["png", "pdf", "epub"]:
             if self.type_.get("1.0", "end-1c") != self.unsavedtext:
                 self.unsaved = True
@@ -2087,7 +2139,8 @@ class Editor(Buffer):
     def trigger_ha(self, ft):
         """Debounce a re-highlight (ha(ft)) after an edit; redirects to
         view_master since highlighting only needs to run once for a
-        file, regardless of which peer view was actually edited."""
+        file, regardless of which peer view was actually edited.
+        """
         if self.view_master is not None:
             return self.view_master.trigger_ha(ft)
         if self._ha_after_id is not None:
@@ -2096,7 +2149,8 @@ class Editor(Buffer):
 
     def python_trigger_name_scan(self):
         """Debounce a Python scope re-scan after an edit (same
-        view_master redirect as trigger_ha())."""
+        view_master redirect as trigger_ha()).
+        """
         if self.view_master is not None:
             return self.view_master.python_trigger_name_scan()
         if self._python_scan_after_id is not None:
@@ -2170,7 +2224,8 @@ class Editor(Buffer):
             HMode ft; pre_text (everything before top) is used where a
             highlight rule needs to know context carried in from above
             the visible region (e.g. whether it starts already inside
-            a triple-quoted string or LaTeX environment)."""
+            a triple-quoted string or LaTeX environment).
+            """
             ops = []
             try:
                 ops.append(("remove_all",))
@@ -3055,7 +3110,8 @@ class Editor(Buffer):
             key that never equals a real ft, so they're invisible here
             - they're only consumed by init_plugin_tags(), to
             pre-build the tag_config for later manual use via PyCode's
-            `tag` command.)"""
+            `tag` command.)
+            """
             if ft in state.plugin_hl:
                 entry = state.plugin_hl[ft]
                 plugin_name = entry.get("plugin", "") if isinstance(entry, dict) else ""
@@ -3199,7 +3255,8 @@ class Editor(Buffer):
                     own_type, then reschedule itself for the next chunk
                     (via .after(0, ...)) if there's more, so a large
                     ops list doesn't freeze the UI applying it all in
-                    one go."""
+                    one go.
+                    """
                     try:
                         end = min(start + _HA_CHUNK_SIZE, len(ops))
                         for op in ops[start:end]:
@@ -3260,7 +3317,8 @@ class Editor(Buffer):
         the same "exec a Python attribute-config expression written in
         terms of `type_`" pattern as
         pythonshell.PythonShellBuffer.init_pythonshell_hl_tags(). Called
-        on init and after a theme change."""
+        on init and after a theme change.
+        """
         [
             self._own_type.tag_delete(tag)
             for tag in (
@@ -3490,7 +3548,8 @@ class Editor(Buffer):
         (or PyCode `color` command's) fixed pattern-to-tag mapping from
         the current theme; skipped for entries that are instead a
         custom highlighting callable ("hl" a function), since those
-        configure their own tags themselves."""
+        configure their own tags themselves.
+        """
         for ft, entry in state.plugin_hl.items():
             mapping = None
             if isinstance(entry, dict):
@@ -3515,7 +3574,8 @@ class Editor(Buffer):
 
     def selupdate(self):
         """Refresh the visual selection to span from the selection
-        point (see setselpoint()) to the cursor."""
+        point (see setselpoint()) to the cursor.
+        """
         if self.selectionpoint:
             self.type_.tag_remove("sel", "1.0", "end")
             if self.type_.compare(self.selectionpoint, "<=", "insert"):
@@ -3527,7 +3587,8 @@ class Editor(Buffer):
         """Run after (essentially) every edit/keystroke: update the
         selection, and debounced filesize/undo-mark/
         highlight/unsaved-state triggers, and refresh the file-info
-        bar's filename/saved-state display."""
+        bar's filename/saved-state display.
+        """
         if not self.winfo_exists():
             return
         self.selupdate()
@@ -3571,7 +3632,8 @@ class Editor(Buffer):
 
     def sethmenu(self, mode):
         """Show the HMode-specific menu (Python or LaTeX) matching
-        mode, removing whichever one was there before."""
+        mode, removing whichever one was there before.
+        """
         try:
             self.m.delete("Python")
         except Exception:
@@ -3595,7 +3657,8 @@ class Editor(Buffer):
         HMode (python/latex/normal/html/markdown, or a plugin-provided
         one), updating its menu, LaTeX toolbar visibility, and
         file-type label, and re-highlighting. No-op for the read-only
-        png/pdf/epub HModes."""
+        png/pdf/epub HModes.
+        """
         if self.view_master:
             return self.view_master.pchmode(mode)
         if self.hmode in ["png", "pdf", "epub"]:
@@ -3653,7 +3716,8 @@ class Editor(Buffer):
     def rp(self):
         """Run this editor's Python code (F5, Python HMode): save it
         (to a temp file if untitled, otherwise saving/using its own
-        file) and run it with state.pythonexecutable in a terminal."""
+        file) and run it with state.pythonexecutable in a terminal.
+        """
         if not self.title:
             f = open(
                 f"{homedir}/.local/share/PyNotes/tempfiles/tempcode",
@@ -3675,7 +3739,8 @@ class Editor(Buffer):
     def hp(self):
         """Run this editor's HTML code (F5, HTML HMode): save it (to a
         temp file if untitled, otherwise saving its own file) and open
-        it with the system's default handler for it (a browser)."""
+        it with the system's default handler for it (a browser).
+        """
         if not self.title:
             f = open(
                 f"{homedir}/.local/share/PyNotes/tempfiles/tempcode",
@@ -3696,7 +3761,8 @@ class Editor(Buffer):
     def runtex(self, compiler):
         """Compile this editor's LaTeX code with compiler ("lua" or
         "pdf", i.e. lualatex/pdflatex) and open the resulting PDF (see
-        dialogs.pdf()), or offer to show the compile log if it failed."""
+        dialogs.pdf()), or offer to show the compile log if it failed.
+        """
         if not self.title:
             f = open(
                 f"{homedir}/.local/share/PyNotes/tempfiles/tempcode",
@@ -3735,7 +3801,8 @@ class Editor(Buffer):
     def f5(self):
         """PyCode's/Alt-X's `runcode` command (F5): run this editor's
         code with whichever runner matches its HMode (rp() for Python,
-        runtex() for LaTeX, hp() for HTML)."""
+        runtex() for LaTeX, hp() for HTML).
+        """
         if self._file_watch_prompt_pending:
             utils.show(
                 "select 'Discard Changes & Reload' or 'Ignore' external changes before loading another file"
@@ -3758,7 +3825,8 @@ class Editor(Buffer):
         """<Tab> handler for all HModes; indent one level with tabs
         or spaces depending on the user's preferences if on start
         of stripped line. Otherwise, insert a literal tab. If there is
-        a selection, indent the selected lines instead."""
+        a selection, indent the selected lines instead.
+        """
         if self.type_.tag_ranges("sel"):
             pycode.pcindentselection()
             return
@@ -3775,7 +3843,8 @@ class Editor(Buffer):
     def _indent_chars_before_cursor(self):
         """How many characters back the previous indent stop is (a tab,
         or the spaces back to the previous multiple of 4 columns), or 0
-        if anything but whitespace is before the cursor on its line."""
+        if anything but whitespace is before the cursor on its line.
+        """
         before = self.type_.get("insert linestart", "insert")
         if not before or before.strip():
             return 0
@@ -3788,7 +3857,8 @@ class Editor(Buffer):
     def _indent_chars_after_cursor(self):
         """How many characters forward the next indent stop is, or 0 if
         anything but whitespace is before the cursor on its line or a
-        non-whitespace character follows it."""
+        non-whitespace character follows it.
+        """
         before = self.type_.get("insert linestart", "insert")
         after = self.type_.get("insert", "insert lineend")
         if before.strip() or not after or after[0] not in " \t":
@@ -3803,7 +3873,8 @@ class Editor(Buffer):
         """<Left> handler for all HModes: clear the selection (unless
         a selection point is extending it), then if only whitespace is
         before the cursor, move back one indentation level (see
-        backspace()); otherwise move back one character."""
+        backspace()); otherwise move back one character.
+        """
         if self.selectionpoint:
             self.type_.after_idle(self.selupdate)
         else:
@@ -3821,7 +3892,8 @@ class Editor(Buffer):
         clear the selection (unless a selection point is extending
         it), then if only whitespace is before the cursor and
         whitespace follows it, move forward one indentation level;
-        otherwise move forward one character."""
+        otherwise move forward one character.
+        """
         if self.selectionpoint:
             self.type_.after_idle(self.selupdate)
         else:
@@ -3839,7 +3911,8 @@ class Editor(Buffer):
         backspace(): delete the selection if the cursor is in it;
         otherwise, if only whitespace is before the cursor and
         whitespace follows it, delete forward to the next indentation
-        level; otherwise delete the next character."""
+        level; otherwise delete the next character.
+        """
         if self.selectionpoint:
             self.removeselpoint()
         if (
@@ -3866,7 +3939,8 @@ class Editor(Buffer):
         delete the selection if the cursor is in it; otherwise, if only
         whitespace is before the cursor, delete one indentation level
         (a tab, or the spaces back to the previous multiple of 4
-        columns); otherwise delete the previous character."""
+        columns); otherwise delete the previous character.
+        """
         if (
             self.type_.tag_ranges("sel")
             and self.type_.compare("sel.first", "<=", "insert")
@@ -3890,7 +3964,8 @@ class Editor(Buffer):
         """<Return> handler for Python HMode: insert a newline and
         auto-indent the new line to match the previous one, adding one
         more indent level if the previous line (ignoring string/
-        comment content) ends with ':'."""
+        comment content) ends with ':'.
+        """
         self._set_undo_mark()
         if not self.hmode == "python":
             return
@@ -3916,7 +3991,8 @@ class Editor(Buffer):
 
     def gl(self, l=None):
         """PyCode's/Alt-X's `gotoline` command: jump to and select line
-        l (prompting for it if not given)."""
+        l (prompting for it if not given).
+        """
         if l is None:
             l = utils.prompt("Go to line: ")
         if type(l) == str:
@@ -3974,7 +4050,8 @@ class Editor(Buffer):
 
     def spk(self):
         """PyCode's/Alt-X's `speaktext` command: speak the selected
-        text aloud on a background thread."""
+        text aloud on a background thread.
+        """
         try:
             select = self.type_.get("sel.first", "sel.last")
         except Exception:
@@ -4047,7 +4124,8 @@ class Editor(Buffer):
         """Every 10ms, run every callback queued on self._main_queue -
         the way background threads (the file watcher, find/replace's
         and highlighting's search threads) hand results back to the GUI
-        thread, since they can't touch widgets directly."""
+        thread, since they can't touch widgets directly.
+        """
         if not self.winfo_exists():
             return
         try:
@@ -4061,7 +4139,8 @@ class Editor(Buffer):
     def type_setview(self):
         """Every 10ms, check whether the visible region has changed
         (scrolling) and, if so, trigger a re-highlight of the new
-        region (see ha())."""
+        region (see ha()).
+        """
         if not self.winfo_exists():
             return
         new_region = self.type_getvisible()
@@ -4077,7 +4156,8 @@ class Editor(Buffer):
         """Every 10 seconds, write a ".<name>backpynotes<ext>" backup
         of the current content next to the file, if backups are
         enabled (state.bfr, see preferences), the file has a title,
-        and it isn't a read-only png/pdf/epub HMode."""
+        and it isn't a read-only png/pdf/epub HMode.
+        """
         if not self.winfo_exists():
             return
         if all((self.hmode not in ["png", "pdf", "epub"], state.bfr, self.title)):
@@ -4162,7 +4242,8 @@ class Editor(Buffer):
         """Wrap the selection as an enumerate (numbered) list, one
         \\item per line; if the selection is already a whole such list,
         unwrap it back to plain lines instead. Inserts an empty list if
-        nothing is selected."""
+        nothing is selected.
+        """
         self._set_undo_mark()
         try:
             select = self.type_.get("sel.first", "sel.last")
@@ -4230,7 +4311,8 @@ class Editor(Buffer):
         """Wrap the selection as an equation/split environment (each
         line ended with '\\\\' for a line break); if the selection is
         already a whole such environment, unwrap it back to plain lines
-        instead. Inserts an empty equation if nothing is selected."""
+        instead. Inserts an empty equation if nothing is selected.
+        """
         self._set_undo_mark()
         try:
             select = self.type_.get("sel.first", "sel.last")
@@ -4263,7 +4345,8 @@ class Editor(Buffer):
         """Insert a '\\{typeofsection}{Section}' heading command (e.g.
         typeofsection "section"/"subsection"/"subsubsection", matching
         the LaTeX toolbar's Section dropdown), with the placeholder
-        title text "Section" left for the user to edit."""
+        title text "Section" left for the user to edit.
+        """
         self._set_undo_mark()
         typeofsection = typeofsection.lower()
         secname = "Section"
@@ -4276,7 +4359,8 @@ class Editor(Buffer):
     def mathlatex(self, whichchar):
         """Insert the LaTeX code for the math symbol/construct named
         whichchar (matching the LaTeX toolbar's math-symbol dropdown,
-        e.g. "Multiplication" -> '\\times')."""
+        e.g. "Multiplication" -> '\\times').
+        """
         self._set_undo_mark()
         original = [
             "Multiplication",
@@ -4321,7 +4405,8 @@ def _promote_new_master(old_master):
     (everything except _PER_PANE_ATTRS/_TK_INTERNAL_ATTRS) and its menu.
     Called when old_master is about to stop being usable as a master
     (see Editor._disconnect()/_detach_before_close()) but its peers
-    need to keep sharing state with each other."""
+    need to keep sharing state with each other.
+    """
     children = list(old_master.view_children)
     if not children:
         return
@@ -4356,7 +4441,8 @@ def _promote_new_master(old_master):
 
 def _init_hl_tags():
     """Reconfigure every open Editor's built-in highlight tags (after a
-    theme change)."""
+    theme change).
+    """
     for buffer in state.all_buffers:
         if isinstance(buffer, Editor):
             buffer.init_hl_tags()
@@ -4364,7 +4450,8 @@ def _init_hl_tags():
 
 def _init_plugin_tags():
     """Reconfigure every open Editor's plugin-defined highlight tags
-    (after a theme change)."""
+    (after a theme change).
+    """
     for buffer in state.all_buffers:
         if isinstance(buffer, Editor):
             buffer.init_plugin_tags()
@@ -4373,7 +4460,8 @@ def _init_plugin_tags():
 def _find_closing_brace(text, start):
     """The index just past the '}' in text that matches the '{' at
     start (honoring nesting and backslash-escaped characters), or
-    len(text) if unmatched. Used by the LaTeX highlighter."""
+    len(text) if unmatched. Used by the LaTeX highlighter.
+    """
     depth = 1
     i = start + 1
     while i < len(text) and depth > 0:
@@ -4390,7 +4478,8 @@ def _find_closing_brace(text, start):
 
 def _find_closing_bracket(text, start):
     """Same as _find_closing_brace() but for '['/']'. Used by the
-    LaTeX highlighter (e.g. optional-argument brackets)."""
+    LaTeX highlighter (e.g. optional-argument brackets).
+    """
     depth = 1
     i = start + 1
     while i < len(text) and depth > 0:
@@ -4408,7 +4497,8 @@ def _find_closing_bracket(text, start):
 def _find_closing_tag(text, start):
     """The index just past the '>' that closes the tag opening at
     start, skipping any '>' found inside a quoted attribute value. Used
-    by the HTML and Markdown highlighters."""
+    by the HTML and Markdown highlighters.
+    """
     i = start + 1
     in_quote = None
     while i < len(text):

@@ -1,5 +1,6 @@
 """XOR encryption/decryption of a file in place, used by the PyNotes email
-client to protect its saved configuration file."""
+client to protect its saved configuration file.
+"""
 
 import sys, os
 

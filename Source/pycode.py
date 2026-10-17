@@ -4,7 +4,8 @@ splittoplevelcommas/indexargs functions and pcread(), which translate
 PyCode source into plain Python that's then exec'd against
 vars(state)), and the pc* command functions PyCode code calls into
 (each usually a thin wrapper around one editor/PyNotes action, one per
-command documented in help.helppycode())."""
+command documented in help.helppycode()).
+"""
 
 import ast
 import os
@@ -28,7 +29,8 @@ def pcprompt(text, autocompletefunc=None, defaultinput=None):
     """PyCode's `prompt` command: like utils.prompt(), but
     autocompletefunc may be given as a state attribute name (a string)
     instead of the callable/list itself, since PyCode source can't
-    reference a Python object directly."""
+    reference a Python object directly.
+    """
     return utils.prompt(
         text,
         (
@@ -42,7 +44,8 @@ def pcprompt(text, autocompletefunc=None, defaultinput=None):
 
 def pcdone(nc):
     """Save nc (raw PyCode source) as the user's ~/.pynotes startup
-    config and translate+run it immediately."""
+    config and translate+run it immediately.
+    """
     open(f"{homedir}/.pynotes", "w+", encoding="utf-8").write(nc)
     pcread(nc)
 
@@ -55,7 +58,8 @@ def say(string):
 def pcrun(code):
     """Run already-translated Python code (one PyCode statement per
     line, as pcread() produces) against vars(state), reporting each
-    line's error separately rather than aborting the rest."""
+    line's error separately rather than aborting the rest.
+    """
     code = code.split("\n")
     for line in code:
         try:
@@ -72,7 +76,8 @@ def pcrun(code):
 
 def pcexecaction(code):
     """Run one already-translated line of Python code (e.g. a
-    keybinding's action) against vars(state), reporting any error."""
+    keybinding's action) against vars(state), reporting any error.
+    """
     try:
         exec(code, vars(state))
     except tk.TclError:
@@ -86,7 +91,8 @@ def pcexecaction(code):
 
 def pcopenhelp(thing):
     """PyCode's `openhelp` command: open the named Help topic
-    (commands/email/pycode/mathgod/plugins)."""
+    (commands/email/pycode/mathgod/plugins).
+    """
     if thing == "commands":
         utils.show("open alt-x commands help")
         help.hx()
@@ -111,7 +117,8 @@ def pctermexec(command):
 def pcrepeatx(command, n):
     """PyCode's `repeatxcommand` command: run the given Alt-X command
     string n times. (Imports command.py lazily to avoid a circular
-    import, since command.py itself imports pycode.)"""
+    import, since command.py itself imports pycode.)
+    """
     import command as _command_module
 
     for i in range(n):
@@ -172,7 +179,8 @@ def pcrunhook(when, event, commandinput=None):
     commandinput first for the hook's code to read. event may be
     "kind:detail" (e.g. "alt-x-command:save"); hooks registered for
     just "kind" (e.g. "alt-x-command") run for every detail too. Errors
-    in one hook are reported without stopping the others."""
+    in one hook are reported without stopping the others.
+    """
     try:
         state.root.update()
     except Exception:
@@ -226,21 +234,24 @@ def pcunsettitle():
 
 def pckillexit():
     """PyCode's `killquit` command: kill PyNotes immediately, with no
-    save/cleanup."""
+    save/cleanup.
+    """
     os._exit(0)
 
 
 def pcsetvar(var, val):
     """PyCode's `setvar` command: set a state variable by name, so
     PyCode source (which can't reference Python objects directly) can
-    define values other PyCode code will read."""
+    define values other PyCode code will read.
+    """
     vars(state)[var] = val
 
 
 def pcwhileloop(condfunc, bodyfunc):
     """Implements PyCode's `while (condition) {code}` loop syntax (see
     pycodewhileexpr()): call condfunc() before each iteration, running
-    bodyfunc() while it's true."""
+    bodyfunc() while it's true.
+    """
     while condfunc():
         bodyfunc()
 
@@ -249,7 +260,8 @@ def pccolor(name, *args, **kwargs):
     """PyCode's `color` command: define a reusable tag named name with
     the given tkinter tag_config options, usable later via the `tag`
     command and preserved across syntax-highlighting redraws (which
-    otherwise clear tags not owned by the highlighter)."""
+    otherwise clear tags not owned by the highlighter).
+    """
     theme_key = f"pccolor:{name}"
     state.theme[theme_key] = ", ".join(
         [repr(arg) for arg in args]
@@ -401,7 +413,8 @@ def pcsavefile(*args, **kwargs):
 
 def pcbackspace():
     """PyCode's `backspace` command: what pressing BackSpace does in
-    the active editor (see Editor.backspace())."""
+    the active editor (see Editor.backspace()).
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.backspace()
@@ -409,7 +422,8 @@ def pcbackspace():
 
 def pcleft():
     """PyCode's `left` command: what pressing Left does in the active
-    editor (see Editor.left())."""
+    editor (see Editor.left()).
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.left()
@@ -417,7 +431,8 @@ def pcleft():
 
 def pcright():
     """PyCode's `right` command: what pressing Right does in the active
-    editor (see Editor.right())."""
+    editor (see Editor.right()).
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.right()
@@ -425,7 +440,8 @@ def pcright():
 
 def pcdeletekey():
     """PyCode's `deletekey` command: what pressing Delete does in the
-    active editor (see Editor.delete_key())."""
+    active editor (see Editor.delete_key()).
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.delete_key()
@@ -478,7 +494,8 @@ def pcselectionlines():
     selection, leaving out a last line the selection only reaches the
     very start of (e.g. after selecting whole lines by triple-click or
     Shift-Down). Shows a message and returns None if nothing is
-    selected."""
+    selected.
+    """
     try:
         first = state.active.type_.index("sel.first")
         last = state.active.type_.index("sel.last")
@@ -494,7 +511,8 @@ def pcselectionlines():
 
 def pccommentmarkers():
     """The (prefix, suffix) that commenting a line adds in the active
-    editor's HMode (which must be Python / LaTeX / HTML / Markdown)."""
+    editor's HMode (which must be Python / LaTeX / HTML / Markdown).
+    """
     if state.active.hmode == "python":
         return "# ", ""
     if state.active.hmode == "latex":
@@ -506,7 +524,8 @@ def pccommentlines(start, end):
     """Comment every non-blank line from start to end. In the Python
     HMode, the '# ' goes at the indentation shared by all the lines
     (so the comment marks line up with the least indented line, as in
-    other editors) instead of at the start of each line."""
+    other editors) instead of at the start of each line.
+    """
     prefix, suffix = pccommentmarkers()
     type_ = state.active.type_
     lines = {l: type_.get(f"{l}.0", f"{l}.end") for l in range(start, end + 1)}
@@ -531,7 +550,8 @@ def pccommentlines(start, end):
 
 def pcuncommentlines(start, end):
     """Undo pccommentlines() on every line from start to end that has
-    the comment marker (a Python '#' loses one following space too)."""
+    the comment marker (a Python '#' loses one following space too).
+    """
     prefix, suffix = pccommentmarkers()
     type_ = state.active.type_
     type_.edit_separator()
@@ -554,7 +574,8 @@ def pcuncommentlines(start, end):
 def pccommentregion(start, end):
     """PyCode's `commentregion` command: prefix every non-blank line
     from start to end with the active HMode's comment marker (HTML/
-    Markdown also get a closing '-->')."""
+    Markdown also get a closing '-->').
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -569,7 +590,8 @@ def pccommentregion(start, end):
 
 def pccommentselection():
     """PyCode's `commentselection` command: pccommentregion() over the
-    line range of the current selection."""
+    line range of the current selection.
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -587,7 +609,8 @@ def pccommentselection():
 
 def pcuncommentregion(start, end):
     """PyCode's `uncommentregion` command: undo pccommentregion()'s
-    prefix/suffix on every line from start to end that has them."""
+    prefix/suffix on every line from start to end that has them.
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -602,7 +625,8 @@ def pcuncommentregion(start, end):
 
 def pcuncommentselection():
     """PyCode's `uncommentselection` command: pcuncommentregion() over
-    the line range of the current selection."""
+    the line range of the current selection.
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -655,7 +679,8 @@ def pcgetselection():
 def pcmark(a, b=None):
     """PyCode's `mark` command: visually tag the range a..b as
     "marked" (a separate, persistent highlight from the selection),
-    accepting either two args (a, b) or one (a, b) tuple/list."""
+    accepting either two args (a, b) or one (a, b) tuple/list.
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -705,7 +730,8 @@ def pcunmarkall():
 def pctkindex(toindex, line=False):
     """PyCode's `tkindex` command: resolve a tkinter-style index (or
     reference like "end", "sel.first") to its normalized "line.col"
-    form, or just the line number if line == "line"."""
+    form, or just the line number if line == "line".
+    """
     if not isinstance(state.active, editor.Editor):
         return
     ans = state.active.type_.index(toindex)
@@ -725,7 +751,8 @@ def _pcmovecursor(index):
     """Move the active editor's cursor to index and scroll to it,
     without the isinstance(Editor) guard pcmovecursor() has (used by
     callers, like the Python-navigation commands below, that already
-    know it's an Editor)."""
+    know it's an Editor).
+    """
     state.active.type_.mark_set("insert", index)
     state.active.type_.see(index)
 
@@ -748,7 +775,8 @@ def pcpyscopechains():
     the module level down to it (e.g. ("Outer", "Inner", "method")).
     The module scope (index 0) maps to the empty chain; a scope that is
     not a named function/class (lambda, comprehension) or sits inside
-    one is left out."""
+    one is left out.
+    """
     defs_by_start = {}
     for dl, dc, dname, dkind in state.active._python_def_names:
         defs_by_start.setdefault(dl, []).append((dname, dkind))
@@ -770,7 +798,8 @@ def pcpynames():
     """Every attribute chain ("Outer.Inner.name" strings) the Python
     navigation commands accept in the active (Python-HMode) editor:
     the chain of every function/class, and of every name bound directly
-    inside one (or at the module level)."""
+    inside one (or at the module level).
+    """
     chains = pcpyscopechains()
     out = set()
     for idx, chain in chains.items():
@@ -785,7 +814,8 @@ def _pcpyblocks(text):
     """Every block (suite of a compound statement: def/class/if/elif/
     else/for/while/try/except/finally/with/case...) in text, as
     (start_line, end_line, keyword) where start_line is the block's
-    header line. Returns None if text can't be parsed."""
+    header line. Returns None if text can't be parsed.
+    """
     try:
         tree = ast.parse(text)
     except (SyntaxError, ValueError):
@@ -841,7 +871,8 @@ def _pcpyresolve(commandinput):
     cursor; otherwise treat commandinput as a function/class attribute
     chain (Outer.Inner.name, starting at the module level) and find its
     definition. Returns None (after showing an error) if nothing
-    matches."""
+    matches.
+    """
     if state.active.hmode != "python":
         utils.show("not in python hmode")
         return None
@@ -908,7 +939,8 @@ def _pcpyresolve(commandinput):
 
 def pcpystartof(commandinput):
     """PyCode's `pythongostartof` command: jump to the start of the
-    resolved function/class (see _pcpyresolve())."""
+    resolved function/class (see _pcpyresolve()).
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -924,7 +956,8 @@ def pcpystartof(commandinput):
 
 def pcpyendof(commandinput):
     """PyCode's `pythongoendof` command: jump to the end of the
-    resolved function/class (see _pcpyresolve())."""
+    resolved function/class (see _pcpyresolve()).
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -944,7 +977,8 @@ def pcgodef(commandinput):
     module level): its nearest binding at or before the cursor in the
     scope the chain leads to; if that scope has no binding at or before
     the cursor, falls back to its earliest binding (which may be after
-    the cursor)."""
+    the cursor).
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1008,7 +1042,8 @@ def _pclatexsections(text):
     as (start_line, end_line, level, title, label): level indexes
     _LATEX_SECTION_NAMES, and end_line is the last non-blank line before
     the next heading of the same or a higher level (or before
-    \\end{document}, or the end of the text)."""
+    \\end{document}, or the end of the text).
+    """
     lines = text.split("\n")
     lastline = len(lines)
     headings = []
@@ -1029,7 +1064,8 @@ def _pcmarkdownsections(text):
     text, as (start_line, end_line, level, title, label): level is the
     number of #s, and end_line is the last non-blank line before the
     next heading of the same or a higher level (or the end of the
-    text)."""
+    text).
+    """
     lines = text.split("\n")
     headings = []
     fence = None
@@ -1056,7 +1092,8 @@ def _pcsectionspans(lines, headings, lastline):
     """Shared by _pclatexsections()/_pcmarkdownsections(): turn
     headings ((line, level, title, label), in order) into spans by
     ending each one before the next heading of the same or a higher
-    level (or at lastline), minus trailing blank lines."""
+    level (or at lastline), minus trailing blank lines.
+    """
     spans = []
     for i, (ln, level, title, label) in enumerate(headings):
         end = lastline
@@ -1078,7 +1115,8 @@ def _pcsectionresolve(commandinput, spans, kindwords, kindnouns, anynoun):
     the cursor; otherwise treat it as a heading title and find the
     first such heading. kindnouns maps level -> noun used in the
     "currently in no ..." error; anynoun is used for a None level.
-    Returns None (after showing an error) if nothing matches."""
+    Returns None (after showing an error) if nothing matches.
+    """
     raw = commandinput.strip()
     word = raw.lower()
     line = int(state.active.type_.index("insert").split(".")[0])
@@ -1109,7 +1147,8 @@ def _pcsectionjump(
 ):
     """Shared by pclatexstartof()/pclatexendof()/pcmarkdownstartof()/
     pcmarkdownendof(): jump to the start (or end, if atend) of the
-    section commandinput resolves to."""
+    section commandinput resolves to.
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1134,7 +1173,8 @@ def _pcsectionjump(
 def pclatexstartof(commandinput):
     """PyCode's `latexgostartof` command: jump to the start of the
     resolved chapter/section/subsection/subsubsection (see
-    _pcsectionresolve())."""
+    _pcsectionresolve()).
+    """
     _pcsectionjump(
         commandinput,
         False,
@@ -1149,7 +1189,8 @@ def pclatexstartof(commandinput):
 def pclatexendof(commandinput):
     """PyCode's `latexgoendof` command: jump to the end of the resolved
     chapter/section/subsection/subsubsection (see
-    _pcsectionresolve())."""
+    _pcsectionresolve()).
+    """
     _pcsectionjump(
         commandinput,
         True,
@@ -1163,7 +1204,8 @@ def pclatexendof(commandinput):
 
 def pcmarkdownstartof(commandinput):
     """PyCode's `markdowngostartof` command: jump to the start of the
-    resolved Markdown section (see _pcsectionresolve())."""
+    resolved Markdown section (see _pcsectionresolve()).
+    """
     _pcsectionjump(
         commandinput,
         False,
@@ -1177,7 +1219,8 @@ def pcmarkdownstartof(commandinput):
 
 def pcmarkdownendof(commandinput):
     """PyCode's `markdowngoendof` command: jump to the end of the
-    resolved Markdown section (see _pcsectionresolve())."""
+    resolved Markdown section (see _pcsectionresolve()).
+    """
     _pcsectionjump(
         commandinput,
         True,
@@ -1191,7 +1234,8 @@ def pcmarkdownendof(commandinput):
 
 def pclatexsectiontitles():
     """Every section title in the active (LaTeX-HMode) editor, for the
-    LaTeX navigation commands' autocomplete."""
+    LaTeX navigation commands' autocomplete.
+    """
     return [
         title
         for s, e, l, title, label in _pclatexsections(
@@ -1202,7 +1246,8 @@ def pclatexsectiontitles():
 
 def pcmarkdownsectiontitles():
     """Every section title in the active (Markdown-HMode) editor, for
-    the Markdown navigation commands' autocomplete."""
+    the Markdown navigation commands' autocomplete.
+    """
     return [
         title
         for s, e, l, title, label in _pcmarkdownsections(
@@ -1213,7 +1258,8 @@ def pcmarkdownsectiontitles():
 
 def pccmdwrite(text, n):
     """PyCode's `write` command: insert text repeated n times at the
-    cursor."""
+    cursor.
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1226,7 +1272,8 @@ def pccmdwrite(text, n):
 
 def pcindentregion(start, end):
     """PyCode's `indentregion` command: indent every non-blank line
-    from start to end by one tab or 4 spaces (per state.taborspace)."""
+    from start to end by one tab or 4 spaces (per state.taborspace).
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1252,7 +1299,8 @@ def pcindentregion(start, end):
 def pcindentselection():
     """PyCode's `indentselection` command: pcindentregion() over the
     line range of the current selection (including blank lines,
-    unlike pcindentregion())."""
+    unlike pcindentregion()).
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1277,7 +1325,8 @@ def pcunindentlines(start, end):
     """Unindent every non-blank indented line from start to end by one
     indentation level, each line on its own (like backspace() does):
     a tab, or the spaces back to the previous multiple of 4 columns, so
-    at most 4 spaces are removed from a line."""
+    at most 4 spaces are removed from a line.
+    """
     type_ = state.active.type_
     type_.edit_separator()
     for l in range(start, end + 1):
@@ -1297,7 +1346,8 @@ def pcunindentlines(start, end):
 def pcunindentregion(start, end):
     """PyCode's `unindentregion` command: remove one level of leading
     indentation from every non-blank line from start to end (see
-    pcunindentlines())."""
+    pcunindentlines()).
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1310,7 +1360,8 @@ def pcunindentregion(start, end):
 
 def pcunindentselection():
     """PyCode's `unindentselection` command: pcunindentregion() over
-    the line range of the current selection."""
+    the line range of the current selection.
+    """
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1439,7 +1490,8 @@ def finddelimitedspans(s, opener, closer):
     """Find every top-level opener...closer span in s (e.g. matching
     '{'/'}' or '['/']'), respecting nesting and skipping content inside
     single-quoted strings; return a list of (start, end) index pairs
-    covering the opener through the closer."""
+    covering the opener through the closer.
+    """
     spans = []
     depth = 0
     instring = False
@@ -1470,7 +1522,8 @@ def finddelimitedspans(s, opener, closer):
 def pycodesplitdownarrow(s):
     """Split s on top-level '↓' characters (PyCode's statement
     separator inside a {block}), respecting bracket nesting and
-    single-quoted strings."""
+    single-quoted strings.
+    """
     parts = []
     depth = 0
     instring = False
@@ -1501,7 +1554,8 @@ def pycodeblocktoexpr(blockcode):
     statements) to a Python tuple expression "(expr1, expr2, ...)" that
     evaluates each in order when the tuple is built, or "None" if the
     block is empty; returns None (not the string) if any statement
-    fails to translate."""
+    fails to translate.
+    """
     pieces = [
         piece.strip() for piece in pycodesplitdownarrow(blockcode) if piece.strip()
     ]
@@ -1521,7 +1575,8 @@ def pycodeblocktoexpr(blockcode):
 def pycodecondexpr(condition):
     """Translate a condition string as a PyCode command if it looks
     like one, otherwise pass it through unchanged (so a condition can
-    be either a PyCode command or already-plain Python, e.g. '1 == 1')."""
+    be either a PyCode command or already-plain Python, e.g. '1 == 1').
+    """
     return pycodeindex(condition) or condition
 
 
@@ -1530,7 +1585,8 @@ def pycodeifexpr(pycodecode):
     {code}' syntax to an equivalent Python conditional expression (a
     chain of nested "(x if cond else y)" ternaries, innermost being the
     else branch); return None if pycodecode isn't an if-statement at
-    all, or raise if it is one but malformed."""
+    all, or raise if it is one but malformed.
+    """
     text = pycodecode.strip()
     ifmatch = re.match(r"if\s*(?=\()", text)
     if not ifmatch:
@@ -1612,7 +1668,8 @@ def pycodewhileexpr(pycodecode):
     pcwhileloop() with the condition/body wrapped as lambdas (so
     they're only evaluated per-iteration, not once up front); return
     None if pycodecode isn't a while-statement, or raise if it is one
-    but malformed."""
+    but malformed.
+    """
     text = pycodecode.strip()
     whilematch = re.match(r"while\s*(?=\()", text)
     if not whilematch:
@@ -1644,7 +1701,8 @@ def pycodewhileexpr(pycodecode):
 
 def splittoplevelcommas(s):
     """Split s on top-level commas (not inside parens or single-quoted
-    strings), e.g. for a command's comma-separated argument list."""
+    strings), e.g. for a command's comma-separated argument list.
+    """
     parts = []
     depth = 0
     instring = False
@@ -1670,7 +1728,8 @@ def indexargs(s):
     """Translate a comma-separated argument list s, running
     pycodeindex() on any argument that's itself a PyCode command (so a
     command's arguments can be other commands' results), leaving plain
-    Python expression arguments untouched."""
+    Python expression arguments untouched.
+    """
     parts = splittoplevelcommas(s)
     for i, part in enumerate(parts):
         partstripped = part.strip()
@@ -1690,7 +1749,8 @@ def pycodeindex(pycodecode):
     if the input is itself a bracketed command call or a command
     name/comma list. Returns None if pycodecode isn't a recognized
     command at all (plain Python is passed through unchanged by
-    pcread(), which calls this)."""
+    pcread(), which calls this).
+    """
     ifexpr = pycodeifexpr(pycodecode)
     if ifexpr is not None:
         return ifexpr
@@ -2120,7 +2180,8 @@ for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, editor 
         completion runs only its chord's action; a later chord step
         runs nothing else; any other press restarts: it begins a chord
         (also running the key's own standalone binding, if any) or
-        just runs its standalone binding and clears the chord."""
+        just runs its standalone binding and clears the chord.
+        """
         reset = "_pychord_state.__setitem__(0, None)"
         handler = f"({standalone} or {reset})" if standalone else reset
         for from_s, to_s in reversed(transitions):
@@ -2226,7 +2287,8 @@ def edit(widget, editfrom):
     keyboard shortcuts (Control-=/Enter/Down/[/]) and to opening
     bracket/quote keys, so it can insert PyCode's non-keyboard symbols
     ('→', '↩', '↓', '⌊', '⌋') and auto-close brackets/quotes with the
-    cursor left in between them."""
+    cursor left in between them.
+    """
     if editfrom == "c=":
         widget.insert("insert", "→")
         return "break"
@@ -2320,7 +2382,8 @@ def pc():
     construct (Function, Python Function, Variable, Startup Code,
     Keyboard Shortcut, Alt-X Command, or Event Hook) walks through
     prompts and/or a button list of every available command, then
-    inserts the corresponding PyCode syntax into codeedit."""
+    inserts the corresponding PyCode syntax into codeedit.
+    """
     pcrunhook("before", "open-pycode")
     utils.show("open pycode")
     pcwin = state.root.subwin()

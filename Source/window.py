@@ -1,5 +1,6 @@
 """The main PyNotes window, its dialogs, and buffer/window management
-(switching, splitting, balancing, resizing, closing PyNotes)."""
+(switching, splitting, balancing, resizing, closing PyNotes).
+"""
 
 import os
 import sys
@@ -35,7 +36,8 @@ _ASK_PRESET_LABELS = {
 class pynoteswindow(ctk.Window):
     """The root PyNotes window; adds sub-windows,
     and ask/info/error/warning dialogs that can be answered
-    from either the GUI or the terminal console."""
+    from either the GUI or the terminal console.
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -44,7 +46,8 @@ class pynoteswindow(ctk.Window):
     def subwin(self, *args, parent=None, **kwargs):
         """Create a themed Toplevel sub-window of this window, or of
         `parent` (another window of PyNotes) if given (kept above it,
-        and minimized/restored together with it)."""
+        and minimized/restored together with it).
+        """
         return ctk.Toplevel(parent or self, *args, **kwargs)
 
     def themes(self):
@@ -57,7 +60,8 @@ class pynoteswindow(ctk.Window):
 
     def settheme(self, name):
         """Switch to the given theme name, and make the canvastk
-        widgets follow it (light/dark appearance and colors)."""
+        widgets follow it (light/dark appearance and colors).
+        """
         if name is None:
             self.settheme("Default")
             return
@@ -95,7 +99,8 @@ class pynoteswindow(ctk.Window):
         buttons (button_labels is in console order, so it's shown
         reversed); return it and a dict that press() fills in with the
         clicked button's label. It belongs to `parent` (default: this
-        window)."""
+        window).
+        """
         top = self.subwin(parent=parent)
         top.withdraw()
         top.title(title or "")
@@ -142,7 +147,8 @@ class pynoteswindow(ctk.Window):
         """Build (but don't yet show/grab) a text-entry dialog styled
         like canvastk's own message boxes; return it and a dict that
         submit() fills in with the entered text. It belongs to `parent`
-        (default: this window)."""
+        (default: this window).
+        """
         top = self.subwin(parent=parent)
         top.withdraw()
         top.title(title or "")
@@ -189,7 +195,8 @@ class pynoteswindow(ctk.Window):
         console_call (an equivalent console prompt/ask) in a background
         thread; return whichever answers first, closing the graphical
         dialog if the console wins or cancelling the console prompt if
-        the graphical dialog wins."""
+        the graphical dialog wins.
+        """
         cancel_event = threading.Event()
         resultq = queue.Queue()
 
@@ -219,7 +226,8 @@ class pynoteswindow(ctk.Window):
 
     def _resolve_clicked(self, clicked, button_labels):
         """Normalize a console answer (a 1-based button index) or a
-        graphical answer (already the button's label) to a label."""
+        graphical answer (already the button's label) to a label.
+        """
         if isinstance(clicked, int):
             return (
                 button_labels[clicked - 1]
@@ -232,7 +240,8 @@ class pynoteswindow(ctk.Window):
         """Ask a yes/no(/cancel)-style question and return the mapped
         boolean/None answer (or, for an options tuple with no preset,
         the clicked label itself). `parent` is the window it belongs to
-        (default: the main window)."""
+        (default: the main window).
+        """
         options_tuple = tuple(options)
         button_labels = _ASK_PRESET_LABELS.get(options_tuple, list(options))
         top, state_ = self._build_message_dialog(
@@ -252,7 +261,8 @@ class pynoteswindow(ctk.Window):
 
     def askstring(self, title, prompt, parent=None):
         """Prompt for a line of text and return it (or "" if cancelled).
-        `parent` is the window it belongs to (default: the main window)."""
+        `parent` is the window it belongs to (default: the main window).
+        """
         top, state_ = self._build_query_dialog(title, prompt, parent=parent)
         console_call = lambda cancel_event: state.console.prompt(
             title, prompt, cancel_event=cancel_event
@@ -262,7 +272,8 @@ class pynoteswindow(ctk.Window):
     def _notice_with_buttons(self, kind, title, message, buttons, alert, parent=None):
         """Show an info/error/warning dialog with custom buttons and
         return the clicked label (used when info/error/warning are given
-        a `buttons` argument instead of the plain OK-only default)."""
+        a `buttons` argument instead of the plain OK-only default).
+        """
         color = "43m" if kind == "warning" else ("41m" if kind == "error" else "100m")
         button_labels = list(buttons)
         top, state_ = self._build_message_dialog(
@@ -279,7 +290,8 @@ class pynoteswindow(ctk.Window):
         """Show an info dialog. With buttons, it's answerable from the
         console like ask(); without, it's shown in the console only as a
         non-blocking mirror (via a background thread) while the
-        graphical OK-only dialog is what actually blocks."""
+        graphical OK-only dialog is what actually blocks.
+        """
         if buttons:
             return self._notice_with_buttons(
                 "info", title, message, buttons, alert=False, parent=parent
@@ -291,7 +303,8 @@ class pynoteswindow(ctk.Window):
 
     def error(self, title, message, buttons=None, parent=None, **kwargs):
         """Show an error dialog; see info() for the buttons/console
-        behavior."""
+        behavior.
+        """
         if buttons:
             return self._notice_with_buttons(
                 "error", title, message, buttons, alert=True, parent=parent
@@ -303,7 +316,8 @@ class pynoteswindow(ctk.Window):
 
     def warning(self, title, message, buttons=None, parent=None, **kwargs):
         """Show a warning dialog; see info() for the buttons/console
-        behavior."""
+        behavior.
+        """
         if buttons:
             return self._notice_with_buttons(
                 "warning", title, message, buttons, alert=True, parent=parent
@@ -316,7 +330,8 @@ class pynoteswindow(ctk.Window):
 
 def saveforclose():
     """Ask every buffer that supports it to save before closing; return
-    False (aborting the close) if any buffer's save is cancelled."""
+    False (aborting the close) if any buffer's save is cancelled.
+    """
     for buffer in state.all_buffers:
         if hasattr(buffer, "saveforclose") and not buffer.saveforclose():
             return False
@@ -326,7 +341,8 @@ def saveforclose():
 def find_open_editor(abspath):
     """Return the already-open, non-view Editor buffer for abspath, if
     any, so opening it again can create a synced peer view of it (see
-    Editor._make_peer_type) instead of loading a second, separate copy."""
+    Editor._make_peer_type) instead of loading a second, separate copy.
+    """
     for buffer in state.all_buffers:
         if not isinstance(buffer, editor.Editor):
             continue
@@ -340,7 +356,8 @@ def find_open_editor(abspath):
 
 def setactive(newindex=None, force=False):
     """Switch the active buffer to newindex (default: the next buffer,
-    wrapping around), or re-activate the current one if force is True."""
+    wrapping around), or re-activate the current one if force is True.
+    """
     if newindex is None:
         newindex = state.buffindex + 1
     if newindex == -1:
@@ -369,7 +386,8 @@ def setactive(newindex=None, force=False):
 def update_menus():
     """Rebuild the main menu bar from the active buffer's own menu (`.m`),
     since different buffer types (editor, terminal, ...) expose different
-    menus."""
+    menus.
+    """
     state.mainmenu.delete(0, "end")
     for entry in state.active.m.entries:
         if entry["kind"] == "cascade":
@@ -378,14 +396,16 @@ def update_menus():
 
 def settitle():
     """Set the window title from the active buffer's wanttitle, unless a
-    PyCode command has taken over the title (state.pcsettitle)."""
+    PyCode command has taken over the title (state.pcsettitle).
+    """
     if state.active and not state.pcsettitle:
         state.root.title("PyNotes - " + state.active.wanttitle)
 
 
 def balance(orient="all"):
     """Resize the panes of the horizontal and/or vertical splits to be
-    equal-sized."""
+    equal-sized.
+    """
     if orient == "all":
         orients = ("horizontal", "vertical")
     else:
@@ -400,7 +420,8 @@ def balance(orient="all"):
 def neweditor(file=None, orient="horizontal"):
     """Open a new Editor buffer. If file is True, prompt for a file to
     open; if file is a path, load it (or open a peer view of it if
-    already open elsewhere); if file is None, open a blank editor."""
+    already open elsewhere); if file is None, open a blank editor.
+    """
     if file == True:
         fn = dialogs.openfileget(
             (
@@ -433,7 +454,8 @@ def neweditor(file=None, orient="horizontal"):
 def _on_root_resize(event):
     """<Configure> handler for the root window: debounce resize events
     (which fire continuously while dragging) so _do_resize_balance only
-    runs once, DEBOUNCE_TIME after resizing stops."""
+    runs once, DEBOUNCE_TIME after resizing stops.
+    """
     if event.widget is not state.root:
         return
     size = (event.width, event.height)
@@ -458,7 +480,8 @@ def _do_resize_balance():
 def ext():
     """Cleanly exit PyNotes: confirm killing any running processes and
     saving unsaved files, then tear down buffers, the console, and the
-    window before exiting the process."""
+    window before exiting the process.
+    """
     if any(getattr(buffer, "running", False) for buffer in state.all_buffers):
         answer = state.root.ask(
             "Warning", "Kill active process(es) and close?", options=("ok", "cancel")

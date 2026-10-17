@@ -1,7 +1,8 @@
 """A text box whose cursor is drawn by PyNotes itself instead of by tkinter, so
 that it can have several shapes and any color, and so that its block shape shows
 the character under it. Meant for everything in PyNotes that needs more than
-tkinter's thin insertion cursor, such as the editors."""
+tkinter's thin insertion cursor, such as the editors.
+"""
 
 import itertools
 import tkinter as tk

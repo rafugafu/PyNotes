@@ -127,7 +127,8 @@ class EnabledLookTextbox(ctk.Textbox):
     """A canvastk Textbox that is disabled only to prevent editing, so
     it isn't drawn greyed out: its disabled colors are the normal ones.
     These colors are recomputed by refresh_enabled_look_textboxes()
-    whenever the theme changes."""
+    whenever the theme changes.
+    """
 
     _ALL_ENABLED_LOOK_TEXTBOXES = weakref.WeakSet()
 
@@ -159,7 +160,8 @@ class EnabledLookCursorTextbox(EnabledLookTextbox, cursortextbox.CustomTextbox):
 
 def lock_window_size(window):
     """Lock window to its current size (fixes both min and max size to
-    the current geometry), preventing manual resizing."""
+    the current geometry), preventing manual resizing.
+    """
     try:
         window.update()
         width, height = window.winfo_width(), window.winfo_height()
@@ -182,7 +184,8 @@ def unlock_window_size(window):
 def show(text):
     """Display text as a status message in the Alt-X command box, and
     mirror it to the console (the terminal PyNotes was launched
-    from)."""
+    from).
+    """
     while state.prompting:
         state.root.update()
         time.sleep(0.01)
@@ -231,14 +234,16 @@ def prompt(text, autocompletefunc=None, defaultinput=None, history=[]):
 
     def setreturninput(promptend):
         """Capture the typed input (everything after the prompt) and end
-        the prompt loop."""
+        the prompt loop.
+        """
         nonlocal inputtext
         inputtext = state.cmdentry.get(promptend, "1.end")
         state.prompting = False
 
     def autocomplete(cmdentry, promptend, autocompletefunc):
         """Complete the typed text's common prefix among the candidates,
-        or, if there's nothing more to complete, show the match list."""
+        or, if there's nothing more to complete, show the match list.
+        """
         completes = []
         typedtext = cmdentry.get(promptend, "1.end")
         if callable(autocompletefunc):
@@ -377,7 +382,8 @@ def op():
 
 def mathgod():
     """Launch MathGod.py as a separate process, running its open-mathgod
-    PyCode hooks before and after."""
+    PyCode hooks before and after.
+    """
     import pycode
 
     pycode.pcrunhook("before", "open-mathgod")
@@ -388,7 +394,8 @@ def mathgod():
 
 def ss():
     """Open a PyNotes source code file chosen by the user, from the
-    installed PyNotes source directory, in a new editor."""
+    installed PyNotes source directory, in a new editor.
+    """
     import dialogs
     import pycode
     import window
@@ -406,7 +413,8 @@ def ss():
 
 class ErrorHandler:
     """A file-like object (assigned to sys.stderr) that shows uncaught
-    errors/tracebacks in a popup window instead of only printing them."""
+    errors/tracebacks in a popup window instead of only printing them.
+    """
 
     def __init__(self):
         self.win = None
@@ -415,7 +423,8 @@ class ErrorHandler:
     def write(self, error):
         """Show error in the error window, creating it if needed, or
         appending to it if it's already open. Runs on the main thread via
-        state.root.after since write() may be called from any thread."""
+        state.root.after since write() may be called from any thread.
+        """
         if error.strip():
 
             def _do_write(error=error):
@@ -460,7 +469,8 @@ def _report_callback_exception(exc, val, tb):
     """tkinter callback-exception hook (installed in init.py): report
     errors as usual, except TclErrors, which are suppressed since they
     tend to be harmless Tcl/tk-level issues (e.g. a widget already
-    destroyed) rather than real bugs."""
+    destroyed) rather than real bugs.
+    """
     if issubclass(exc, tk.TclError):
         return
     tk.Tk.report_callback_exception(state.root, exc, val, tb)

@@ -2,7 +2,8 @@
 chain commands, ':(...)' to group input containing literal semicolons,
 '\\' to escape a following character), the giant command dispatch table
 in cmdrun(), and the separate cmdregistry used purely to drive Alt-X's
-autocomplete (see cmdautocompletefunc)."""
+autocomplete (see cmdautocompletefunc).
+"""
 
 import os
 import shutil
@@ -23,7 +24,8 @@ import preferences
 def cmdfindgroupclose(s, openindex):
     """Return the index in s of the ')' matching the '(' at openindex
     (honoring nesting and backslash-escaped characters), or None if
-    unmatched."""
+    unmatched.
+    """
     depth = 0
     i = openindex
     n = len(s)
@@ -44,7 +46,8 @@ def cmdfindgroupclose(s, openindex):
 
 def cmdcheckbrackets(s):
     """Whether every ':(' group in s (a command's input wrapped in
-    parens, e.g. 're:(...)*3') has a matching closing ')'."""
+    parens, e.g. 're:(...)*3') has a matching closing ')'.
+    """
     i = 0
     n = len(s)
     while i < n:
@@ -66,7 +69,8 @@ def cmdcheckbrackets(s):
 def cmdstripgroup(commandinput):
     """If commandinput is entirely wrapped in one matching pair of
     parens, strip them (letting a command's input itself start with '('
-    without being mistaken for a ':(...)' group by other commands)."""
+    without being mistaken for a ':(...)' group by other commands).
+    """
     if commandinput.startswith("("):
         closeindex = cmdfindgroupclose(commandinput, 0)
         if closeindex is not None and closeindex == len(commandinput) - 1:
@@ -77,7 +81,8 @@ def cmdstripgroup(commandinput):
 def cmdsplit(s):
     """Split s on top-level ';' into separate chained commands, without
     splitting on ';' inside a ':(...)' group or after a backslash
-    escape."""
+    escape.
+    """
     parts = []
     current = ""
     i = 0
@@ -112,7 +117,8 @@ def cmdsplit(s):
 def cmdparsegroup(s):
     """Parse the 'content*n' or '(content)*n' repeat syntax used by the
     write/w and repeat/re commands; return (content, n). Raises if s
-    doesn't match either form."""
+    doesn't match either form.
+    """
     s = s.strip()
     if s.startswith("("):
         depth = 0
@@ -836,7 +842,8 @@ def cmdpynavvalues(currentinput):
     """Autocomplete values for pynavstart/pynavend: the fixed
     f/fun/func/function/c/class/b/block keywords plus the attribute
     chain of every function/class found in the active (Python-HMode)
-    editor."""
+    editor.
+    """
     if state.active is None or state.active.hmode != "python":
         return []
     chains = pycode.pcpyscopechains()
@@ -847,7 +854,8 @@ def cmdpynavvalues(currentinput):
 
 def cmdpygodefvalues(currentinput):
     """Autocomplete values for pygodef: the attribute chain of every
-    name visible in any scope of the active (Python-HMode) editor."""
+    name visible in any scope of the active (Python-HMode) editor.
+    """
     if state.active is None or state.active.hmode != "python":
         return []
     return sorted(pycode.pcpynames())
@@ -857,7 +865,8 @@ def cmdlanavvalues(currentinput):
     """Autocomplete values for lanavstart/lanavend: the fixed
     c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/
     subsubsection keywords plus every section title found in the active
-    (LaTeX-HMode) editor."""
+    (LaTeX-HMode) editor.
+    """
     if state.active is None or state.active.hmode != "latex":
         return []
     return list(pycode._LATEX_SECTION_KINDWORDS) + sorted(
@@ -868,7 +877,8 @@ def cmdlanavvalues(currentinput):
 def cmdmdnavvalues(currentinput):
     """Autocomplete values for mdnavstart/mdnavend: the fixed
     h1-h6/s/sec/section keywords plus every heading title found in the
-    active (Markdown-HMode) editor."""
+    active (Markdown-HMode) editor.
+    """
     if state.active is None or state.active.hmode != "markdown":
         return []
     return list(pycode._MARKDOWN_SECTION_KINDWORDS) + sorted(
@@ -879,7 +889,8 @@ def cmdmdnavvalues(currentinput):
 def cmdrevalues(currentinput):
     """Autocomplete values for repeat/re's input: whatever commands
     could follow at the current point inside its '(...)*n' or 'command*n'
-    syntax."""
+    syntax.
+    """
     if currentinput.startswith("("):
         closeindex = cmdfindgroupclose(currentinput, 0)
         if closeindex is None:
@@ -1059,13 +1070,15 @@ cmdregister(
 
 def cmdregistryentry(name):
     """cmdregistry[name], or the unrestricted default if name isn't
-    registered (e.g. a plugin or PyCode-written command)."""
+    registered (e.g. a plugin or PyCode-written command).
+    """
     return cmdregistry.get(name, {"hmodes": None, "inputs": None, "buffertypes": None})
 
 
 def cmdbuffertypeavailable(buffertypes):
     """Whether the active buffer is one of buffertypes (or buffertypes
-    is None, meaning any buffer)."""
+    is None, meaning any buffer).
+    """
     if buffertypes is None:
         return True
     if state.active is None:
@@ -1075,7 +1088,8 @@ def cmdbuffertypeavailable(buffertypes):
 
 def cmdhmodeavailable(hmodes):
     """Whether the active buffer is an Editor currently in one of
-    hmodes (or hmodes is None, meaning any/no HMode restriction)."""
+    hmodes (or hmodes is None, meaning any/no HMode restriction).
+    """
     if hmodes is None:
         return True
     if callable(hmodes):
@@ -1090,7 +1104,8 @@ def cmdhmodeavailable(hmodes):
 def cmdinputvariants(inputs):
     """From a registry entry's inputs, return (show_bare, show_colon):
     whether the command should be offered with no input (bare) and/or
-    with a trailing ':' (input to follow)."""
+    with a trailing ':' (input to follow).
+    """
     if inputs is None:
         return True, False
     if not isinstance(inputs, list):
@@ -1107,7 +1122,8 @@ def cmdinputvariants(inputs):
 def cmdbasecommandnames():
     """Every command name (bare, and/or with a trailing ':') worth
     offering as an autocomplete candidate right now, given the active
-    buffer's type and HMode."""
+    buffer's type and HMode.
+    """
     names = list(cmdregistry)
     names.extend(name for name in state.plgncmds if name not in cmdregistry)
     names.extend(name for name in state.pcwrittencommands if name not in cmdregistry)
@@ -1129,7 +1145,8 @@ def cmdbasecommandnames():
 def cmdcommandvalues(command, currentinput):
     """Autocomplete candidates for command's input, given what's typed
     of it so far (currentinput); [] if command takes no input or isn't
-    currently available."""
+    currently available.
+    """
     entry = cmdregistryentry(command)
     if not cmdbuffertypeavailable(entry["buffertypes"]):
         return []
@@ -1147,7 +1164,8 @@ def cmdactivesegment(typedtext):
     """Split typedtext into (prefix, active segment): prefix is
     everything up to and including the last completed ';'-separated
     command (plus any leading whitespace of the current one), and the
-    active segment is the command currently being typed/completed."""
+    active segment is the command currently being typed/completed.
+    """
     prefix = ""
     while True:
         stripped = typedtext.lstrip()
@@ -1168,7 +1186,8 @@ def cmdautocompletefunc(typedtext):
     """The Alt-X prompt's autocomplete function: candidates for the
     command name if the active segment has no ':' yet, or for that
     command's input if it does, each returned as a full replacement for
-    typedtext (prefix included)."""
+    typedtext (prefix included).
+    """
     prefix, activesegment = cmdactivesegment(typedtext)
     if ":" in activesegment:
         commandpart, valuepart = activesegment.split(":", 1)
@@ -1190,7 +1209,8 @@ def cmdautocompletefunc(typedtext):
 
 def cmd():
     """Prompt for and run one Alt-X command line (the Alt-X keybinding's
-    handler)."""
+    handler).
+    """
     command = utils.prompt("Alt-X- ", cmdautocompletefunc, history=state.cmdhistory)
     state.cmdhistory.append(command)
     cmdrun(command)

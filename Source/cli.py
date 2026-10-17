@@ -1,7 +1,8 @@
 """Command-line argument parsing and the live terminal console that runs
 alongside the PyNotes GUI (see main.py's start_console thread), letting
 the launching terminal show status messages, mirror dialogs, and accept
-commands (including answering dialogs/prompts before the GUI does)."""
+commands (including answering dialogs/prompts before the GUI does).
+"""
 
 import init
 import state
@@ -199,12 +200,14 @@ class Console:
     raw-mode key-reading loop on a background thread (inputloop) so
     dialog methods (show/dialog/ask/prompt) can be called from any
     thread while a separate "dialog" input channel is multiplexed with
-    the main "command" prompt (see curactiveinput)."""
+    the main "command" prompt (see curactiveinput).
+    """
 
     def __init__(self, consoleq):
         """consoleq: the queue.Queue that commands (e.g. ("command-exec",
         text)) are put on, which main.py's consoleqempty() polls and
-        runs on the GUI thread."""
+        runs on the GUI thread.
+        """
         import init
 
         self.dialoglock = threading.Lock()
@@ -250,7 +253,8 @@ class Console:
         """Write string (with every \\n also carriage-returned, since
         the terminal is in raw mode) to the real stdout PyNotes saved
         before redirecting sys.stdout to /dev/null. Skip and return if
-        not in a real terminal."""
+        not in a real terminal.
+        """
         if not CONSOLE_IS_TTY:
             return
         string += end
@@ -268,26 +272,30 @@ class Console:
 
     def _move_to(self, rowchange, col):
         """ANSI string moving the cursor rowchange rows down (or up if
-        negative) and to column col."""
+        negative) and to column col.
+        """
         return "\r" + self._move_rows(rowchange) + (f"\x1b[{col}C" if col else "")
 
     def _input_rows(self, user, length=None):
         """How many terminal rows the prompt and text of an input
         (length characters long, default its current text) take, counting
         the empty row the cursor sits on when the text ends exactly at
-        the right edge."""
+        the right edge.
+        """
         if length is None:
             length = len(self.curinput[user])
         return (self.curpromptlens[user] + length) // self._get_terminal_width() + 1
 
     def _input_position(self, user, cursor):
         """The (row, column) the terminal cursor is at when it is at the
-        cursor-th character of the input's text."""
+        cursor-th character of the input's text.
+        """
         return divmod(self.curpromptlens[user] + cursor, self._get_terminal_width())
 
     def _rows_below_input(self, user):
         """How many rows lie below the last row of an input. A dialog
-        input is drawn above the command prompt and its sub-prompts."""
+        input is drawn above the command prompt and its sub-prompts.
+        """
         if user == "dialog":
             return self.n + self._input_rows("command")
         return 0
@@ -296,7 +304,8 @@ class Console:
         """ANSI string to turn the shown text of an input into newbuf
         with the cursor at newcursor, adding or removing rows (and
         scrolling the screen if needed) when the text wraps or unwraps.
-        Updates curn."""
+        Updates curn.
+        """
         width = self._get_terminal_width()
         promptlen = self.curpromptlens[user]
         oldrows = self._input_rows(user)
@@ -351,19 +360,22 @@ class Console:
     def _erase_last_input_string(self, user):
         """ANSI string erasing every row of the line last entered in an
         input, which the cursor must be directly below, and leaving the
-        cursor at the start of its first row."""
+        cursor at the start of its first row.
+        """
         return "\r" + "\x1b[A\x1b[K" * self.curlastrows[user]
 
     def _moveback_string(self):
         """ANSI string moving from the active input's cursor up to the
         first row of the command prompt block (self.n sub-prompt rows
-        and the wrapped rows of the active input above the cursor)."""
+        and the wrapped rows of the active input above the cursor).
+        """
         return self._move_rows(-(self.n + self.curn[self.curactiveinput]))
 
     def _scroll_ahead_string(self, count):
         """ANSI string scrolling the screen up if fewer than count rows
         are free below the active input's last row, leaving the cursor
-        where it was."""
+        where it was.
+        """
         user = self.curactiveinput
         below = self._input_rows(user) - 1 - self.curn[user]
         return (
@@ -376,7 +388,8 @@ class Console:
     def _dialog_restore_string(self, rowsdrawn):
         """ANSI string returning the cursor to the command prompt after
         a dialog input was entered or cancelled, rowsdrawn being how many
-        rows the dialog inserted above the saved cursor position."""
+        rows the dialog inserted above the saved cursor position.
+        """
         if self.helping:
             # The dialog is drawn at the top of the help text instead
             return f"\x1b8\x1b[{rowsdrawn + self.curlastrows['dialog'] - 1}B"
@@ -388,7 +401,8 @@ class Console:
         current line buffer/cursor for whichever input is active
         (curactiveinput: "command" or "dialog"), handling backspace,
         arrow keys, and delete via their ANSI escape sequences, and
-        signalling inpt()'s waiting caller via curdoneevents on Enter."""
+        signalling inpt()'s waiting caller via curdoneevents on Enter.
+        """
         while True:
             key = get_key()
             user = self.curactiveinput
@@ -473,7 +487,8 @@ class Console:
         answered instead). forinput, if given, temporarily switches
         curactiveinput to that channel ("command" or "dialog") for the
         duration of the call, restoring the previous one before
-        returning."""
+        returning.
+        """
         previnput = self.curactiveinput
         if forinput is not None:
             self.curactiveinput = forinput
@@ -515,7 +530,8 @@ class Console:
 
     def show(self, text):
         """Mirror a utils.show() status message above the command
-        prompt line (mirrors PyNotes' Alt-X command box)."""
+        prompt line (mirrors PyNotes' Alt-X command box).
+        """
         with self.dialoglock:
             if not (text := text.strip()):
                 return
@@ -549,7 +565,8 @@ class Console:
         """Draw a non-interactive titled message box (mirrors
         info/error/warning) above the command prompt. color is an ANSI
         SGR background-color code fragment, e.g. "41m" for error (red),
-        "43m" for warning (yellow)."""
+        "43m" for warning (yellow).
+        """
         with self.dialoglock:
             import textwrap
 
@@ -575,7 +592,8 @@ class Console:
         """Draw a titled question with numbered options and block for a
         valid choice (re-prompting on invalid input); return the chosen
         option's 1-based index, or None if cancelled via cancel_event
-        (e.g. a graphical dialog answered first)."""
+        (e.g. a graphical dialog answered first).
+        """
         with self.dialoglock:
             import textwrap
 
@@ -690,7 +708,8 @@ class Console:
     def prompt(self, title, text, color="100m", cancel_event=None):
         """Draw a titled text prompt and block for a line of input;
         return it, or None if cancelled via cancel_event (e.g. a
-        graphical dialog answered first)."""
+        graphical dialog answered first).
+        """
         with self.dialoglock:
             import textwrap
 
@@ -733,7 +752,8 @@ class Console:
         the lifetime of the process; kill always os._exit()s out of it
         directly, and so does exit/close before PyNotes has started
         (state.started unset) — otherwise exit/close queues a close
-        for the GUI thread and returns to the loop."""
+        for the GUI thread and returns to the loop.
+        """
         try:
             set_raw_mode()
             while True:
@@ -940,7 +960,8 @@ class Console:
 
 def start_console(consoleq):
     """Create the Console and run its command loop; the thread target
-    main.py starts alongside the GUI."""
+    main.py starts alongside the GUI.
+    """
     state.console = Console(consoleq)
     if CONSOLE_IS_TTY:
         state.console.loop()

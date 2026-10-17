@@ -1,5 +1,6 @@
 """All of PyNotes' Help windows (About, Changes, and the various
-Help-with-X topics), each a self-contained window builder."""
+Help-with-X topics), each a self-contained window builder.
+"""
 
 import canvastk as ctk
 import state
@@ -10,7 +11,8 @@ import utils
 
 def _help_code_label(master, text):
     """A Label showing example code (monospaced, black on a white
-    background)."""
+    background).
+    """
     return ctk.Label(
         master,
         text=text,
@@ -241,7 +243,8 @@ def helppycode():
     """Show the Help with PyCode window: syntax, commands, graphical
     coding, keyboard shortcuts, variables, functions, startup code,
     Alt-X command definitions, event hooks, and loops/conditions, each
-    as its own tab."""
+    as its own tab.
+    """
     utils.show("open pycode help")
     hpwin = state.root.subwin()
     hpwin.title("Help with PyCode")
@@ -829,7 +832,8 @@ Example:""",
 
 def ap():
     """Show the Add Plugins window: install steps plus shortcuts to
-    download plugins or open the add-ons directory."""
+    download plugins or open the add-ons directory.
+    """
     utils.show("open plugin help")
     apw = state.root.subwin()
     apw.title("Add Plugins")
@@ -855,7 +859,8 @@ def helpmathgod():
     """Show the Help with MathGod window: variables, functions,
     equations, calculus, plotting (2D/3D/pie/bar), summation/products,
     interpolation, conditions, and other (raw sympy/Python) functions,
-    each as its own tab."""
+    each as its own tab.
+    """
     utils.show("open mathgod help")
     hmgwin = state.root.subwin()
     hmgwin.title("Help with MathGod")

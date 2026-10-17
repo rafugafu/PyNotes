@@ -1,6 +1,7 @@
 """The standalone Email buffer: login/account setup, composing and
 sending mail via SMTP, attachments, and a simple dictionary-based
-spellcheck."""
+spellcheck.
+"""
 
 import os
 import math as mathmod
@@ -26,7 +27,8 @@ class EmailBuffer(Buffer):
     """A buffer for logging into an email account and sending mail.
     Login credentials (e, p, s, po: email/password/smtp server/smtp
     port), once entered, are kept as module-level globals so other
-    EmailBuffer instances/tabs can reuse the same session."""
+    EmailBuffer instances/tabs can reuse the same session.
+    """
 
     def __init__(self, master, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
@@ -68,7 +70,8 @@ class EmailBuffer(Buffer):
 
         def removeattach():
             """Show a window of buttons, one per attachment, that each
-            remove that attachment when clicked."""
+            remove that attachment when clicked.
+            """
 
             def actualremoveattachment(attachment):
                 del self.attachmentslist[attachment]
@@ -90,7 +93,8 @@ class EmailBuffer(Buffer):
 
         def attach():
             """Prompt for a file and add it as a pending email
-            attachment (MIME part), unless already attached."""
+            attachment (MIME part), unless already attached.
+            """
             fn = dialogs.openfileget(
                 prompttext="Email Attachment File: ", filetypes=(("All Files", "*"))
             )
@@ -116,11 +120,13 @@ class EmailBuffer(Buffer):
 
         def changeinfo():
             """Replace the compose UI with a login form pre-populated
-            for re-entering account details ("Change Info" button)."""
+            for re-entering account details ("Change Info" button).
+            """
 
             def emailsetupother():
                 """Save the edited login details and restore the compose
-                UI (the "Done" button of changeinfo()'s login form)."""
+                UI (the "Done" button of changeinfo()'s login form).
+                """
                 global e
                 global p
                 global s
@@ -188,7 +194,8 @@ class EmailBuffer(Buffer):
             form - unless a send fails, in which case an error is shown
             and the form is left as-is (recipients already sent to are
             not re-sent to on retry). Bound to the Send button and
-            Control-Return."""
+            Control-Return.
+            """
             global e
             global p
             global s
@@ -230,7 +237,8 @@ class EmailBuffer(Buffer):
             """Re-tag every word in the email body not found in
             state.emailwordlist (excluding purely numeric words and
             single-character words) as misspelled. Bound to run on
-            every keystroke in the body."""
+            every keystroke in the body.
+            """
             if not state.emailwordlist:
                 return
             self.emailtextbox.tag_remove("wrong", "1.0", "end")
@@ -334,7 +342,8 @@ class EmailBuffer(Buffer):
     def _email_session_active(self):
         """Whether the e/p/s/po login-credential globals are currently
         set (an email session is already logged in, in this tab or
-        another)."""
+        another).
+        """
         try:
             e, p, s, po
         except Exception:
@@ -343,7 +352,8 @@ class EmailBuffer(Buffer):
 
     def _add_switch_account_loginframe(self):
         """Add a login form (to switch to a different account) below
-        the already-built compose UI."""
+        the already-built compose UI.
+        """
         self.loginframe = ctk.Frame(self)
         self.loginframe.pack(expand=True)
         ctk.Label(self.loginframe, text="Email:").grid(
@@ -382,7 +392,8 @@ class EmailBuffer(Buffer):
     def _email_tab_reload(self):
         """Rebuild this buffer's UI from scratch as the compose UI for
         the now-active (memory) session, once _email_login_poll() sees
-        another tab has logged in."""
+        another tab has logged in.
+        """
         for child in self.winfo_children():
             if child is self.fileinfo:
                 continue
@@ -393,7 +404,8 @@ class EmailBuffer(Buffer):
     def _email_login_poll(self):
         """Every 2 seconds, check whether this still-logged-out buffer
         should switch to the compose UI because another EmailBuffer
-        logged in (or loaded a saved session) in the meantime."""
+        logged in (or loaded a saved session) in the meantime.
+        """
         if not self.winfo_exists():
             return
         if not self._email_logged_in and self._email_session_active():
@@ -403,7 +415,8 @@ class EmailBuffer(Buffer):
     def _email_login_setup(self):
         """Build this buffer's initial UI: the compose UI directly if a
         session is already active or a saved config file exists (and
-        loads successfully), otherwise a login form."""
+        loads successfully), otherwise a login form.
+        """
         if self._email_session_active():
             self.emailsetup("memory")
             self._add_switch_account_loginframe()
@@ -458,7 +471,8 @@ class EmailBuffer(Buffer):
 
     def close(self):
         """Always allow this buffer to close without a save prompt (an
-        email buffer has nothing unsaved to lose)."""
+        email buffer has nothing unsaved to lose).
+        """
         return True
 
     def _cancel_all_after_ids(self):
@@ -480,7 +494,8 @@ def find_open_emailbuf():
 
 def openemailbuf(orient="horizontal"):
     """Switch to the Email buffer if one is already open, otherwise
-    open a new one."""
+    open a new one.
+    """
     existing = find_open_emailbuf()
     if existing is not None:
         window.setactive(state.all_buffers.index(existing))

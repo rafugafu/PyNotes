@@ -1,5 +1,6 @@
 """The Buffer base class shared by every kind of PyNotes buffer, plus
-helpers to open a new buffer in a split pane and to close one."""
+helpers to open a new buffer in a split pane and to close one.
+"""
 
 import canvastk as ctk
 import state
@@ -36,7 +37,8 @@ class Buffer(ctk.Frame):
     def fileinfo_contrast_colors():
         """The file-info bar's label colors: the palette opposite to the
         current appearance mode (dark in light themes, light in dark
-        themes), so the bar always contrasts with the rest of the UI."""
+        themes), so the bar always contrasts with the rest of the UI.
+        """
         palette = (
             ctk.CANVAS_LIGHT_PALETTE
             if ctk.get_appearance_mode() == "dark"
@@ -61,7 +63,8 @@ def newbuffer(buffer, orient, *args, **kwargs):
     """Instantiate buffer (a Buffer subclass) with the given args/kwargs,
     split the active buffer's pane with it, to its right (horizontal) or
     below it (vertical) per orient, rebalance, and make it the active
-    buffer."""
+    buffer.
+    """
     import pycode
     import window
 
@@ -87,7 +90,8 @@ def pcclosebuff(n=None):
     via the buffer's own close() if it has unsaved changes/a running
     process. Removes it from the pane layout (which collapses any split
     left with a single pane) and rebalances. Returns False without closing
-    anything if it's the last open buffer or close() was declined."""
+    anything if it's the last open buffer or close() was declined.
+    """
     import pycode
     import utils
     import window

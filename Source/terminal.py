@@ -3,7 +3,8 @@ emulator (the Terminal widget, a CustomTextbox subclass) driving a real
 shell/command subprocess over a PTY (Python's pty module on Linux,
 pywinpty elsewhere), plus TerminalBuffer, the Buffer wrapper around it,
 and term()/termexec(), the public ways to open one or run a one-off
-command respectively."""
+command respectively.
+"""
 
 import os
 import platform
@@ -33,7 +34,8 @@ def termexec(command):
     """Run command as a one-off shell command (or `cd` to change
     PyNotes' working directory) and return its combined stdout+stderr,
     without opening a visible terminal buffer. Used by the Alt-X
-    termexec/te command and PyCode's termexec command."""
+    termexec/te command and PyCode's termexec command.
+    """
     pycode.pcrunhook("before", "term-exec", command)
     if command[:2] == "cd":
         try:
@@ -62,7 +64,8 @@ _PTY_MAX_PENDING_ESC = 600000  # safety cap on a stalled/malformed escape sequen
 def _sgr_is_highlight(params):
     """Whether an SGR (color/style) escape's params turn a "reverse
     video"-like highlighted appearance on, off, or leave it unchanged
-    (None). Currently unused elsewhere in this file."""
+    (None). Currently unused elsewhere in this file.
+    """
     result = None
     idx = 0
     while idx < len(params):
@@ -111,7 +114,8 @@ _TERM_ANSI_CUBE_LEVELS = (0, 95, 135, 175, 215, 255)
 def _ansi_256_hex(n):
     """Convert an ANSI 256-color palette index n to a '#rrggbb' hex
     string (the first 16 are the named ANSI colors, the next 216 form a
-    6x6x6 color cube, and the last 24 are a grayscale ramp)."""
+    6x6x6 color cube, and the last 24 are a grayscale ramp).
+    """
     if n < 16:
         return _TERM_ANSI_16_HEX[n]
     if n < 232:
@@ -123,7 +127,8 @@ def _ansi_256_hex(n):
 
 def _sgr_new_state():
     """A fresh SGR (text style/color) state dict, as tracked per
-    Terminal instance in self._sgr_state and mutated by _sgr_apply()."""
+    Terminal instance in self._sgr_state and mutated by _sgr_apply().
+    """
     return {
         "fg": None,
         "bg": None,
@@ -141,7 +146,8 @@ def _sgr_apply(state, params):
     """Apply one SGR ('\\x1b[...m') escape's params to state in place
     (state as returned by _sgr_new_state()), handling the standard
     16/8-bright colors, 256-color and truecolor (38/48;5/2;...) forms,
-    and the usual bold/italic/underline/etc attribute toggles."""
+    and the usual bold/italic/underline/etc attribute toggles.
+    """
     if not params:
         params = [0]
     i = 0
@@ -218,7 +224,8 @@ def _sgr_apply(state, params):
 
 def _sgr_colour_hex(c):
     """Convert an SGR color value (an ANSI palette index, or an (r, g,
-    b) truecolor tuple) to a '#rrggbb' hex string."""
+    b) truecolor tuple) to a '#rrggbb' hex string.
+    """
     if c is None:
         return None
     if isinstance(c, tuple):
@@ -231,7 +238,8 @@ def _term_char_width(ch):
     (rendered stacked onto the previous cell, not given one of its
     own), 2 for an East Asian wide/fullwidth character, 1 otherwise.
     Needed because the Text widget indexes by raw character, which
-    only matches terminal columns when every character is width 1."""
+    only matches terminal columns when every character is width 1.
+    """
     if unicodedata.category(ch) in ("Mn", "Me", "Cf"):
         return 0
     if unicodedata.east_asian_width(ch) in ("W", "F"):
@@ -244,7 +252,8 @@ def _term_tcl_len(s):
     widget represents a character outside the Basic Multilingual
     Plane (most emoji, among others) as a surrogate pair internally,
     so it takes two index positions, not the one Python's len() (and
-    a plain for-loop) would count."""
+    a plain for-loop) would count.
+    """
     return sum(2 if ord(c) > 0xFFFF else 1 for c in s)
 
 
@@ -254,7 +263,8 @@ def _term_split_run(run, space):
     _term_char_width()), returning (prefix, rest, prefix's width).
     Always consumes at least one character when run isn't empty, even
     if that character (e.g. a wide one) doesn't actually fit, so a
-    caller looping on the remainder can't stall."""
+    caller looping on the remainder can't stall.
+    """
     width = 0
     i = 0
     n = len(run)
@@ -272,7 +282,8 @@ def _term_split_run(run, space):
 
 def _term_sgr_resolve(state, default_fg, default_bg):
     """Resolve an SGR state to the actual (fg, bg) hex colors to draw
-    with, applying bold-brightens-color, reverse video, and conceal."""
+    with, applying bold-brightens-color, reverse video, and conceal.
+    """
     fg = default_fg if state["fg"] is None else _sgr_colour_hex(state["fg"])
     bg = default_bg if state["bg"] is None else _sgr_colour_hex(state["bg"])
     if state["bold"] and isinstance(state["fg"], int) and state["fg"] < 8:
@@ -345,7 +356,8 @@ class Terminal(CustomTextbox):
         highlighting draws over it instead). font: the font family name
         (a string) and fontsize: its size (a number), always used
         explicitly for the text, the bold/italic variants and the
-        cell size."""
+        cell size.
+        """
 
         kwargs["font"] = (font, fontsize)
         kwargs.setdefault("wrap", "none")
@@ -478,13 +490,15 @@ class Terminal(CustomTextbox):
 
     def setcursortype(self, to="block"):
         """Set the cursor shape ('block', 'bar', or 'underline'), as
-        requested by a DECSCUSR escape sequence."""
+        requested by a DECSCUSR escape sequence.
+        """
         self.set_cursor_shape("line" if to == "bar" else to)
 
     def _cursor_set_color(self, color):
         """Set the cursor's color as requested by an OSC 12 escape
         sequence (ignored in nocolor mode), or, with None, go back to
-        the cursor taking the colors of the cell it is on."""
+        the cursor taking the colors of the cell it is on.
+        """
         if color is not None and self.nocolor:
             return
         self.set_color_part("cursor_color", color)
@@ -492,34 +506,39 @@ class Terminal(CustomTextbox):
 
     def cursor_index(self):
         """The cursor is drawn at the emulator's own cursor position,
-        since the text widget's insert mark is not used to track it."""
+        since the text widget's insert mark is not used to track it.
+        """
         return f"{self._cur_line}.{self._cx}"
 
     def cursor_text_tags(self, index):
         """Only SGR highlight tags give a cell its colors; the cursor
         ignores the other tags the text has (the Python shell's syntax
-        highlighting among them)."""
+        highlighting among them).
+        """
         return [
             _tag for _tag in super().cursor_text_tags(index) if _tag.startswith("sgr")
         ]
 
     def _term_on_scroll(self, *args):
         """Any scroll (wheel, built-in scroll bar drag, keyboard) redraws
-        the cursor and re-checks whether the view is at the bottom."""
+        the cursor and re-checks whether the view is at the bottom.
+        """
         self.schedule_cursor_redraw()
         self.after_idle(self._term_update_follow)
 
     def _resolve_insert(self, idx):
         """Substitute the "insert" keyword in a tkinter index with this
         terminal's own cursor position (self._cur_line/self._cx),
-        since the real "insert" mark isn't used to track it."""
+        since the real "insert" mark isn't used to track it.
+        """
         if isinstance(idx, str) and "insert" in idx:
             return idx.replace("insert", f"{self._cur_line}.{self._cx}")
         return idx
 
     def mark_set(self, mark, *args, **kwargs):
         """Moving the "insert" mark instead moves this terminal's own
-        cursor position; every other mark behaves normally."""
+        cursor position; every other mark behaves normally.
+        """
         if mark != "insert":
             return self.inner.mark_set(mark, *args, **kwargs)
         _idx = self.inner.index(self._resolve_insert(args[0]))
@@ -583,7 +602,8 @@ class Terminal(CustomTextbox):
 
     def _term_compute_size(self):
         """Resize the Text widget's width/height (in characters) to fit
-        its current pixel size, and return the resulting (cols, rows)."""
+        its current pixel size, and return the resulting (cols, rows).
+        """
         state.root.update()
         charw, charh = self.charwidth, self.charheight
         _chrome = int(self.cget("borderwidth")) + int(self.cget("highlightthickness"))
@@ -597,7 +617,8 @@ class Terminal(CustomTextbox):
     def _term_on_map(self, event):
         """First time this terminal is actually shown, start its
         subprocess (sizing needs real widget dimensions, unavailable
-        before then); on a later re-map, just resize/redraw."""
+        before then); on a later re-map, just resize/redraw.
+        """
         if self._term_started:
             self._term_apply_resize()
         else:
@@ -608,7 +629,8 @@ class Terminal(CustomTextbox):
 
     def _term_refresh_default_colors(self):
         """Re-read the terminal's default fg/bg from the current
-        style (after a theme change, or before starting the process)."""
+        style (after a theme change, or before starting the process).
+        """
         self._term_default_bg = self.cget("background")
         self._term_default_fg = self.cget("foreground")
         self._default_fg_rgb = self.winfo_rgb(self._term_default_fg)
@@ -620,7 +642,8 @@ class Terminal(CustomTextbox):
 
     def _term_reset_tabs(self):
         """Reset tab stops to the default every-8-columns (HTS/TBC use
-        self._tab_stops directly to add/remove individual stops)."""
+        self._tab_stops directly to add/remove individual stops).
+        """
         self._tab_stops = set(range(8, self._GRID_COLS, 8))
 
     def _term_next_tab(self, col):
@@ -632,7 +655,8 @@ class Terminal(CustomTextbox):
 
     def _term_measure_char_size(self):
         """Measure one monospace character's pixel size (once), needed
-        to convert the widget's pixel size to a column/row grid size."""
+        to convert the widget's pixel size to a column/row grid size.
+        """
         if self.charwidth is not None:
             return
         self.charwidth = max(1, self._term_font.measure(" "))
@@ -641,7 +665,8 @@ class Terminal(CustomTextbox):
     def _term_start_process(self):
         """Size the grid, then spawn the subprocess attached to a PTY
         (Python's pty module on Linux, pywinpty elsewhere), sized to
-        match, and start the background thread that reads its output."""
+        match, and start the background thread that reads its output.
+        """
         self._term_measure_char_size()
         self._GRID_COLS, self._GRID_ROWS = self._term_compute_size()
         self._VT_ROWS = self._GRID_ROWS
@@ -706,7 +731,8 @@ class Terminal(CustomTextbox):
 
     def _term_on_configure(self, event):
         """Debounce <Configure> (widget resize) events so
-        _term_apply_resize() only runs once resizing has settled."""
+        _term_apply_resize() only runs once resizing has settled.
+        """
         size = (event.width, event.height)
         if size == self._last_term_size:
             return
@@ -717,7 +743,8 @@ class Terminal(CustomTextbox):
 
     def _term_apply_resize(self):
         """Apply a settled resize: recompute the grid size and, if it
-        actually changed, resize the grid and notify the subprocess."""
+        actually changed, resize the grid and notify the subprocess.
+        """
         self._resize_after_id = None
         if not self.winfo_exists():
             return
@@ -738,7 +765,8 @@ class Terminal(CustomTextbox):
         less) expects its exact grid to be preserved; in the primary
         screen, just let more/less of the scrollback show through by
         moving screen_top. Then tells the PTY and subprocess about the
-        new size (TIOCSWINSZ + SIGWINCH) on Linux."""
+        new size (TIOCSWINSZ + SIGWINCH) on Linux.
+        """
         if self._alt_mode:
             actual_rows = self._term_last_real_line()
             for ln in range(1, min(actual_rows, rows) + 1):
@@ -807,7 +835,8 @@ class Terminal(CustomTextbox):
     def _term_preexec(self):
         """subprocess.Popen preexec_fn (Linux): make the child its own
         session leader and give it the PTY as its controlling terminal,
-        so it (and anything it starts) sees a real terminal session."""
+        so it (and anything it starts) sees a real terminal session.
+        """
         import fcntl
         import termios
 
@@ -819,7 +848,8 @@ class Terminal(CustomTextbox):
         and put decoded chunks on q for _poll() to process on the GUI
         thread; puts a final None once the process/fd closes. gen
         guards against a stale thread (from a previous restart())
-        still running after a newer one has started."""
+        still running after a newer one has started.
+        """
         _dec = codecs.getincrementaldecoder("utf-8")(errors="replace")
         while self._read_generation == gen:
             try:
@@ -854,7 +884,8 @@ class Terminal(CustomTextbox):
 
     def _emit_process_ended(self):
         """Mark the subprocess as no longer running and fire
-        <<TerminalProcessEnded>> once (idempotent)."""
+        <<TerminalProcessEnded>> once (idempotent).
+        """
         if not self.running:
             return
         self.running = False
@@ -867,7 +898,8 @@ class Terminal(CustomTextbox):
         """Kill the subprocess and release its PTY; safe to call more
         than once. restarting suppresses the actions (like firing
         <<TerminalStopped>>, see below) that only make sense when the
-        buffer is actually closing for good."""
+        buffer is actually closing for good.
+        """
         if self._closed:
             return
         self._closed = True
@@ -917,7 +949,8 @@ class Terminal(CustomTextbox):
     def restart(self):
         """Kill the current subprocess and start a fresh one with a
         blank screen, resetting all emulator state (cursor, tabs, SGR,
-        modes, alternate screen) back to defaults."""
+        modes, alternate screen) back to defaults.
+        """
         self._terminate_process(restarting=True)
         self.unbind("<Key>")
         self.realbind("<Key>", self._key)
@@ -961,7 +994,8 @@ class Terminal(CustomTextbox):
     def _is_default_colour(self, colour, default_rgb):
         """Whether colour is unset or resolves to the same RGB as the
         terminal's default, so a redundant SGR/fill tag isn't created
-        for it."""
+        for it.
+        """
         return (
             colour is None
             or self.winfo_rgb(self._term_theme_color(colour)) == default_rgb
@@ -970,7 +1004,8 @@ class Terminal(CustomTextbox):
     def _term_theme_color(self, colour):
         """The real color for colour, which is either a color or "@fg"/
         "@bg" standing for the terminal's current default fg/bg (that is
-        how SGR tags refer to theme colors, see _recompute_sgr_tag())."""
+        how SGR tags refer to theme colors, see _recompute_sgr_tag()).
+        """
         if colour == "@fg":
             return self._term_default_fg
         if colour == "@bg":
@@ -979,7 +1014,8 @@ class Terminal(CustomTextbox):
 
     def _term_retheme_tags(self):
         """Reconfigure the SGR tags whose colors are the default fg/bg
-        (e.g. reverse video) after those changed with the theme."""
+        (e.g. reverse video) after those changed with the theme.
+        """
         for name, options in self._sgr_theme_tags.items():
             self.tag_configure(
                 name,
@@ -990,7 +1026,8 @@ class Terminal(CustomTextbox):
         """The tag to fill erased/blank cells with, if the current SGR
         background isn't the default (e.g. after '\\x1b[42m' + erase,
         the erased cells should show green, not the terminal's default
-        background); None if no special fill is needed."""
+        background); None if no special fill is needed.
+        """
         if self.nocolor:
             return None
         fg, bg = _term_sgr_resolve(self._sgr_state, "@fg", "@bg")
@@ -1007,7 +1044,8 @@ class Terminal(CustomTextbox):
 
     def _start_blink(self):
         """Start the shared timer that toggles every SGR "blink" tag's
-        visibility, if not already running."""
+        visibility, if not already running.
+        """
         if self._blink_after_id is None:
             self._blink_after_id = self.after(500, self._blink_tick)
 
@@ -1015,7 +1053,8 @@ class Terminal(CustomTextbox):
         """Toggle every blinking tag's foreground color between its
         real color and the background (simulating blink text), pruning
         tags no longer used in the buffer; stops rescheduling itself
-        once nothing is blinking anymore."""
+        once nothing is blinking anymore.
+        """
         self._blink_after_id = None
         if self._closed:
             return
@@ -1049,7 +1088,8 @@ class Terminal(CustomTextbox):
     def _term_font_variant(self, bold=False, italic=False):
         """A font with this terminal's font family and size but bold
         and/or italic. Cached so the Font object stays alive
-        for as long as tags use it."""
+        for as long as tags use it.
+        """
         key = (bold, italic)
         if key not in self._sgr_fonts:
             self._sgr_fonts[key] = tkfont.Font(
@@ -1064,7 +1104,8 @@ class Terminal(CustomTextbox):
         """Resolve the current SGR state to a (cached, reused) tkinter
         tag name, creating that tag (colors, bold/italic font, underline,
         strike) the first time it's needed. self._sgr_tag_cache is None
-        when the state is plain/default, needing no tag at all."""
+        when the state is plain/default, needing no tag at all.
+        """
         fg, bg = _term_sgr_resolve(self._sgr_state, "@fg", "@bg")
         if (
             self._is_default_colour(fg, self._default_fg_rgb)
@@ -1138,7 +1179,8 @@ class Terminal(CustomTextbox):
 
     def _term_insert(self, index, ch):
         """Insert one character at index with the current SGR tag
-        (if any) applied."""
+        (if any) applied.
+        """
         if self._sgr_tag_cache is None:
             self.insert(index, ch)
         else:
@@ -1149,7 +1191,8 @@ class Terminal(CustomTextbox):
         filling revealed rows with blanks, without touching rows
         outside the region (implements DECSTBM scroll regions). Only
         the rows leaving and entering the region are deleted/inserted;
-        the rows that stay are left alone."""
+        the rows that stay are left alone.
+        """
         if up == 0:
             return
         n = bot - top + 1
@@ -1168,7 +1211,8 @@ class Terminal(CustomTextbox):
     def _osc_colour_reply(self, which, colour):
         """Reply to an OSC color query (e.g. '\\x1b]10;?\\x1b\\\\' asking
         for the foreground color) with colour's RGB in the same OSC
-        reply format."""
+        reply format.
+        """
         r, g, b = self.winfo_rgb(colour)
         try:
             self._write(f"\x1b]{which};rgb:{r:04x}/{g:04x}/{b:04x}\x1b\\".encode())
@@ -1178,7 +1222,8 @@ class Terminal(CustomTextbox):
     def _osc_parse_colour(self, spec):
         """Parse an OSC color spec ('rgb:rr/gg/bb' or a named/#hex
         color tkinter understands) to a '#rrggbb' string, or None if
-        it isn't a color tkinter recognizes."""
+        it isn't a color tkinter recognizes.
+        """
         spec = spec.strip()
         if spec.startswith("rgb:"):
             parts = spec[4:].split("/")
@@ -1203,7 +1248,8 @@ class Terminal(CustomTextbox):
         10/11 query the fg/bg color; OSC 12/112 get/set/reset the
         cursor color. Every other OSC code (e.g. window title) is
         silently ignored, since this terminal has no window title to
-        set."""
+        set.
+        """
         if body.startswith("52;"):
             parts = body.split(";", 2)
             if len(parts) == 3 and parts[2] not in ("", "?"):
@@ -1240,7 +1286,8 @@ class Terminal(CustomTextbox):
         """Switch to a blank alternate screen buffer (DECSET 1049 etc,
         used by full-screen apps like vim/less), saving the current
         primary-screen content/cursor/SGR to restore on
-        _leave_alt_screen()."""
+        _leave_alt_screen().
+        """
         if self._alt_saved is not None:
             return
         self._alt_saved = (
@@ -1290,7 +1337,8 @@ class Terminal(CustomTextbox):
 
     def _deccolm_clear(self):
         """Clear the screen and home the cursor, as DECSET 3 (switching
-        80/132-column mode) requires."""
+        80/132-column mode) requires.
+        """
         self._scroll_top = 1
         self._scroll_bot = self._GRID_ROWS
         if self._alt_mode:
@@ -1312,7 +1360,8 @@ class Terminal(CustomTextbox):
 
     def _origin_row(self, row):
         """Clamp a 1-based cursor-addressing row to the scroll region
-        if origin mode (DECOM) is set, otherwise to the whole grid."""
+        if origin mode (DECOM) is set, otherwise to the whole grid.
+        """
         if self._origin_mode:
             return min(
                 max(self._scroll_top, self._scroll_top + row - 1), self._scroll_bot
@@ -1321,7 +1370,8 @@ class Terminal(CustomTextbox):
 
     def _cursor_home(self):
         """Move the cursor to the top-left of the screen (or of the
-        scroll region, in origin mode)."""
+        scroll region, in origin mode).
+        """
         r = self._scroll_top if self._origin_mode else 1
         if self._alt_mode:
             self._grid_goto(r, 0)
@@ -1333,7 +1383,8 @@ class Terminal(CustomTextbox):
     def _term_col_width(self, row):
         """The total terminal-column width of row's current content
         (which can be less than its raw character count, since a
-        combining mark adds a character without adding a column)."""
+        combining mark adds a character without adding a column).
+        """
         return sum(_term_char_width(c) for c in self.get(f"{row}.0", f"{row}.end"))
 
     def _term_col_to_index(self, row, col):
@@ -1345,7 +1396,8 @@ class Terminal(CustomTextbox):
         current length, same as addressing straight off the end.
         Counted in Tk's own index units, not Python string length: a
         character outside the Basic Multilingual Plane (most emoji)
-        takes two of Tk's index positions, not one."""
+        takes two of Tk's index positions, not one.
+        """
         if col <= 0:
             return 0
         text = self.get(f"{row}.0", f"{row}.end")
@@ -1360,13 +1412,15 @@ class Terminal(CustomTextbox):
 
     def _term_index_to_col(self, row, index):
         """The terminal column that buffer character offset index on
-        row corresponds to (the inverse of _term_col_to_index())."""
+        row corresponds to (the inverse of _term_col_to_index()).
+        """
         return sum(_term_char_width(c) for c in self.get(f"{row}.0", f"{row}.{index}"))
 
     def _grid_goto(self, row, col):
         """Move the cursor to terminal column col of row row, clamped
         to the grid (alt screen coordinates), translating col to the
-        row's actual buffer offset (see _term_col_to_index())."""
+        row's actual buffer offset (see _term_col_to_index()).
+        """
         row = min(max(1, row), self._GRID_ROWS)
         col = min(max(0, col), self._GRID_COLS)
         self.mark_set("insert", f"{row}.{self._term_col_to_index(row, col)}")
@@ -1379,7 +1433,8 @@ class Terminal(CustomTextbox):
         the last column if not (alt-screen mode). Characters are
         measured by terminal column width (a combining mark adds no
         column, an East Asian wide character adds two), not raw count,
-        so the cursor ends up where the app itself believes it is."""
+        so the cursor ends up where the app itself believes it is.
+        """
         while run:
             row = int(self.index("insert").split(".")[0])
             gcol = self._term_index_to_col(row, int(self.index("insert").split(".")[1]))
@@ -1422,7 +1477,8 @@ class Terminal(CustomTextbox):
         """(Primary screen) ensure the buffer actually has a line for
         self._cur_line, appending blank lines if the cursor has moved
         past the end (primary-screen lines are created on demand rather
-        than pre-allocated like the alt screen's fixed grid)."""
+        than pre-allocated like the alt screen's fixed grid).
+        """
         last = self._term_last_real_line()
         if self._cur_line > last:
             _ins = self.index("insert")
@@ -1433,7 +1489,8 @@ class Terminal(CustomTextbox):
         """Pad or trim the buffer with blank lines so it has exactly
         enough lines for the current viewport/grid (needed after a
         resize or alt-screen switch changes how many lines should
-        exist)."""
+        exist).
+        """
         if not self.running:
             return
         if self._alt_mode:
@@ -1457,7 +1514,8 @@ class Terminal(CustomTextbox):
         line _gl, padding the line with spaces first if it's
         currently narrower (primary-screen lines aren't pre-padded to
         the grid width), translating _gc to the line's actual buffer
-        offset (see _term_col_to_index())."""
+        offset (see _term_col_to_index()).
+        """
         _llw = self._term_col_width(_gl)
         if _gc > _llw:
             self.insert(f"{_gl}.end", " " * (_gc - _llw))
@@ -1467,7 +1525,8 @@ class Terminal(CustomTextbox):
         """(Primary screen) scroll the scroll region up one line: if
         it's the whole screen, just grow the scrollback by moving
         screen_top down; otherwise physically move lines like
-        _grid_scroll_region() does for the alt screen."""
+        _grid_scroll_region() does for the alt screen.
+        """
         if self._scroll_top == 1:
             self.screen_top += 1
             _ins = self.screen_top + self._scroll_bot - 1
@@ -1480,7 +1539,8 @@ class Terminal(CustomTextbox):
 
     def _primary_scroll_down(self):
         """(Primary screen) scroll the scroll region down one line
-        (reverse index / scroll-down escape)."""
+        (reverse index / scroll-down escape).
+        """
         _lt = self.screen_top + self._scroll_top - 1
         _lb = self.screen_top + self._scroll_bot - 1
         self.insert(f"{_lt}.0", "\n")
@@ -1496,7 +1556,8 @@ class Terminal(CustomTextbox):
         Returns (controls, cleaned, consumed_length, status), where
         status is "splice" (both parts ready), "pending" (need more
         data before the sequence can be parsed) or "skip" (not a
-        recognizable sequence, drop it)."""
+        recognizable sequence, drop it).
+        """
         controls = ""
         cleaned = "\x1b["
         k = 2
@@ -1529,7 +1590,8 @@ class Terminal(CustomTextbox):
         """Clear the Text widget's own <<Modified>> flag right after it
         fires, since this terminal doesn't use it (content changes
         constantly as output streams in) but leaving it set would stop
-        the event from firing again."""
+        the event from firing again.
+        """
         if self.edit_modified():
             self.edit_modified(False)
 
@@ -2632,7 +2694,8 @@ class Terminal(CustomTextbox):
         subprocess output for up to _TERM_FRAME_BUDGET seconds per
         call (so a burst of output can't freeze the UI), then
         reschedule itself sooner if there's more backlog to catch up
-        on, or handle the subprocess having exited (closed)."""
+        on, or handle the subprocess having exited (closed).
+        """
         if self._polling:
             return
         self._polling = True
@@ -2692,7 +2755,8 @@ class Terminal(CustomTextbox):
         bytes/escape sequence the subprocess expects (arrow/function
         keys as CSI/SS3/tilde sequences depending on the current mode,
         Control-letter combos as their C0 control code, everything else
-        as its literal character), and send it."""
+        as its literal character), and send it.
+        """
         self._unpost_menu()
         if not self.running:
             return "break"
@@ -2783,7 +2847,8 @@ class Terminal(CustomTextbox):
     def _meta_key(self, event):
         """<Meta-Key>/<Alt-Key> handler: send Alt/Meta-modified keys as
         ESC followed by the plain key (the usual "meta sends escape"
-        terminal convention)."""
+        terminal convention).
+        """
         self._unpost_menu()
         if not self.running:
             return "break"
@@ -2820,7 +2885,8 @@ class Terminal(CustomTextbox):
         """Copy the selected text to the clipboard, joining wrapped
         lines (tagged "wrapcont") back together without an inserted
         newline, matching the actual line the terminal's output put
-        them on."""
+        them on.
+        """
         try:
             first = self.index("sel.first")
             last = self.index("sel.last")
@@ -2848,7 +2914,8 @@ class Terminal(CustomTextbox):
     def _paste_clipboard(self, e=None):
         """Send the clipboard's text to the subprocess (converting
         newlines to carriage returns), wrapped in bracketed-paste markers if the
-        subprocess enabled that mode."""
+        subprocess enabled that mode.
+        """
         if not self.running:
             return "break"
         try:
@@ -2903,7 +2970,8 @@ class Terminal(CustomTextbox):
         writes, so this isn't correcting that; it only re-applies the
         tracked cursor position via mark_set("insert", ...), whose
         override resets the blink phase and schedules a redraw as a
-        side effect."""
+        side effect.
+        """
 
         def _do():
             try:
@@ -2918,7 +2986,8 @@ class Terminal(CustomTextbox):
 
     def _term_mouse_pos(self, event):
         """Convert a mouse event's pixel position to 1-based (col, row)
-        terminal grid coordinates."""
+        terminal grid coordinates.
+        """
         idx = self.index(f"@{event.x},{event.y}")
         line, col = idx.split(".")
         top = self.index("@0,0").split(".")[0]
@@ -2930,7 +2999,8 @@ class Terminal(CustomTextbox):
 
     def _term_mouse_mods(self, event):
         """The modifier bits (Shift/Meta/Control) to add to a mouse
-        report, in the encoding mouse-reporting escape sequences use."""
+        report, in the encoding mouse-reporting escape sequences use.
+        """
         mods = 0
         if event.state & 0x1:
             mods |= 4
@@ -2947,7 +3017,8 @@ class Terminal(CustomTextbox):
         our) normal mouse handling for that button runs exactly as it
         would with mouse reporting off, instead of whatever Shift
         normally does for it. Returns whether it was redirected (the
-        caller should then return "break" to swallow the original)."""
+        caller should then return "break" to swallow the original).
+        """
         if not (self._mouse_mode and (event.state & 0x1)):
             return False
         self._mouse_bypass = True
@@ -2965,7 +3036,8 @@ class Terminal(CustomTextbox):
         on what the subprocess requested. Returns whether the event was
         handled (and so should be suppressed from further processing) -
         true even for a duplicate drag-motion report at the same cell,
-        which is suppressed without writing anything."""
+        which is suppressed without writing anything.
+        """
         if not self.running:
             return False
         if self._mouse_bypass:
@@ -3081,7 +3153,8 @@ class Terminal(CustomTextbox):
 
     def _term_motion(self, event):
         """Report plain (no button held) mouse movement to the
-        subprocess if it asked for all-motion tracking (mode 1003)."""
+        subprocess if it asked for all-motion tracking (mode 1003).
+        """
         if event.state & (0x100 | 0x200 | 0x400):
             return
         if self._mouse_mode == 1003:
@@ -3091,7 +3164,8 @@ class Terminal(CustomTextbox):
         """Report the scroll wheel to the subprocess if it wants mouse
         events, otherwise scroll the view (or, in the alternate screen,
         send the arrow-key escapes many full-screen apps treat as
-        scrolling)."""
+        scrolling).
+        """
         self.focus_set()
         button = 65
         if event.num == 4:
@@ -3121,7 +3195,8 @@ class Terminal(CustomTextbox):
     def _term_update_follow(self):
         """Track whether the view is scrolled to the bottom, so new
         output keeps auto-scrolling only while the user hasn't
-        scrolled up to look at history."""
+        scrolled up to look at history.
+        """
         try:
             self._follow_bottom = self.yview()[1] >= 0.999
         except Exception:
@@ -3139,7 +3214,8 @@ class Terminal(CustomTextbox):
 
     def _focus_in(self, e):
         """Report focus gained (CSI I) if the subprocess asked for
-        focus events (DECSET 1004)."""
+        focus events (DECSET 1004).
+        """
         if self._focus_reporting and self.running:
             try:
                 self._write(b"\x1b[I")
@@ -3148,7 +3224,8 @@ class Terminal(CustomTextbox):
 
     def _focus_out(self, e):
         """Report focus lost (CSI O) if the subprocess asked for
-        focus events."""
+        focus events.
+        """
         if self._focus_reporting and self.running:
             try:
                 self._write(b"\x1b[O")
@@ -3158,7 +3235,8 @@ class Terminal(CustomTextbox):
     def on_theme_changed(self):
         """canvastk calls this when the theme changes: restyle the box
         as usual, then adopt the new colors (see
-        _term_on_theme_changed())."""
+        _term_on_theme_changed()).
+        """
         super().on_theme_changed()
         if hasattr(self, "_alt_mode"):
             self._term_on_theme_changed()
@@ -3167,7 +3245,8 @@ class Terminal(CustomTextbox):
         """Adopt the new theme's colors as the default fg/bg (unless
         currently showing the alternate screen or a reverse-video
         screen, where the "default" colors are deliberately different
-        from the theme)."""
+        from the theme).
+        """
         try:
             _bg = self.cget("background")
             _fg = self.cget("foreground")
@@ -3186,11 +3265,13 @@ class Terminal(CustomTextbox):
 class TerminalBuffer(Buffer):
     """The Buffer wrapper around a Terminal widget, used both for the
     full interactive terminal (Alt-X 't'/'term') and, via term()
-    below, for one-off command buffers."""
+    below, for one-off command buffers.
+    """
 
     def __init__(self, master, command, title, endmessage, *args, **kwargs):
         """command: the argv list to run (None for the default shell).
-        title/endmessage: see Terminal.__init__()."""
+        title/endmessage: see Terminal.__init__().
+        """
         super().__init__(master, *args, **kwargs)
         self.m = ctk.Menu(state.root)
         for label, menu in state.all_terminal_menus.items():
@@ -3245,7 +3326,8 @@ class TerminalBuffer(Buffer):
 
     def close(self):
         """Confirm before closing while the subprocess is still
-        running, since closing kills it."""
+        running, since closing kills it.
+        """
         if not self.term.running:
             return True
         answer = state.root.ask(
@@ -3268,7 +3350,8 @@ def term(
     """Open a new terminal buffer running command (or the default
     shell if not given). With blocking=True, pumps the tkinter event
     loop until the buffer is closed, so the caller only continues once
-    the command has finished (and any endmessage acknowledged)."""
+    the command has finished (and any endmessage acknowledged).
+    """
     if not command:
         utils.show("open pynotes terminal")
     term = newbuffer(

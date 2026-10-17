@@ -1,5 +1,6 @@
 """Color themes and a custom theme creator for PyNotes
-using canvastk."""
+using canvastk.
+"""
 
 import canvastk as ctk
 from canvastk.colorchooser import askcolor
@@ -594,7 +595,8 @@ def creator():
     def refresh_preview():
         """Apply the dark/light mode and the changes so far to the preview,
         and update the display of every color that hasn't been changed, since
-        its default can depend on the mode and on other colors."""
+        its default can depend on the mode and on other colors.
+        """
         previewframe.reset_theme()
         previewframe.set_appearance_mode("dark" if return_dark.get() else "light")
         previewframe.set_theme(return_theme)
@@ -605,7 +607,8 @@ def creator():
 
     def theme_change(what, new=None, reset=False):
         """Open the color chooser and change the color in the theme to return
-        if not cancelled."""
+        if not cancelled.
+        """
         if not reset and new is None:
             return
         if reset:
@@ -647,7 +650,8 @@ def creator():
         """Make and return a frame which controls the given theme key. If the
         type_ is "color", show a color display with a change button. If the type_
         is "number", show a slider with a label showing its value. If the type_
-        is "option", show a dropdown."""
+        is "option", show a dropdown.
+        """
         frame = ctk.Frame(master)
         ctk.Label(frame, text=text).grid(
             column=0,
