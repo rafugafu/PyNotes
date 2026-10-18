@@ -67,6 +67,7 @@ changelist = [
     "Fixed some text-wrapping and width bugs in the console.",
     "Made the terminal console not try to show and error when not in a tty and made Terminal=false on Linux launchers again.",
     "Added an option to have block cursors, line cursors, and underline cursors (in preferences).",
+    "Added bracket match highlighting to editors! Controlled using theme keys in preferences.",
 ]
 state.changestr = ""
 for i in range(len(changelist) - 1):
@@ -471,6 +472,8 @@ state._EDITOR_HL_SKIP_REMOVE_TAGS = {
     "found",
     "foundhighlight",
     "overscroll",
+    "bracket_matched",
+    "bracket_unmatched",
 }
 state._PYTHON_SHELL_HL_SKIP_REMOVE_TAGS = {"sel", "prompt", "wrapcont"}
 state.skiptags = {}

@@ -3804,6 +3804,18 @@ class Editor(Buffer):
             + state.theme["pynotes:marked"].replace("type_", "self._own_type")
             + ")"
         )
+        exec(
+            "self._own_type.tag_config('bracket_matched',"
+            + state.theme["pynotes:bracket_matched"].replace("type_", "self._own_type")
+            + ")"
+        )
+        exec(
+            "self._own_type.tag_config('bracket_unmatched',"
+            + state.theme["pynotes:bracket_unmatched"].replace(
+                "type_", "self._own_type"
+            )
+            + ")"
+        )
 
     def init_plugin_tags(self):
         """(Re-)create the tags for every plugin-defined HMode's
@@ -3845,15 +3857,73 @@ class Editor(Buffer):
             else:
                 self.type_.tag_add("sel", "insert", self.selectionpoint)
 
+    def bracket_match(self):
+        """Highlight the bracket behind the cursor (else the one after
+        it) together with its matching bracket, or only that bracket if
+        it has no match.
+        """
+        text = self.type_
+        text.tag_remove("bracket_matched", "1.0", "end")
+        text.tag_remove("bracket_unmatched", "1.0", "end")
+        for start in ("insert-1c", "insert"):
+            bracket = text.get(start)
+            if bracket in _BRACKET_MATCH_PAIRS:
+                break
+        else:
+            return
+        opener, closer, forward = _BRACKET_MATCH_PAIRS[bracket]
+        pattern = _BRACKET_MATCH_PATTERNS[opener]
+        start = text.index(start)
+        line, col = (int(part) for part in start.split("."))
+        last_line = int(text.index("end-1c").split(".")[0])
+        depth = 0
+        match = None
+        if forward:
+            chunk_start = f"{line}.{col}"
+            while line <= last_line:
+                end_line = min(line + _BRACKET_MATCH_CHUNK_LINES, last_line + 1)
+                chunk_end = f"{end_line}.0" if end_line <= last_line else "end-1c"
+                chunk = text.get(chunk_start, chunk_end)
+                for found in pattern.finditer(chunk):
+                    depth += 1 if found.group() == opener else -1
+                    if depth == 0:
+                        match = f"{chunk_start}+{found.start()}c"
+                        break
+                if match:
+                    break
+                line = end_line
+                chunk_start = f"{line}.0"
+        else:
+            chunk_end = f"{start}+1c"
+            while line >= 1:
+                begin_line = max(line - _BRACKET_MATCH_CHUNK_LINES, 1)
+                chunk_begin = f"{begin_line}.0"
+                chunk = text.get(chunk_begin, chunk_end)
+                for found in reversed(list(pattern.finditer(chunk))):
+                    depth += 1 if found.group() == closer else -1
+                    if depth == 0:
+                        match = f"{chunk_begin}+{found.start()}c"
+                        break
+                if match:
+                    break
+                line = begin_line - 1
+                chunk_end = chunk_begin
+        if match:
+            text.tag_add("bracket_matched", start, f"{start}+1c")
+            text.tag_add("bracket_matched", match, f"{match}+1c")
+        else:
+            text.tag_add("bracket_unmatched", start, f"{start}+1c")
+
     def keypress(self):
         """Run after (essentially) every edit/keystroke: update the
-        selection, and debounced filesize/undo-mark/
+        selection, highlight bracket matches, and debounced filesize/undo-mark/
         highlight/unsaved-state triggers, and refresh the file-info
         bar's filename/saved-state display.
         """
         if not self.winfo_exists():
             return
         self.selupdate()
+        self.bracket_match()
         self._python_edit_generation[0] += 1
         # An edit made through one view never passes through the other
         # views' Tk commands, so their line numbers have to be told.
@@ -4699,6 +4769,21 @@ def _promote_new_master(old_master):
     if state.active is old_master:
         state.active = new_master
     return new_master
+
+
+_BRACKET_MATCH_PAIRS = {
+    "(": ("(", ")", True),
+    "[": ("[", "]", True),
+    "{": ("{", "}", True),
+    ")": ("(", ")", False),
+    "]": ("[", "]", False),
+    "}": ("{", "}", False),
+}
+_BRACKET_MATCH_PATTERNS = {
+    opener: re.compile("[" + re.escape(opener + closer) + "]")
+    for opener, closer in (("(", ")"), ("[", "]"), ("{", "}"))
+}
+_BRACKET_MATCH_CHUNK_LINES = 200
 
 
 def _init_hl_tags():
