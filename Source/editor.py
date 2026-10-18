@@ -348,9 +348,9 @@ class Editor(Buffer):
         own_box.pack(side="right", fill="both", expand=True)
         self._bind_type_events()
         self._bind_focus_recursive(own_box)
-        self._install_overscroll(own_box)
+        self._wrap_text_command(own_box)
 
-    def _install_overscroll(self, box):
+    def _wrap_text_command(self, box):
         """Let the view of box scroll on past the last line until it is a quarter
         of the way down the box.
 
@@ -369,6 +369,9 @@ class Editor(Buffer):
         marked at the cursor past that end, no tag (the selection included) is
         put on it, the cursor is moved off the last line when something else (a click
         below the text) puts it there, and the newline is put back if the text has none.
+
+        The same wrapper also highlights the bracket at the cursor whenever the cursor
+        is moved (see bracket_match()).
         """
         text = box.inner
         box._overscroll_gap = None
@@ -407,6 +410,7 @@ class Editor(Buffer):
                 else index
             )
 
+        bracket_match_pending = [False]  # whether a bracket_match() is scheduled
         reached_end_by_delete = [False]  # whether the delete under way goes to the end
 
         def real_arguments(*arguments):
@@ -529,11 +533,26 @@ class Editor(Buffer):
                 real("tag", "configure", "overscroll", "-spacing3", gap)
             real("tag", "add", "overscroll", "end-1c", "end")
 
+        def match_bracket_when_idle():
+            """Highlight the bracket at the cursor once idle, however many times
+            the cursor moved meanwhile.
+            """
+            if not bracket_match_pending[0]:
+                bracket_match_pending[0] = True
+
+                def match_bracket():
+                    bracket_match_pending[0] = False
+                    if self.winfo_exists():
+                        self.bracket_match()
+
+                text.after_idle(match_bracket)
+
         def after(kind):
             """The text did `kind` of something that the rules are about."""
             try:
                 if kind == "mark":
                     keep_cursor_off_last_line()
+                    match_bracket_when_idle()
                 else:
                     if reached_end_by_delete[0]:
                         # the newline that ends the text seen from outside can not be
