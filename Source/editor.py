@@ -352,61 +352,267 @@ class Editor(Buffer):
 
     def _install_overscroll(self, box):
         """Let the view of box scroll on past the last line until it is a quarter
-        of the way down the box, by giving the last line spacing below it that is
-        3/4 of the height of the text. The tag with the spacing is shared by the peer
-        views of one buffer.
+        of the way down the box.
+
+        The room is spacing below the last line of the text, which is always an
+        empty line of its own: the real text is the text that everything else sees
+        plus one newline, and the spacing is on the line after that newline. The
+        spacing is on that line alone, as a selected character paints its selection
+        color over the whole height of its line, spacing included.
+
+        That last line is hidden by wrapping the Tcl command of the text, which is
+        what every call on the text ends up in, whoever makes it (the editor,
+        PyCode, plugins, the bindings of Tk): "end" means the end of the text
+        without that newline (so index, get, compare, count and the rest do not know
+        about the last line; see() of the end scrolls to the spacing, which is how
+        the room is shown), nothing can be inserted, deleted, replaced, or
+        marked at the cursor past that end, no tag (the selection included) is
+        put on it, the cursor is moved off the last line when something else (a click
+        below the text) puts it there, and the newline is put back if the text has none.
         """
         text = box.inner
         box._overscroll_gap = None
         box._install_change_event()
-
-        def update(_=None):
-            """Put the spacing on the last line only. The new last line is tagged
-            before the old one is untagged, as a moment without the spacing would
-            shrink the scroll range and snap the view back up.
-            """
-            gap = text.winfo_height() * 3 // 4
-            if box._overscroll_gap != gap:
-                box._overscroll_gap = gap
-                text.tag_configure("overscroll", spacing3=gap)
-            last_line_start = text.index("end-1c linestart")
-            if tuple(map(str, text.tag_ranges("overscroll"))) == (
-                last_line_start,
-                text.index("end"),
-            ):
-                return
-            text.tag_add("overscroll", last_line_start, "end")
-            text.tag_remove("overscroll", "1.0", last_line_start)
-
-        def update_now():
-            """update() for the Tcl procedure below."""
-            try:
-                update()
-            except tk.TclError:  # the text is being destroyed
-                pass
-
-        # The spacing has to be right the moment the text changes: the key bindings
-        # of the text scroll to the cursor right after they insert, and a character
-        # typed at the start of the last line is not tagged yet, which would scroll
-        # the view down to the last line for a moment. <<TextboxChanged>> comes too
-        # late for that, so the command of the text calls update() itself.
         name = text._w
         wrapped = name + "_overscroll"
         text.tk.call("rename", name, wrapped)
+        past_end = re.compile(r"^\s*end(?![A-Za-z0-9_.])")
+
+        def real(*arguments):
+            """Run a command of the text without these rules."""
+            return text.tk.call(wrapped, *arguments)
+
+        def last_line():
+            """The index of the last line, which is empty, and its line number and
+            column (the column is 0 as long as the text ends with a newline).
+            """
+            index = str(real("index", "end-1c"))
+            line, column = index.split(".")
+            return index, int(line), int(column)
+
+        def hiding_last_line(index):
+            """`index` with "end" as the end of the text that is not the last line."""
+            return past_end.sub("end-1c", index, count=1)
+
+        def before_last_line(index, limit="end-2c"):
+            """The real index of `index` (which is as the text is seen from outside),
+            or `limit` if it is further: the last place where something can be put
+            before the last line, by default.
+            """
+            index = str(real("index", index))
+            limit = str(real("index", limit))
+            return (
+                limit
+                if text.tk.getboolean(real("compare", index, ">", limit))
+                else index
+            )
+
+        reached_end_by_delete = [False]  # whether the delete under way goes to the end
+
+        def real_arguments(*arguments):
+            """The arguments of a command of the text as it is seen from outside,
+            made into those of the real text, as a Tcl list. This is an empty string
+            when there is nothing for the command to do.
+            """
+            arguments = [str(argument) for argument in arguments]
+            kind = arguments[0]
+            second = arguments[1] if len(arguments) > 1 else ""
+
+            def hide(position):
+                if position < len(arguments):
+                    arguments[position] = hiding_last_line(arguments[position])
+
+            if kind in ("index", "see", "bbox", "dlineinfo"):
+                hide(1)
+            elif kind == "get":
+                for position in range(1, len(arguments)):
+                    if not arguments[position].startswith("-"):
+                        hide(position)
+            elif kind == "insert":
+                hide(1)
+                arguments[1] = before_last_line(arguments[1])
+            elif kind == "delete":
+                if len(arguments) == 3:
+                    reached_end_by_delete[0] = text.tk.getboolean(
+                        real(
+                            "compare",
+                            hiding_last_line(arguments[2]),
+                            ">=",
+                            "end-1c",
+                        )
+                    )
+                for position in range(1, len(arguments)):
+                    arguments[position] = before_last_line(
+                        hiding_last_line(arguments[position])
+                    )
+                if len(arguments) == 2:
+                    first = arguments[1]
+                    last = before_last_line(f"{first} +1c")
+                    if first == last:
+                        return ""
+                    arguments.append(last)
+                elif len(arguments) == 3 and arguments[1] == arguments[2]:
+                    return ""
+            elif kind == "replace":
+                for position in (1, 2):
+                    if position < len(arguments):
+                        arguments[position] = before_last_line(
+                            hiding_last_line(arguments[position])
+                        )
+            elif kind == "compare":
+                hide(1)
+                hide(3)
+            elif kind == "mark":
+                if second == "set":
+                    hide(3)
+                    if len(arguments) > 3 and arguments[2] == "insert":
+                        arguments[3] = before_last_line(arguments[3])
+                elif second in ("next", "previous"):
+                    hide(2)
+            elif kind == "tag":
+                if second in ("add", "remove"):
+                    # a tag, the selection included, ends where the last line starts
+                    for position in range(3, len(arguments)):
+                        arguments[position] = before_last_line(
+                            hiding_last_line(arguments[position]), "end-1c"
+                        )
+                    if len(arguments) == 4 and arguments[3] == str(
+                        real("index", "end-1c")
+                    ):
+                        return ""
+                elif second in ("nextrange", "prevrange"):
+                    hide(3)
+                    hide(4)
+            elif kind == "search" and "--" in arguments:
+                separator = arguments.index("--")
+                hide(separator + 2)
+                hide(separator + 3)
+            elif kind == "count":
+                indices = [
+                    position
+                    for position in range(1, len(arguments))
+                    if not arguments[position].startswith("-")
+                ]
+                for position in indices[-2:]:
+                    hide(position)
+            elif kind in ("image", "window") and second == "create":
+                hide(2)
+                arguments[2] = before_last_line(arguments[2])
+            return tk._join(tuple(arguments))
+
+        def real_arguments_for_tcl(*arguments):
+            """real_arguments() for the Tcl procedure below."""
+            try:
+                return real_arguments(*arguments)
+            except tk.TclError:  # the text is being destroyed
+                return tk._join(tuple(str(argument) for argument in arguments))
+
+        def keep_ending_newline():
+            """End the real text with the newline that makes the last line."""
+            _, line, column = last_line()
+            if column or line == 1:
+                cursor = str(real("index", "insert"))
+                real("insert", "end-1c", "\n")
+                real("mark", "set", "insert", cursor)
+
+        def keep_cursor_off_last_line():
+            """Move the cursor to the end of the text without the last line."""
+            _, line, column = last_line()
+            if not column and int(str(real("index", "insert")).split(".")[0]) == line:
+                real("mark", "set", "insert", "end-2c")
+
+        def spaced_last_line(_=None):
+            """Give the last line its spacing, a quarter of the way down the box."""
+            gap = text.winfo_height() * 3 // 4
+            if box._overscroll_gap != gap:
+                box._overscroll_gap = gap
+                real("tag", "configure", "overscroll", "-spacing3", gap)
+            real("tag", "add", "overscroll", "end-1c", "end")
+
+        def after(kind):
+            """The text did `kind` of something that the rules are about."""
+            try:
+                if kind == "mark":
+                    keep_cursor_off_last_line()
+                else:
+                    if reached_end_by_delete[0]:
+                        # the newline that ends the text seen from outside can not be
+                        # deleted, but loses its tags (the selection) like Tk's does
+                        reached_end_by_delete[0] = False
+                        for tag in real("tag", "names", "end-2c"):
+                            real("tag", "remove", str(tag), "end-2c", "end-1c")
+                    keep_ending_newline()
+                    keep_cursor_off_last_line()
+                    spaced_last_line()
+            except tk.TclError:  # the text is being destroyed
+                pass
+
         text.tk.eval(
             """
             proc {name} args {{
+                set kind [lindex $args 0]
+                set routed [expr {{[string first end $args] >= 0
+                    || $kind in {{insert delete replace}}
+                    || ($kind eq "mark" && [lindex $args 1] eq "set"
+                        && [lindex $args 2] eq "insert")}}]
+                if {{!$routed && $kind eq "tag" && [lindex $args 1] in {{add remove}}}} {{
+                    set limit [{wrapped} index end-1c]
+                    foreach index [lrange $args 3 end] {{
+                        if {{[{wrapped} compare $index >= $limit]}} {{
+                            set routed 1
+                            break
+                        }}
+                    }}
+                }}
+                if {{$routed}} {{
+                    set args [{real_arguments} {{*}}$args]
+                    if {{$args eq ""}} {{
+                        return
+                    }}
+                }}
                 set result [{wrapped} {{*}}$args]
-                if {{[lindex $args 0] in {{insert replace delete}}}} {{
-                    {update_now}
+                if {{$kind in {{insert delete replace}}
+                    || ($kind eq "edit" && [lindex $args 1] in {{undo redo}})}} {{
+                    {after} edit
+                }} elseif {{$kind eq "mark" && [lindex $args 1] eq "set"
+                    && [lindex $args 2] eq "insert"}} {{
+                    {after} mark
                 }}
                 return $result
             }}
-            """.format(name=name, wrapped=wrapped, update_now=text.register(update_now))
+            """.format(
+                name=name,
+                wrapped=wrapped,
+                real_arguments=text.register(real_arguments_for_tcl),
+                after=text.register(after),
+            )
         )
-        text.bind("<<TextboxChanged>>", update, add="+")
-        text.bind("<Configure>", update, add="+")
-        update()
+        draw_line_numbers = box._draw_line_numbers
+
+        def draw_line_numbers_without_last_line():
+            """Draw the line numbers, but not the number of the last line, which is
+            not a line of the text as far as the user is concerned.
+            """
+            draw_line_numbers()
+            gutter = box._gutter
+            if gutter is None:
+                return
+            _, line, column = last_line()
+            if not column:
+                for item in gutter.find_all():
+                    if gutter.type(item) == "text" and gutter.itemcget(
+                        item, "text"
+                    ) == str(line):
+                        gutter.delete(item)
+
+        box._draw_line_numbers = draw_line_numbers_without_last_line
+        text.bind("<Configure>", spaced_last_line, add="+")
+        _, line, column = last_line()
+        if column or line == 1:
+            keep_ending_newline()
+            text.edit_reset()
+            text.edit_modified(False)
+        after("edit")
 
     def _bind_focus_recursive(self, widget, skip_widgets=()):
         """Bind <FocusIn> (to make this buffer active) on widget and
