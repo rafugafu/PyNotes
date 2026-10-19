@@ -664,6 +664,14 @@ class Editor(Buffer):
         self.type_.bind("<Left>", lambda event: self.left() or "break")
         self.type_.bind("<Right>", lambda event: self.right() or "break")
         self.type_.bind("<Delete>", lambda event: self.delete_key() or "break")
+        self.type_.bind("<Shift-Left>", lambda event: self.select_left())
+        self.type_.bind("<Shift-Right>", lambda event: self.select_right())
+        self.type_.bind("<Control-Left>", lambda event: self.word_left())
+        self.type_.bind("<Control-Right>", lambda event: self.word_right())
+        self.type_.bind("<Control-Shift-Left>", lambda event: self.select_word_left())
+        self.type_.bind("<Control-Shift-Right>", lambda event: self.select_word_right())
+        self.type_.bind("<Control-BackSpace>", lambda event: self.delete_word_back())
+        self.type_.bind("<Control-Delete>", lambda event: self.delete_word_forward())
         self.type_.bind("<Alt-l>", lambda event: self.gl() or "break")
         self.type_.bind("<Control-p>", lambda event: self.ptf() or "break")
         self.type_.bind("<Control-P>", lambda event: self.ptb() or "break")
@@ -4220,16 +4228,29 @@ class Editor(Buffer):
         column = len(before.expandtabs(8))
         return min(spaces, 4 - column % 4)
 
-    def left(self):
-        """<Left> handler for all HModes: clear the selection (unless
-        a selection point is extending it), then if only whitespace is
-        before the cursor, move back one indentation level (see
-        backspace()); otherwise move back one character.
+    def _collapse_selection(self, edge):
+        """If a selection exists without a selection point, move the
+        cursor to its sel.first/sel.last `edge`, close the selection
+        and return True; otherwise return False.
         """
+        if self.selectionpoint or not self.type_.tag_ranges("sel"):
+            return False
+        self.type_.mark_set("insert", f"sel.{edge}")
+        self.type_.tag_remove("sel", "1.0", "end")
+        self.type_.see("insert")
+        return True
+
+    def left(self):
+        """<Left> handler for all HModes: with a selection (and no
+        selection point), jump to its start and close it. Otherwise,
+        if only whitespace is before the cursor, move back one
+        indentation level (see backspace()); otherwise move back one
+        character. A selection point extends the selection instead.
+        """
+        if self._collapse_selection("first"):
+            return "break"
         if self.selectionpoint:
             self.type_.after_idle(self.selupdate)
-        else:
-            self.type_.tag_remove("sel", "1.0", "end")
         move = self._indent_chars_before_cursor()
         if move:
             self.type_.mark_set("insert", f"insert-{move}c")
@@ -4240,20 +4261,137 @@ class Editor(Buffer):
 
     def right(self):
         """<Right> handler for all HModes, the opposite of left():
-        clear the selection (unless a selection point is extending
-        it), then if only whitespace is before the cursor and
-        whitespace follows it, move forward one indentation level;
-        otherwise move forward one character.
+        with a selection (and no selection point), jump to its end and
+        close it. Otherwise, if only whitespace is before the cursor
+        and whitespace follows it, move forward one indentation level;
+        otherwise move forward one character. A selection point
+        extends the selection instead.
         """
+        if self._collapse_selection("last"):
+            return "break"
         if self.selectionpoint:
             self.type_.after_idle(self.selupdate)
-        else:
-            self.type_.tag_remove("sel", "1.0", "end")
         move = self._indent_chars_after_cursor()
         if move:
             self.type_.mark_set("insert", f"insert+{move}c")
         else:
             self.type_.mark_set("insert", "insert+1displayindices")
+        self.type_.see("insert")
+        return "break"
+
+    def _word_boundary(self, forward):
+        """The index of the word boundary before (or after, if
+        forward) the cursor: past any whitespace, then past one run of
+        word characters or of punctuation. At a line edge, the
+        boundary is the end of the previous line / start of the next.
+        """
+        if forward:
+            rest = self.type_.get("insert", "insert lineend")
+            if not rest:
+                return self.type_.index("insert+1c")
+            rest_stripped = rest.lstrip()
+            run = re.match(r"\w+|[^\w\s]+", rest_stripped)
+            consumed = len(rest) - len(rest_stripped) + (run.end() if run else 0)
+            return self.type_.index(f"insert+{consumed}c")
+        before = self.type_.get("insert linestart", "insert")
+        if not before:
+            return self.type_.index("insert-1c")
+        before_stripped = before.rstrip()
+        run = re.search(r"\w+$|[^\w\s]+$", before_stripped)
+        kept = run.start() if run else len(before_stripped)
+        return self.type_.index(f"insert-{len(before) - kept}c")
+
+    def word_left(self):
+        """<Control-Left> handler: move back one word (extending the
+        selection if a selection point is set).
+        """
+        if self.selectionpoint:
+            self.type_.after_idle(self.selupdate)
+        else:
+            self.type_.tag_remove("sel", "1.0", "end")
+        self.type_.mark_set("insert", self._word_boundary(False))
+        self.type_.see("insert")
+        return "break"
+
+    def word_right(self):
+        """<Control-Right> handler, the opposite of word_left()."""
+        if self.selectionpoint:
+            self.type_.after_idle(self.selupdate)
+        else:
+            self.type_.tag_remove("sel", "1.0", "end")
+        self.type_.mark_set("insert", self._word_boundary(True))
+        self.type_.see("insert")
+        return "break"
+
+    def _extend_selection_to(self, index):
+        """Move the cursor to `index`, extending the selection from
+        its far end (or from where the cursor was, if there is no
+        selection), like a normal editor's Shift-arrow.
+        """
+        text = self.type_
+        if self.selectionpoint:
+            anchor = None
+        elif text.tag_ranges("sel"):
+            first, last = text.index("sel.first"), text.index("sel.last")
+            anchor = last if text.compare("insert", "==", first) else first
+        else:
+            anchor = text.index("insert")
+        text.mark_set("insert", index)
+        if anchor is None:
+            self.selupdate()
+        else:
+            text.tag_remove("sel", "1.0", "end")
+            if text.compare(anchor, "<=", "insert"):
+                text.tag_add("sel", anchor, "insert")
+            else:
+                text.tag_add("sel", "insert", anchor)
+        text.see("insert")
+        return "break"
+
+    def select_left(self):
+        """<Shift-Left> handler: extend the selection one character back."""
+        return self._extend_selection_to("insert-1displayindices")
+
+    def select_right(self):
+        """<Shift-Right> handler: extend the selection one character forward."""
+        return self._extend_selection_to("insert+1displayindices")
+
+    def select_word_left(self):
+        """<Control-Shift-Left> handler: extend the selection one word back."""
+        return self._extend_selection_to(self._word_boundary(False))
+
+    def select_word_right(self):
+        """<Control-Shift-Right> handler: extend the selection one word forward."""
+        return self._extend_selection_to(self._word_boundary(True))
+
+    def delete_word_forward(self):
+        """<Control-Delete> handler: delete the selection if the cursor
+        is in it; otherwise delete to the next word boundary.
+        """
+        return self._delete_word(True)
+
+    def delete_word_back(self):
+        """<Control-BackSpace> handler: delete the selection if the
+        cursor is in it; otherwise delete back to the previous word
+        boundary.
+        """
+        return self._delete_word(False)
+
+    def _delete_word(self, forward):
+        if self.selectionpoint:
+            self.removeselpoint()
+        self._set_undo_mark()
+        if (
+            self.type_.tag_ranges("sel")
+            and self.type_.compare("sel.first", "<=", "insert")
+            and self.type_.compare("insert", "<=", "sel.last")
+        ):
+            self.type_.delete("sel.first", "sel.last")
+        elif forward:
+            self.type_.delete("insert", self._word_boundary(True))
+        else:
+            self.type_.delete(self._word_boundary(False), "insert")
+        self._set_undo_mark()
         self.type_.see("insert")
         return "break"
 
