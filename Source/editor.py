@@ -160,6 +160,11 @@ class Editor(Buffer):
         (
             "root",
             "fileinfo",
+            "infos",
+            "fileinfocolumn",
+            "fileinforelief",
+            "fileinfoconfig",
+            "_own_fileinfoconfig",
             "filename",
             "filetype",
             "filesize",
@@ -704,20 +709,21 @@ class Editor(Buffer):
         else:
             self.type_.after_idle(self.selupdate)
 
+    def _sync_group_chrome(self):
+        """Run _sync_chrome() on every pane in this view group."""
+        for member in self._group_members():
+            member._sync_chrome()
+
     def _sync_chrome(self):
         """Copy the master's file-info bar text and LaTeX-toolbar/
         PNG-view visibility onto this view (chrome that mirrors
         shared state but, being actual widgets, isn't itself shared).
         """
-        master = self.view_master
-        if master is None:
-            return
-        self.fileinfoconfig(
-            filename=master.infos["filename"].cget("text"),
-            filesaved=master.infos["filesaved"].cget("text"),
-            filetype=master.infos["filetype"].cget("text"),
-            filesize=master.infos["filesize"].cget("text"),
-        )
+        master = self.view_master or self
+        if master is not self:
+            self._own_fileinfoconfig(
+                **{info: label.cget("text") for info, label in master.infos.items()}
+            )
         if master.hmode == "latex":
             self.lfouter.pack(
                 padx=10, pady=10, side="top", fill="x", before=self.fileinfo
@@ -779,6 +785,14 @@ class Editor(Buffer):
                     pass
                 setattr(self, name, None)
 
+    def _drop_own_shared_state(self):
+        """Drop this instance's own copies of the shared-state
+        attributes (whatever Buffer/Editor init stored before it was
+        a view), so they read through to view_master via __getattr__.
+        """
+        for name in Editor._SHARED_STATE_ATTRS:
+            self.__dict__.pop(name, None)
+
     def _connect_to(self, master):
         """Turn this (currently standalone) Editor into a peer view of
         master: swap in a Text peer widget onto master's content, drop
@@ -797,12 +811,12 @@ class Editor(Buffer):
             self.__dict__["observer"].join()
         except Exception:
             pass
-        for name in Editor._SHARED_STATE_ATTRS:
-            self.__dict__.pop(name, None)
+        self._drop_own_shared_state()
         self.view_master = master
         master.view_children.append(self)
         self.m = master.m
         self._sync_chrome()
+        window.settitle()
         self._main_poll()
         pycode.pcrun(state.pycode_keybindings_cdt)
 
@@ -831,15 +845,7 @@ class Editor(Buffer):
             self.mainwidget = self.type_
             self._wire_type()
             old_type.destroy()
-            self.unsaved = False
-            self.unsavedtext = ""
-            self.hmode = "normal"
-            self.title = ""
-            self._sync_wanttitle()
-            self.imageloaded = False
-            self.file_editing_own = False
-            self._file_watch_prompt_pending = False
-            self.observer = None
+            self._reset_shared_state()
             self.init_hl_tags()
             self.init_plugin_tags()
             self.type_.edit_reset()
@@ -869,37 +875,7 @@ class Editor(Buffer):
             old_type.destroy()
             self._main_poll()
             self.view_master = None
-            self.unsaved = False
-            self.unsavedtext = ""
-            self.hmode = "normal"
-            self.title = ""
-            self._sync_wanttitle()
-            self.imageloaded = False
-            self.file_editing_own = False
-            self._file_watch_prompt_pending = False
-            self.observer = None
-            self._python_scopes = [{"start": 1, "end": 1, "parent": None, "names": {}}]
-            self._python_call_kwargs = {}
-            self._python_module_literals = []
-            self._python_literal_attrs = []
-            self._python_name_positions = []
-            self._python_def_names = []
-            self._python_typed_attrs = []
-            self._python_param_default_tags = []
-            self._python_kwarg_positions = []
-            self._python_import_dotted_lines = []
-            self._python_import_orig_name_tags = []
-            self._python_instance_name_positions = set()
-            self._python_global_stmt_kind_positions = {}
-            self._python_names_scan_thread = None
-            self._python_scan_after_id = None
-            self._python_edit_generation = [0]
-            self._python_module_spec_cache = {}
-            self._python_module_members_cache = {}
-            self._python_module_class_members_cache = {}
-            self._python_module_func_params_cache = {}
-            self._ha_running = [False]
-            self._ha_pending = [None]
+            self._reset_shared_state()
             self.m = ctk.Menu(state.root)
             for label, menu in state.all_editor_menus.items():
                 self.m.add_cascade(label=label, menu=menu)
@@ -910,6 +886,50 @@ class Editor(Buffer):
             self.resetfileinfo()
             self.lfouter.pack_forget()
             pycode.pcrun(state.pycode_keybindings_cdt)
+
+    def _reset_shared_state(self):
+        """Give this (now standalone) Editor its own fresh blank
+        shared state, so nothing is still shared by reference with the
+        view group it left.
+        """
+        self.unsaved = False
+        self.unsavedtext = ""
+        self.hmode = "normal"
+        self.title = ""
+        self._sync_wanttitle()
+        self.imageloaded = False
+        self.file_editing_own = False
+        self._file_watch_prompt_pending = False
+        self.observer = None
+        self._python_scopes = [{"start": 1, "end": 1, "parent": None, "names": {}}]
+        self._python_call_kwargs = {}
+        self._python_module_literals = []
+        self._python_literal_attrs = []
+        self._python_name_positions = []
+        self._python_def_names = []
+        self._python_typed_attrs = []
+        self._python_param_default_tags = []
+        self._python_kwarg_positions = []
+        self._python_import_dotted_lines = []
+        self._python_import_orig_name_tags = []
+        self._python_instance_name_positions = set()
+        self._python_global_stmt_kind_positions = {}
+        self._python_names_scan_thread = None
+        self._python_scan_after_id = None
+        self._python_edit_generation = [0]
+        self._python_module_spec_cache = {}
+        self._python_module_members_cache = {}
+        self._python_module_class_members_cache = {}
+        self._python_module_func_params_cache = {}
+        self._ha_running = [False]
+        self._ha_pending = [None]
+
+    def _group_fileinfoconfig(self, **infoconfigs):
+        """Show infoconfigs in the file-info bar of every pane in this
+        view group, so the bars never differ.
+        """
+        for member in self._group_members():
+            member._own_fileinfoconfig(**infoconfigs)
 
     def resetfileinfo(self):
         """Reset the file-info bar to the "no file open" defaults."""
@@ -929,7 +949,9 @@ class Editor(Buffer):
         view.
         """
         if self.view_children:
-            _promote_new_master(self)
+            new_master = _promote_new_master(self)
+            if state.active is self:
+                state.active = new_master
             self.view_children = []
         if self.view_master is not None:
             master = self.view_master
@@ -962,8 +984,12 @@ class Editor(Buffer):
         """
         super().__init__(master, *args, **kwargs)
         self.view_master = view_master
+        self._drop_own_shared_state()
         self.view_children = []
-        self.resetfileinfo()
+        self._own_fileinfoconfig = self.fileinfoconfig
+        self.fileinfoconfig = self._group_fileinfoconfig
+        if view_master is None:
+            self.resetfileinfo()
         self.mf = ctk.Frame(self)
         self.lfouter = ctk.ScrolledFrame(self, orient="horizontal")
         self.lf = ctk.Frame(self.lfouter)
@@ -1271,7 +1297,7 @@ class Editor(Buffer):
         """
         if self.view_master:
             return self.view_master.clt(nt)
-        if self is state.active:
+        if state.active in self._group_members():
             state.pcsettitle = False
         try:
             self.observer.stop()
@@ -1289,11 +1315,6 @@ class Editor(Buffer):
                 self.title = ""
             self.unsaved = False
             self._sync_wanttitle()
-            for child in self.view_children:
-                child.fileinfoconfig(
-                    filename=self.infos["filename"].cget("text"),
-                    filesaved=self.infos["filesaved"].cget("text"),
-                )
         except Exception:
             pass
         else:
@@ -1464,8 +1485,7 @@ class Editor(Buffer):
                 self.keypress()
             self.type_.edit_reset()
             python_scope_build._python_reset_scan_state(self)
-            for child in self.view_children:
-                child._sync_chrome()
+            self._sync_group_chrome()
 
     def llld(self):
         """PyCode's/Alt-X's `open` command: confirm discarding unsaved
@@ -2368,8 +2388,7 @@ class Editor(Buffer):
     def _update_filesize(self):
         """Recompute and show the file size in every pane's info bar."""
         size = len(io.StringIO(self.type_.get("1.0", "end")).read()) - 1
-        for member in self._group_members():
-            member.fileinfoconfig(filesize=str(size) + " bytes")
+        self.fileinfoconfig(filesize=str(size) + " bytes")
 
     def trigger_filesize(self):
         """Debounce _update_filesize() after an edit."""
@@ -2409,13 +2428,11 @@ class Editor(Buffer):
             if self.type_.get("1.0", "end-1c") != self.unsavedtext:
                 self.unsaved = True
                 self._sync_wanttitle()
-                for member in self._group_members():
-                    member.fileinfoconfig(filesaved="Unsaved File")
+                self.fileinfoconfig(filesaved="Unsaved File")
             else:
                 self.unsaved = False
                 self._sync_wanttitle()
-                for member in self._group_members():
-                    member.fileinfoconfig(filesaved="Saved File")
+                self.fileinfoconfig(filesaved="Saved File")
 
     def trigger_unsaved(self):
         """Debounce _update_unsaved() after an edit."""
@@ -3965,23 +3982,17 @@ class Editor(Buffer):
         self._sync_wanttitle()
         if self.title:
             if self.hmode in ["png", "pdf", "epub"]:
-                for member in self._group_members():
-                    member.fileinfoconfig(
-                        filename=os.path.basename(self.title),
-                        filesaved="Read Only File",
-                    )
+                self.fileinfoconfig(
+                    filename=os.path.basename(self.title),
+                    filesaved="Read Only File",
+                )
             else:
-                for member in self._group_members():
-                    member.fileinfoconfig(filename=os.path.basename(self.title))
+                self.fileinfoconfig(filename=os.path.basename(self.title))
         else:
-            if (self.view_master or self) is state.active and not state.pcsettitle:
-                for member in self._group_members():
-                    member.fileinfoconfig(
-                        filename="Untitled", filesaved="Untitled File"
-                    )
+            if state.active in self._group_members() and not state.pcsettitle:
+                self.fileinfoconfig(filename="Untitled", filesaved="Untitled File")
             else:
-                for member in self._group_members():
-                    member.fileinfoconfig(filename="Untitled")
+                self.fileinfoconfig(filename="Untitled")
         self.trigger_unsaved()
         if not self.title:
             if self.type_.get("1.0", "end-1c"):
@@ -4068,8 +4079,7 @@ class Editor(Buffer):
                 )
         utils.show(f"{self.hmode} hmode")
         self.keypress()
-        for child in self.view_children:
-            child._sync_chrome()
+        self._sync_group_chrome()
         pycode.pcrunhook("after", "change-hmode", mode)
 
     def rp(self):
@@ -4923,8 +4933,6 @@ def _promote_new_master(old_master):
         new_master.sethmenu("latex")
     if new_master.title:
         new_master.clt(new_master.title)
-    if state.active is old_master:
-        state.active = new_master
     return new_master
 
 
