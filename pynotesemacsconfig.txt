@@ -1,134 +1,165 @@
-(tabpressed) →:
-(
-if (getselection) {indentselection} else {insert tkindex ('insert'), '	'}
-);
+tab_pressed () {
+    if (get_selection()) {
+        indent_selection();
+    }
+    else {
+        insert_text(tk_index("insert"), "\t");
+    };
+};
 
-(transposechars) →:
-(
-setvar 'chars', get ('insert-1c', 'insert') ↩
-delete 'insert-1c', 'insert' ↩
-setvar 'swapped', chars[::-1] ↩
-insert 'insert-1c', swapped
-);
+transpose_chars () {
+    chars = get_text("insert-1c", "insert");
+    delete_text("insert-1c", "insert");
+    swapped = chars[::-1];
+    insert_text("insert-1c", swapped);
+};
 
-(killline) →:
-(
-setvar 'lineno', tkindex ('insert', 'line') ↩
-setvar 'textaftercursor', get (tkindex ('insert'), lineno + '.end') ↩
-if (textaftercursor) {
-copytext textaftercursor ↓
-delete tkindex ('insert'), lineno + '.end'
-} else {
-delete tkindex ('insert'), lineno + '.end+1c'
-}
-);
+kill_line () {
+    line_number = tk_index("insert", "line");
+    text_after_cursor = get_text(tk_index("insert"), line_number + ".end");
+    if (text_after_cursor) {
+        copy_clipboard(text_after_cursor);
+        delete_text(tk_index("insert"), line_number + ".end");
+    }
+    else {
+        delete_text(tk_index("insert"), line_number + ".end+1c");
+    };
+};
 
-(killwholeline) →:
-(
-setvar 'lineno', tkindex ('insert', 'line') ↩
-copytext get (lineno + '.0', lineno + '.end+1c') ↩
-delete lineno + '.0', lineno + '.end+1c'
-);
+kill_whole_line () {
+    line_number = tk_index("insert", "line");
+    copy_clipboard(get_text(line_number + ".0", line_number + ".end+1c"));
+    delete_text(line_number + ".0", line_number + ".end+1c");
+};
 
-(unselect) →:
-(
-if (getselection) {select 0.0, 0.0}
-);
+unselect () {
+    if (get_selection()) {
+        select_text("0.0", "0.0");
+    };
+};
 
-(govardef) →:
-(
-pythongodef ask 'Variable name:'
-);
+keyboard_quit () {
+    remove_selection_point();
+    unselect();
+};
 
-<Tab> → <tabpressed>;
+go_to_definition () {
+    python_go_to_definition(ask_dialog("Variable name:"));
+};
 
-⌊transpose-chars⌋ → ⌊transposechars⌋;
-⌊query-replace⌋ → ⌊findreplace⌋;
-⌊kill-ring-save⌋ → ⌊copy⌋;
-⌊isearch-forward⌋ → ⌊findtext⌋;
-⌊kill-region⌋ → ⌊cut⌋;
-⌊yank⌋ → ⌊paste⌋;
-⌊move-beginning-of-line⌋ → ⌊movecursor tkindex ('insert', 'line') + '.0'⌋;
-⌊move-end-of-line⌋ → ⌊movecursor tkindex ('insert', 'line') + '.end'⌋;
-⌊next-line⌋ → ⌊movecursor 'insert+1l'⌋;
-⌊previous-line⌋ → ⌊movecursor 'insert-1l'⌋;
-⌊forward-char⌋ → ⌊movecursor 'insert+1c'⌋;
-⌊backward-char⌋ → ⌊movecursor 'insert-1c'⌋;
-⌊find-file⌋ → ⌊openfile⌋;
-⌊mark-whole-buffer⌋ → ⌊select '1.0', 'end'⌋;
-⌊save-buffers-kill-terminal⌋ → ⌊quit⌋;
-⌊save-buffer⌋ → ⌊savefile⌋;
-⌊write-file⌋ → ⌊saveasfile⌋;
-⌊undo⌋ → ⌊undo⌋;
-⌊python-mode⌋ → ⌊hmode 'py'⌋;
-⌊latex-mode⌋ → ⌊hmode 'la'⌋;
-⌊html-mode⌋ → ⌊hmode 'html'⌋;
-⌊text-mode⌋ → ⌊hmode 'norm'⌋;
-⌊kill-line⌋ → ⌊killline⌋;
-⌊kill-whole-line⌋ → ⌊killwholeline⌋;
+move_to_line_start () {
+    move_cursor(tk_index("insert", "line") + ".0");
+};
 
-⌊goto-line⌋ → ⌊gotoline⌋;
-⌊run-python⌋ → ⌊pyshell⌋;
-⌊compile⌋ → ⌊runcode⌋;
-⌊set-mark-command⌋ → ⌊toggleselectionpoint⌋;
-⌊keyboard-quit⌋ → ⌊removeselectionpoint ↩ unselect⌋;
-⌊beginning-of-defun⌋ → ⌊pythongostartof 'f'⌋;
-⌊end-of-defun⌋ → ⌊pythongoendof 'f'⌋;
-⌊xref-find-definitions⌋ → ⌊pythongodef⌋;
-⌊other-window⌋ → ⌊switchbuffer⌋;
-⌊delete-window⌋ → ⌊closebuffer⌋;
-⌊split-window-below⌋ → ⌊spliteditor orient = 'vertical'⌋;
-⌊split-window-right⌋ → ⌊spliteditor⌋;
-⌊balance-windows⌋ → ⌊balancebuffers 'all'⌋;
-⌊make-frame-command⌋ → ⌊neweditor⌋;
-⌊find-file-other-frame⌋ → ⌊openfilenewedit⌋;
+move_to_line_end () {
+    move_cursor(tk_index("insert", "line") + ".end");
+};
 
-<Alt-semicolon> → <commentselection>;
-<Alt-percent> → <findreplace>;
-<Alt-w> → <copy>;
-<Control-slash> → <undo>;
-<Control-underscore> → <undo>;
-<Control-t> → <transposechars>;
-<Control-s> → <findtext>;
-<Control-r> → <findtext 'backward'>;
-<Control-w> → <cut>;
-<Control-y> → <paste>;
-<Control-a> → <movecursor tkindex ('insert', 'line') + '.0'>;
-<Control-e> → <movecursor tkindex ('insert', 'line') + '.end'>;
-<Control-n> → <movecursor 'insert+1l'>;
-<Control-p> → <movecursor 'insert-1l'>;
-<Control-f> → <movecursor 'insert+1c'>;
-<Control-b> → <movecursor 'insert-1c'>;
-<Control-k> → <killline>;
-<Control-z> → <pass>;
-<Control-Alt-backslash> → <indentselection>;
-<Alt-v> → <pageback>;
-<Control-v> → <pageforw>;
-<Alt-less> → <movecursor '1.0'>;
-<Alt-greater> → <movecursor 'end'>;
-<Control-Shift-BackSpace> → <killwholeline>;
+next_line () {
+    move_cursor("insert+1l");
+};
 
-<Control-space> → <toggleselectionpoint>;
-<Control-g> → <removeselectionpoint ↩ unselect>;
-<Alt-period> → <pythongodef>;
-<Control-Alt-a> → <pythongostartof 'f'>;
-<Control-Alt-e> → <pythongoendof 'f'>;
+previous_line () {
+    move_cursor("insert-1l");
+};
 
-<Control-x & h> → <select '1.0', 'end-1c'>;
-<Control-x & Control-c> → <quit>;
-<Control-c & less> → <unindentselection>;
-<Control-c & greater> → <indentselection>;
-<Control-c & Control-c> → <runcode>;
-<Control-c & Control-z> → <pyshell>;
-<Control-x & Control-s> → <savefile>;
-<Control-x & Control-w> → <saveasfile>;
-<Control-x & u> → <undo>;
+forward_char () {
+    move_cursor("insert+1c");
+};
 
-<Alt-g & g> → <gotoline>;
-<Control-x & 0> → <closebuffer>;
-<Control-x & o> → <switchbuffer>;
-<Control-x & 2> → <spliteditor orient = 'vertical'>;
-<Control-x & 3> → <spliteditor>;
-<Control-x & plus> → <balancebuffers 'all'>;
-<Control-x & 5 & 2> → <neweditor>;
-<Control-x & 5 & f> → <openfilenewedit>;
+backward_char () {
+    move_cursor("insert-1c");
+};
+
+key_bind("<Tab>", tab_pressed, "editor");
+
+add_command("transpose-chars", transpose_chars);
+add_command("query-replace", find_replace);
+add_command("kill-ring-save", copy_selection);
+add_command("isearch-forward", find_text);
+add_command("kill-region", cut_selection);
+add_command("yank", paste_clipboard);
+add_command("move-beginning-of-line", move_to_line_start);
+add_command("move-end-of-line", move_to_line_end);
+add_command("next-line", next_line);
+add_command("previous-line", previous_line);
+add_command("forward-char", forward_char);
+add_command("backward-char", backward_char);
+add_command("find-file", open_file);
+add_command("mark-whole-buffer", lambda: select_text("1.0", "end"));
+add_command("save-buffers-kill-terminal", close_pynotes);
+add_command("save-buffer", save_file);
+add_command("write-file", save_file_as);
+add_command("undo", undo_editor);
+add_command("python-mode", lambda: set_hmode("py"));
+add_command("latex-mode", lambda: set_hmode("la"));
+add_command("html-mode", lambda: set_hmode("html"));
+add_command("text-mode", lambda: set_hmode("norm"));
+add_command("kill-line", kill_line);
+add_command("kill-whole-line", kill_whole_line);
+
+add_command("goto-line", go_to_line);
+add_command("run-python", lambda: open_python_shell());
+add_command("compile", run_code);
+add_command("set-mark-command", toggle_selection_point);
+add_command("keyboard-quit", keyboard_quit);
+add_command("beginning-of-defun", lambda: python_go_to_start_of("f"));
+add_command("end-of-defun", lambda: python_go_to_end_of("f"));
+add_command("xref-find-definitions", go_to_definition);
+add_command("other-window", lambda: switch_buffer());
+add_command("delete-window", lambda: close_buffer());
+add_command("split-window-below", lambda: split_editor(orient="vertical"));
+add_command("split-window-right", lambda: split_editor());
+add_command("balance-windows", lambda: balance_buffers("all"));
+add_command("make-frame-command", lambda: new_editor());
+add_command("find-file-other-frame", lambda: open_file_new_editor());
+
+key_bind("<Alt-semicolon>", comment_selection, "editor");
+key_bind("<Alt-percent>", find_replace, "editor");
+key_bind("<Alt-w>", copy_selection, "editor");
+key_bind("<Control-slash>", undo_editor, "editor");
+key_bind("<Control-underscore>", undo_editor, "editor");
+key_bind("<Control-t>", transpose_chars, "editor");
+key_bind("<Control-s>", find_text, "editor");
+key_bind("<Control-r>", lambda: find_text("backward"), "editor");
+key_bind("<Control-w>", cut_selection, "editor");
+key_bind("<Control-y>", paste_clipboard, "editor");
+key_bind("<Control-a>", move_to_line_start, "editor");
+key_bind("<Control-e>", move_to_line_end, "editor");
+key_bind("<Control-n>", next_line, "editor");
+key_bind("<Control-p>", previous_line, "editor");
+key_bind("<Control-f>", forward_char, "editor");
+key_bind("<Control-b>", backward_char, "editor");
+key_bind("<Control-k>", kill_line, "editor");
+key_bind("<Control-z>", lambda: None, "editor");
+key_bind("<Control-Alt-backslash>", indent_selection, "editor");
+key_bind("<Alt-v>", page_back, "editor");
+key_bind("<Control-v>", page_forward, "editor");
+key_bind("<Alt-less>", lambda: move_cursor("1.0"), "editor");
+key_bind("<Alt-greater>", lambda: move_cursor("end"), "editor");
+key_bind("<Control-Shift-BackSpace>", kill_whole_line, "editor");
+
+key_bind("<Control-space>", toggle_selection_point, "editor");
+key_bind("<Control-g>", keyboard_quit, "editor");
+key_bind("<Alt-period>", go_to_definition, "editor");
+key_bind("<Control-Alt-a>", lambda: python_go_to_start_of("f"), "editor");
+key_bind("<Control-Alt-e>", lambda: python_go_to_end_of("f"), "editor");
+
+key_bind("<Control-x & h>", lambda: select_text("1.0", "end-1c"), "editor");
+key_bind("<Control-x & Control-c>", close_pynotes);
+key_bind("<Control-c & less>", unindent_selection, "editor");
+key_bind("<Control-c & greater>", indent_selection, "editor");
+key_bind("<Control-c & Control-c>", run_code);
+key_bind("<Control-c & Control-z>", lambda: open_python_shell());
+key_bind("<Control-x & Control-s>", save_file);
+key_bind("<Control-x & Control-w>", save_file_as);
+key_bind("<Control-x & u>", undo_editor, "editor");
+
+key_bind("<Alt-g & g>", go_to_line, "editor");
+key_bind("<Control-x & 0>", lambda: close_buffer());
+key_bind("<Control-x & o>", lambda: switch_buffer());
+key_bind("<Control-x & 2>", lambda: split_editor(orient="vertical"));
+key_bind("<Control-x & 3>", lambda: split_editor());
+key_bind("<Control-x & plus>", lambda: balance_buffers("all"));
+key_bind("<Control-x & 5 & 2>", lambda: new_editor());
+key_bind("<Control-x & 5 & f>", lambda: open_file_new_editor());
