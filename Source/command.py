@@ -190,9 +190,7 @@ def cmdrun(fullcommand):
         return
     if command in state.pcwrittencommands:
         try:
-            execvars = vars(state).copy()
-            execvars["commandinput"] = commandinput
-            exec(state.pcwrittencommands[command], execvars)
+            pycode.pccallwithinput(state.pcwrittencommands[command], commandinput)
         except Exception as error:
             error = str(error)
             state.root.error(
@@ -211,17 +209,7 @@ def cmdrun(fullcommand):
         if not commandinput:
             utils.show("error: no input given")
             return
-        try:
-            translated = pycode.pycodeindex(commandinput)
-            if translated:
-                exec(translated, vars(state))
-            else:
-                utils.show("invalid pycode expression")
-                return
-        except Exception as error:
-            error = str(error)
-            state.root.error("Error", f"Error in PyCode: {error}")
-        utils.show("evaluated pycode expression")
+        pycode.pcevaluate(commandinput)
     elif (
         command == "sh"
         or command == "splithoriz"
@@ -861,6 +849,11 @@ def cmdpygodefvalues(currentinput):
     return sorted(pycode.pcpynames())
 
 
+def cmdpycodevalues(currentinput):
+    """Autocomplete values for pccmd: every PyCode command name."""
+    return sorted(pycode.pycode_commands)
+
+
 def cmdlanavvalues(currentinput):
     """Autocomplete values for lanavstart/lanavend: the fixed
     c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/
@@ -929,7 +922,7 @@ def cmdregister(names, hmodes=None, inputs=None, buffertypes=None):
 
 cmdregistry = {}
 cmdregister(("exit", "e"))
-cmdregister(("pccmd", "pycodecommand"), inputs=pycode.pycodecommands)
+cmdregister(("pccmd", "pycodecommand"), inputs=cmdpycodevalues)
 cmdregister(("sh", "splithoriz", "split-editor-horizontal"))
 cmdregister(("sv", "splitvert", "split-editor-vertical"))
 cmdregister(("setsel", "selpointset", "selection-point-set"))

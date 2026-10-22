@@ -1,16 +1,18 @@
 """PyCode: PyNotes' embedded scripting language. This module has two
-halves: the language itself (the pycode*/finddelimitedspans/
-splittoplevelcommas/indexargs functions and pcread(), which translate
-PyCode source into plain Python that's then exec'd against
-vars(state)), and the pc* command functions PyCode code calls into
-(each usually a thin wrapper around one editor/PyNotes action, one per
-command documented in help.helppycode()).
+halves: the language itself (pycodeparse(), the PyCode parser, which
+translates PyCode source into plain Python that's then exec'd against
+vars(state) by pcread()), and the pc* command functions PyCode code
+calls into (each usually a thin wrapper around one editor/PyNotes
+action, one per command documented in help.helppycode()).
 """
 
 import ast
+import inspect
+import keyword
 import os
 import platform
 import re
+import warnings
 import canvastk as ctk
 import tkinter as tk
 import state
@@ -24,22 +26,831 @@ import pynotesemail
 import utils
 import window
 
+PYCODE_BRACKET_PAIRS = {"(": ")", "[": "]", "{": "}"}
+PYCODE_CLOSING_BRACKETS = set(PYCODE_BRACKET_PAIRS.values())
+PYCODE_CONTROL_PATTERN = re.compile(r"(if|elif|else|while)\b")
+PYCODE_DECLARATION_PATTERN = re.compile(r"(global|nonlocal)\b")
+PYCODE_RETURN_PATTERN = re.compile(r"return\b")
+PYCODE_DELETE_PATTERN = re.compile(r"del\b")
+PYCODE_SIMPLE_PATTERN = re.compile(r"(pass|break|continue)\b")
+PYCODE_STRING_NEWLINE_PATTERN = re.compile(
+    r"\\.|\n", re.DOTALL
+)  # An escape, or a newline
+PYCODE_NAME_PATTERN = re.compile(r"[^\W\d]\w*")
+PYCODE_NUMBER_PATTERN = re.compile(r"\.?\d[\w.]*")
+PYCODE_STRING_PREFIXES = {"r", "b", "u", "f", "br", "rb", "fr", "rf"}
+# The keywords which are statements or values, unlike the other Python keywords
+PYCODE_STATEMENT_WORDS = {
+    "return",
+    "global",
+    "nonlocal",
+    "pass",
+    "break",
+    "continue",
+    "del",
+    "while",
+}
+PYCODE_KEYWORD_ARGUMENT_PATTERN = re.compile(
+    r"([^\W\d]\w*)\s*=(?!=)"
+)  # Looks like name=, but not name==
 
-def pcprompt(text, autocompletefunc=None, defaultinput=None):
-    """PyCode's `prompt` command: like utils.prompt(), but
-    autocompletefunc may be given as a state attribute name (a string)
-    instead of the callable/list itself, since PyCode source can't
-    reference a Python object directly.
+
+# Maps each PyCode command name to the Python expression (usually just
+# a function name in vars(state), since every module's globals end up
+# there - see main.py) that the PyCode parser substitutes in when
+# translating a call of the command. It is the parser's own table, so
+# the plugins' PyCode commands added directly into it at startup (see
+# main.py) are parsed as well.
+pycode_commands = {
+    "about_pynotes": "abt",
+    "add_command": "pcaddcommand",
+    "add_event_hook": "pcaddeventhook",
+    "ask_dialog": "pcask",
+    "backspace": "pcbackspace",
+    "balance_buffers": "balance",
+    "clear_editor": "pccleareditor",
+    "close_buffer": "pcclosebuff",
+    "close_pynotes": "ext",
+    "comment_region": "pccommentregion",
+    "comment_selection": "pccommentselection",
+    "configure_fileinfo": "active.fileinfoconfig",
+    "copy_selection": "pccopy",
+    "copy_clipboard": "pccopytext",
+    "cut_selection": "pccut",
+    "delete_key": "pcdeletekey",
+    "delete_text": "pcdelete",
+    "dictate_text": "st",
+    "download_plugins": "dp",
+    "find_replace": "pcfindreplace",
+    "find_text": "pcfindtext",
+    "fullscreen_window": "pcfullscreen",
+    "get_selection": "pcgetselection",
+    "get_text": "pcget",
+    "go_to_line": "pcgotoline",
+    "indent_region": "pcindentregion",
+    "indent_selection": "pcindentselection",
+    "insert_text": "pcinsert",
+    "key_bind": "pckeybind",
+    "kill_pynotes": "pckillexit",
+    "latex_go_to_end_of": "pclatexendof",
+    "latex_go_to_start_of": "pclatexstartof",
+    "mark_region": "pcmark",
+    "mark_selection": "pcmarkselection",
+    "markdown_go_to_end_of": "pcmarkdownendof",
+    "markdown_go_to_start_of": "pcmarkdownstartof",
+    "maximize_window": "pcmax",
+    "minimize_window": "pcmin",
+    "move_cursor": "pcmovecursor",
+    "left": "pcleft",
+    "right": "pcright",
+    "new_editor": "neweditor",
+    "new_file": "pcnewfile",
+    "open_email_buffer": "pcopenemailbuf",
+    "open_file": "pcopenfile",
+    "open_file_new_editor": "pcneweditfile",
+    "open_help": "pcopenhelp",
+    "open_mathgod": "mathgod",
+    "open_plugin_directory": "op",
+    "open_preferences": "prf",
+    "open_pycode": "pc",
+    "open_python_shell": "pythonshell.openpythonshell",
+    "open_terminal": "term",
+    "page_back": "pcpageback",
+    "page_forward": "pcpageforw",
+    "paste_clipboard": "pcpaste",
+    "prompt": "utils.prompt",
+    "python_go_to_definition": "pcgodef",
+    "python_go_to_end_of": "pcpyendof",
+    "python_go_to_start_of": "pcpystartof",
+    "redo_editor": "pcredo",
+    "remove_selection_point": "pcremoveselectionpoint",
+    "repeat_command": "pcrepeatx",
+    "run_code": "pcruncode",
+    "run_command": "cmdrun",
+    "save_file": "pcsavefile",
+    "save_file_as": "pcsaveasfile",
+    "select_all": "pcselall",
+    "select_text": "pcselecttext",
+    "set_hmode": "pchmode",
+    "set_selection_point": "pcsetselectionpoint",
+    "set_variable": "pcsetvar",
+    "set_window_geometry": "root.geometry",
+    "set_window_title": "pcgosettitle",
+    "show_message": "show",
+    "show_popup": "say",
+    "show_pynotes_source_code": "ss",
+    "speak_selection": "pcspeaktext",
+    "split_editor": "pcsplitedit",
+    "switch_buffer": "setactive",
+    "tag_add": "pctag",
+    "tag_config": "pccolor",
+    "tag_remove": "pcuntag",
+    "run_shell": "pctermexec",
+    "tk_index": "pctkindex",
+    "toggle_selection_point": "pctoggleselectionpoint",
+    "type_command": "cmd",
+    "uncomment_region": "pcuncommentregion",
+    "uncomment_selection": "pcuncommentselection",
+    "undo_editor": "pcundo",
+    "unfullscreen_window": "pcunfullscreen",
+    "unindent_region": "pcunindentregion",
+    "unindent_selection": "pcunindentselection",
+    "unmark_all": "pcunmarkall",
+    "unmark_region": "pcunmark",
+    "unmaximize_window": "pcunmax",
+    "sleep": "time.sleep",
+    "write_editor": "pccmdwrite",
+}
+
+
+class PyCodeError(Exception):
+    """A PyCode error in parsing."""
+
+
+class PyCodeFunction:
+    """A PyCode function container object used to hold and recognize
+    PyCode functions in the defined dict. name is the Python name
+    the function is called with.
     """
-    return utils.prompt(
-        text,
-        (
-            vars(state)[autocompletefunc]
-            if isinstance(autocompletefunc, str)
-            else autocompletefunc
-        ),
-        defaultinput,
-    )
+
+    def __init__(self, name):
+        self.name = name
+
+
+def pycode_error(text, index, inwhat, message):
+    """Make a PyCodeError pointing at the character at index."""
+    line = text.count("\n", 0, index) + 1
+    column = index - text.rfind("\n", 0, index)  # rfind returns -1 if not found
+    return PyCodeError(f"line {line} {inwhat}, column {column},\n{message}")
+
+
+def pycode_string_ranges(text, inwhat="of code"):
+    """Find the strings in the text, and return a dict
+    {index of opening quote: index of closing quote}.
+    """
+    ranges = {}
+    end = len(text)
+    i = 0
+    while i < end:
+        quote = text[i]
+        if quote in "\"'":
+            j = i + 1
+            while j < end and text[j] != quote:
+                j += 2 if text[j] == "\\" else 1
+            if j >= end:
+                raise pycode_error(text, i, inwhat, f"SyntaxError: unmatched {quote!r}")
+            ranges[i] = j
+            i = j
+        elif text[i] == "#":  # A comment; quotes in it don't count
+            i = text.find("\n", i)
+            if i == -1:
+                break
+        i += 1
+    return ranges
+
+
+def pycode_remove_comments(text, inwhat="of code"):
+    """Replace the # comments in the text with spaces, so that
+    all the indices in the text stay the same.
+    """
+    strings = pycode_string_ranges(text, inwhat)
+    end = len(text)
+    pieces = []
+    last = 0
+    i = 0
+    while i < end:
+        if i in strings:
+            i = strings[i] + 1
+        elif text[i] == "#":
+            comment_end = text.find("\n", i)
+            if comment_end == -1:
+                comment_end = end
+            pieces.append(text[last:i] + " " * (comment_end - i))
+            last = i = comment_end
+        else:
+            i += 1
+    pieces.append(text[last:])
+    return "".join(pieces)
+
+
+def pycode_bracket_match(text, inwhat="of code"):
+    """Match every opening bracket of (), [], {} to its closing bracket
+    tracking nesting, and return a dict {opening index: closing index}.
+    """
+    strings = pycode_string_ranges(text, inwhat)
+    stack = []
+    pairs = {}
+    end = len(text)
+    i = 0
+    while i < end:
+        if i in strings:
+            i = strings[i] + 1
+            continue
+        c = text[i]
+        if c in PYCODE_BRACKET_PAIRS:
+            stack.append(i)
+        elif c in PYCODE_CLOSING_BRACKETS:
+            if not stack:
+                raise pycode_error(text, i, inwhat, f"SyntaxError: unmatched {c!r}")
+            opening = stack.pop()
+            if PYCODE_BRACKET_PAIRS[text[opening]] != c:
+                openingline = text.count("\n", 0, opening) + 1
+                raise pycode_error(
+                    text,
+                    i,
+                    inwhat,
+                    f"SyntaxError: closing bracket {c!r} does not match opening bracket {text[opening]!r} on line {openingline}",
+                )
+            pairs[opening] = i
+        i += 1
+
+    if stack:  # If all brackets are not closed
+        raise pycode_error(
+            text,
+            stack[-1],
+            inwhat,
+            f"SyntaxError: {text[stack[-1]]!r} was never closed",
+        )
+    return pairs
+
+
+class PyCodeNameTranslator(ast.NodeTransformer):
+    """Replace every reference to a PyCode function in a Python expression
+    AST, called or not, with the Python expression it stands for. The names
+    which are not PyCodeFunctions in defined (variables, parameters, and
+    names Python knows) and the names bound inside the expression itself
+    by a lambda or comprehension are left as they are.
+    """
+
+    def __init__(self, defined):
+        self.defined = defined
+        self.scopes = [set()]  # The names bound inside the expression
+
+    def visit_Name(self, node):
+        if isinstance(node.ctx, ast.Load) and not any(
+            node.id in scope for scope in self.scopes
+        ):
+            function = self.defined.get(node.id)
+            if isinstance(function, PyCodeFunction):
+                replacement = ast.parse(function.name, mode="eval").body
+                return ast.copy_location(replacement, node)
+        return node
+
+    def visit_NamedExpr(self, node):
+        node.value = self.visit(node.value)
+        self.scopes[-1].add(node.target.id)
+        return node
+
+    def visit_Lambda(self, node):
+        arguments = node.args
+        arguments.defaults = [self.visit(default) for default in arguments.defaults]
+        arguments.kw_defaults = [
+            default and self.visit(default) for default in arguments.kw_defaults
+        ]
+        every_argument = arguments.posonlyargs + arguments.args + arguments.kwonlyargs
+        every_argument += [a for a in (arguments.vararg, arguments.kwarg) if a]
+        self.scopes.append({argument.arg for argument in every_argument})
+        node.body = self.visit(node.body)
+        self.scopes.pop()
+        return node
+
+    def translate_comprehension(self, node, elements):
+        generators = node.generators
+        generators[0].iter = self.visit(generators[0].iter)  # Outside the scope
+        self.scopes.append(
+            {
+                name.id
+                for generator in generators
+                for name in ast.walk(generator.target)
+                if isinstance(name, ast.Name)
+            }
+        )
+        for index, generator in enumerate(generators):
+            generator.target = self.visit(generator.target)
+            if index:
+                generator.iter = self.visit(generator.iter)
+            generator.ifs = [self.visit(condition) for condition in generator.ifs]
+        for element in elements:
+            setattr(node, element, self.visit(getattr(node, element)))
+        self.scopes.pop()
+        return node
+
+    def visit_ListComp(self, node):
+        return self.translate_comprehension(node, ["elt"])
+
+    visit_SetComp = visit_GeneratorExp = visit_ListComp
+
+    def visit_DictComp(self, node):
+        return self.translate_comprehension(node, ["key", "value"])
+
+
+def pycodeparse(code, defined, inwhat="of code"):
+    """The new PyCode parser - take PyCode code and translate
+    it to Python. Returns a list of blocks of executable Python
+    code.
+    """
+
+    code = pycode_remove_comments(code, inwhat)
+    brackets = pycode_bracket_match(code, inwhat)
+    strings = pycode_string_ranges(code, inwhat)
+    string_spans = sorted(strings.items())
+
+    def error(index, message):
+        return pycode_error(code, index, inwhat, message)
+
+    def trim(start, end):
+        """Narrow the span code[start:end] to exclude surrounding whitespace."""
+        while start < end and code[start].isspace():
+            start += 1
+        while end > start and code[end - 1].isspace():
+            end -= 1
+        return start, end
+
+    def split_code(start, end, on):
+        """Split code[start:end] on top-level on into trimmed (start, end) spans."""
+        spans = []
+        last = start
+        i = start
+        while i < end:
+            if i in strings:
+                i = strings[i] + 1
+                continue
+            if i in brackets:
+                i = brackets[i] + 1
+                continue
+            if code[i] == on:
+                spans.append(trim(last, i))
+                last = i + 1
+            i += 1
+        spans.append(trim(last, end))
+        return spans
+
+    def split_items(start, end):
+        """Split comma separated arguments or parameters; one trailing comma is allowed."""
+        items = split_code(start, end, ",")
+        if items[-1][0] == items[-1][1]:
+            items.pop()
+        for s, e in items:
+            if s == e:
+                raise error(s, "SyntaxError: invalid syntax")
+        return items
+
+    def expression_text(start, end, newline):
+        """The text of code[start:end] with every newline in a string
+        replaced with the newline text.
+        """
+        pieces = []
+        last = start
+        for opening, closing in string_spans:
+            if start <= opening and closing < end:
+                pieces.append(code[last:opening])
+                pieces.append(
+                    PYCODE_STRING_NEWLINE_PATTERN.sub(
+                        lambda match: (
+                            newline if match.group() == "\n" else match.group()
+                        ),
+                        code[opening : closing + 1],
+                    )
+                )
+                last = closing + 1
+        pieces.append(code[last:end])
+        return "".join(pieces)
+
+    def check_expression(
+        start, end, prefix="(", suffix=")", message="SyntaxError: invalid syntax"
+    ):
+        """Raise an error if the expression code[start:end] contains a function
+        definition, or if it is not a valid Python expression. The { of a
+        definition comes right after a ), which is never valid in a Python
+        expression. The prefix is the Python code the expression goes after
+        to be checked, like "_(" for an argument which can be *args or **kwargs.
+        The suffix is the Python code it goes before. The message is the
+        error if Python does not accept it.
+        """
+        for opening in brackets:
+            if start <= opening < end and code[opening] == "{":
+                before = opening - 1
+                while before >= start and code[before].isspace():
+                    before -= 1
+                if before >= start and code[before] == ")":
+                    raise error(
+                        opening,
+                        "SyntaxError: function definition inside function argument",
+                    )
+
+        text = expression_text(start, end, " ")  # A newline in a string is allowed
+        wrapped = f"{prefix}{text}\n{suffix}"  # The brackets allow newlines
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                ast.parse(wrapped)
+        except SyntaxError as e:
+            lines = wrapped.split("\n")
+            index = sum(len(line) + 1 for line in lines[: e.lineno - 1])
+            index += (e.offset or 1) - 1 - len(prefix)
+            raise error(
+                min(max(start + index, start), max(end - 1, start)),
+                message,
+            )
+
+    def translate_expression(start, end, defined, kind="expression"):
+        """Translate the expression code[start:end] to Python by replacing
+        the references to PyCode functions in its AST. The kind is what it is:
+        an "expression", an "argument" of a call (which can be *args or
+        **kwargs), an assignment "target", or a "delete" target. Python
+        formats the result, so whitespace and newlines in the code do not
+        matter, and a newline in a string becomes \\n.
+        """
+        text = expression_text(start, end, "\\n")
+        wrappers = {
+            "expression": ("(", "\n)"),
+            "argument": ("_(", "\n)"),
+            "target": ("(", "\n) = 0"),
+            "delete": ("del (", "\n)"),
+        }
+        prefix, suffix = wrappers[kind]
+        statement = ast.parse(f"{prefix}{text}{suffix}").body[0]
+        if kind == "expression":
+            node = statement.value
+        elif kind == "argument":
+            node = (statement.value.args or statement.value.keywords)[0]
+        else:
+            node = statement.targets[0]
+        try:
+            return ast.unparse(PyCodeNameTranslator(defined).visit(node))
+        except SyntaxError:  # A command whose Python expression is invalid
+            raise error(start, "SyntaxError: invalid command in pycode_commands")
+
+    def check_missing_semicolon(start, end):
+        """Raise an error if the expression code[start:end] of a statement
+        has an operand right after an operand, since then a ; is missing
+        between two statements. Whitespace and newlines do not matter.
+        """
+        tokens = []  # (kind, start, end)
+        i = start
+        while i < end:
+            if code[i].isspace():
+                i += 1
+            elif i in strings:
+                tokens.append(("string", i, strings[i] + 1))
+                i = strings[i] + 1
+            elif i in brackets:
+                tokens.append(("group", i, brackets[i] + 1))
+                i = brackets[i] + 1
+            elif name := PYCODE_NAME_PATTERN.match(code, i, end):
+                after = name.end()
+                if after in strings and name.group().lower() in PYCODE_STRING_PREFIXES:
+                    tokens.append(("string", i, strings[after] + 1))
+                    i = strings[after] + 1
+                else:
+                    tokens.append(("name", i, after))
+                    i = after
+            elif number := PYCODE_NUMBER_PATTERN.match(code, i, end):
+                tokens.append(("number", i, number.end()))
+                i = number.end()
+            else:
+                tokens.append(("operator", i, i + 1))
+                i += 1
+
+        def is_value_word(word):
+            return not keyword.iskeyword(word) or word in ("True", "False", "None")
+
+        def starts_control(token):
+            """If the token is an if (condition) {, which a ternary never has."""
+            opening = trim(token[2], end)[0]
+            if opening >= end or code[opening] != "(":
+                return False
+            after = trim(brackets[opening] + 1, end)[0]
+            return after < end and code[after] == "{"
+
+        for before, token in zip(tokens, tokens[1:]):
+            word = code[token[1] : token[2]]
+            if token[0] == "name":
+                starts = (
+                    is_value_word(word)
+                    or word in PYCODE_STATEMENT_WORDS
+                    or (word == "if" and starts_control(token))
+                )
+            else:
+                starts = token[0] == "number" or (
+                    token[0] == "string" and before[0] != "string"
+                )
+            before_word = code[before[1] : before[2]]
+            ends = before[0] in ("string", "number", "group") or (
+                before[0] == "name" and is_value_word(before_word)
+            )
+            if starts and ends:
+                raise error(token[1], "SyntaxError: invalid syntax")
+
+    def parse_arguments(start, end, defined):
+        """Translate the arguments of a function call."""
+        translated = []
+        keywords = set()
+        for s, e in split_items(start, end):
+            match = PYCODE_KEYWORD_ARGUMENT_PATTERN.match(code, s, e)
+            if match:
+                name = match.group(1)
+                if keyword.iskeyword(name):
+                    raise error(s, f"SyntaxError: invalid argument name {name!r}")
+                if name in keywords:
+                    raise error(s, f"SyntaxError: keyword argument repeated: {name}")
+                keywords.add(name)
+                value_start, value_end = trim(match.end(), e)
+                if value_start == value_end:
+                    raise error(value_start, "SyntaxError: invalid syntax")
+                check_expression(value_start, value_end)
+                translated.append(
+                    f"{name}={translate_expression(value_start, value_end, defined)}"
+                )
+            else:
+                if keywords:
+                    raise error(
+                        s, "SyntaxError: positional argument follows keyword argument"
+                    )
+                check_expression(s, e, "_(")
+                translated.append(translate_expression(s, e, defined, "argument"))
+        return ", ".join(translated)
+
+    def parse_parameters(start, end, defined):
+        """Translate the parameters of a function definition. Returns
+        the translated parameters and the list of parameter names.
+        """
+        translated = []
+        names = []
+        has_default = False
+        has_varargs = False
+        has_varkeywords = False
+        for s, e in split_items(start, end):
+            if has_varkeywords:
+                raise error(s, "SyntaxError: parameter follows ** parameter")
+            stars = e - s - len(code[s:e].lstrip("*"))
+            match = None
+            if stars:  # *args or **kwargs
+                name = code[s + stars : e].strip()
+                if stars > 2 or not name.isidentifier():
+                    raise error(s, f"SyntaxError: invalid parameter {code[s:e]!r}")
+            else:
+                match = PYCODE_KEYWORD_ARGUMENT_PATTERN.match(code, s, e)
+                if match:
+                    name = match.group(1)
+                else:
+                    name = code[s:e]
+                    if not name.isidentifier():
+                        raise error(s, f"SyntaxError: invalid parameter {name!r}")
+            if keyword.iskeyword(name):
+                raise error(s, f"SyntaxError: invalid parameter name {name!r}")
+            if name in names:
+                raise error(s, f"SyntaxError: duplicate parameter {name!r}")
+            names.append(name)
+            if stars == 1:
+                if has_varargs:
+                    raise error(s, "SyntaxError: more than one * parameter")
+                has_varargs = True
+                has_default = False  # The parameters after it are keyword-only
+                translated.append(f"*{name}")
+            elif stars == 2:
+                has_varkeywords = True
+                translated.append(f"**{name}")
+            elif match:
+                has_default = True
+                value_start, value_end = trim(match.end(), e)
+                if value_start == value_end:
+                    raise error(value_start, "SyntaxError: invalid syntax")
+                check_expression(value_start, value_end)
+                translated.append(
+                    f"{name}={translate_expression(value_start, value_end, defined)}"
+                )
+            else:
+                if has_default:
+                    raise error(
+                        s,
+                        "SyntaxError: parameter without a default follows parameter with a default",
+                    )
+                translated.append(name)
+        return ", ".join(translated), names
+
+    def indent(blocks):
+        """Indent the blocks with one space to go inside a function, if, or loop."""
+        return (
+            "\n".join(" " + line for block in blocks for line in block.split("\n"))
+            or " pass"
+        )
+
+    def parse_control(start, end, defined):
+        """Translate an if (condition) {...} elif (condition) {...} else {...}
+        statement or a while (condition) {...} statement.
+        """
+        branches = []
+        pos = start
+        while True:
+            word = PYCODE_CONTROL_PATTERN.match(code, pos, end).group(1)
+            if not branches and word not in ("if", "while"):
+                raise error(pos, "SyntaxError: invalid syntax")
+            pos = trim(pos + len(word), end)[0]
+            header = word
+            if word != "else":
+                if pos >= end or code[pos] != "(":
+                    raise error(pos, "SyntaxError: invalid syntax")
+                condition_close = brackets[pos]
+                condition_start, condition_end = trim(pos + 1, condition_close)
+                if condition_start == condition_end:
+                    raise error(condition_close, "SyntaxError: invalid syntax")
+                check_expression(condition_start, condition_end)
+                condition = translate_expression(
+                    condition_start, condition_end, defined
+                )
+                header = f"{word} {condition}"
+                pos = trim(condition_close + 1, end)[0]
+            if pos >= end or code[pos] != "{":
+                raise error(pos, "SyntaxError: invalid syntax")
+            body_close = brackets[pos]
+            body = parse_block(pos + 1, body_close, defined)
+            branches.append(f"{header}:\n{indent(body)}")
+            pos = trim(body_close + 1, end)[0]
+            if pos >= end:
+                return "\n".join(branches)
+            following = PYCODE_CONTROL_PATTERN.match(code, pos, end)
+            if (
+                word in ("while", "else")
+                or not following
+                or following.group(1) not in ("elif", "else")
+            ):
+                raise error(pos, "SyntaxError: invalid syntax")
+
+    def find_assignment(start, end):
+        """Find the = of an assignment (not ==, !=, <=, >=) outside
+        brackets and strings in code[start:end], or return -1.
+        """
+        i = start
+        while i < end:
+            if i in strings:
+                i = strings[i] + 1
+            elif i in brackets:
+                i = brackets[i] + 1
+            else:
+                if (
+                    code[i] == "="
+                    and (i == start or code[i - 1] not in "=!<>")
+                    and (i + 1 >= end or code[i + 1] != "=")
+                ):
+                    return i
+                i += 1
+        return -1
+
+    def parse_assignment(start, end, equals, defined):
+        """Translate target = value. The target is anything Python can assign
+        to, like name, name.attr.attr..., name[index], or a, b. Assigning
+        to a name makes it a variable in defined, so it is not a function.
+        """
+        target_start, target_end = trim(start, equals)
+        if target_start == target_end:
+            raise error(equals, "SyntaxError: invalid syntax")
+        check_missing_semicolon(target_start, target_end)
+        check_expression(target_start, target_end)
+        check_expression(
+            target_start,
+            target_end,
+            "(",
+            ") = 0",
+            "SyntaxError: invalid assignment target",
+        )
+        value_start, value_end = trim(equals + 1, end)
+        if value_start == value_end:
+            raise error(value_start, "SyntaxError: invalid syntax")
+        check_missing_semicolon(value_start, value_end)
+        check_expression(value_start, value_end)
+        target = translate_expression(target_start, target_end, defined, "target")
+        value = translate_expression(value_start, value_end, defined)
+        for node in ast.walk(ast.parse(f"({code[target_start:target_end]}\n) = 0")):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                defined[node.id] = node.id
+        return f"{target} = {value}"
+
+    def parse_declaration(start, end, defined):
+        """Translate global name, name, ... or nonlocal name, name, ...
+        The names become variables in defined, so they are not functions.
+        """
+        word = PYCODE_DECLARATION_PATTERN.match(code, start, end).group(1)
+        names = []
+        for s, e in split_code(start + len(word), end, ","):
+            name = code[s:e]
+            if not name.isidentifier() or keyword.iskeyword(name):
+                raise error(s, "SyntaxError: invalid syntax")
+            names.append(name)
+        for name in names:
+            defined[name] = name
+        return f"{word} {', '.join(names)}"
+
+    def parse_return(start, end, defined):
+        """Translate return or return value."""
+        value_start, value_end = trim(start + len("return"), end)
+        if value_start == value_end:
+            return "return"
+        check_missing_semicolon(value_start, value_end)
+        check_expression(value_start, value_end)
+        return f"return {translate_expression(value_start, value_end, defined)}"
+
+    def parse_simple(start, end, defined):
+        """Translate pass, break, or continue."""
+        word = PYCODE_SIMPLE_PATTERN.match(code, start, end).group(1)
+        rest = trim(start + len(word), end)[0]
+        if rest < end:
+            raise error(rest, "SyntaxError: invalid syntax")
+        return word
+
+    def parse_delete(start, end, defined):
+        """Translate del target, target, ... The names deleted become
+        undefined, so they are no longer functions or variables.
+        """
+        items = split_items(start + len("del"), end)
+        if not items:
+            raise error(start + len("del"), "SyntaxError: invalid syntax")
+        targets = []
+        for s, e in items:
+            check_missing_semicolon(s, e)
+            check_expression(s, e)
+            check_expression(s, e, "del (", ")", "SyntaxError: invalid delete target")
+            targets.append(translate_expression(s, e, defined, "delete"))
+            if code[s:e].isidentifier():
+                defined.pop(code[s:e], None)
+        return f"del {', '.join(targets)}"
+
+    def parse_expression_statement(start, end, defined):
+        """Translate a statement which is just an expression. It must be
+        valid Python; the errors from running it come on execution.
+        """
+        check_missing_semicolon(start, end)
+        check_expression(start, end)
+        return translate_expression(start, end, defined)
+
+    def parse_statement(start, end, defined):
+        """Translate a function call, function definition, if, while,
+        assignment, global, nonlocal, return, pass, break, continue, del, or expression. A definition
+        or assignment is added to defined.
+        """
+        if PYCODE_DECLARATION_PATTERN.match(code, start, end):
+            return parse_declaration(start, end, defined)
+        if PYCODE_RETURN_PATTERN.match(code, start, end):
+            return parse_return(start, end, defined)
+        if PYCODE_SIMPLE_PATTERN.match(code, start, end):
+            return parse_simple(start, end, defined)
+        if PYCODE_DELETE_PATTERN.match(code, start, end):
+            return parse_delete(start, end, defined)
+        if PYCODE_CONTROL_PATTERN.match(code, start, end):
+            return parse_control(start, end, defined)
+        equals = find_assignment(start, end)
+        if equals != -1:
+            return parse_assignment(start, end, equals, defined)
+        paren = start
+        while paren < end and code[paren] != "(":
+            paren = strings.get(paren, paren) + 1  # Skip strings
+        name = code[start:paren].strip()
+        if paren >= end or not name.isidentifier():
+            return parse_expression_statement(start, end, defined)
+
+        close = brackets[paren]
+        restart, restend = trim(close + 1, end)
+
+        if restart == restend:  # Function call; looks like name(args)
+            arguments = parse_arguments(paren + 1, close, defined)
+            function = defined.get(name)
+            if isinstance(function, PyCodeFunction):
+                name = function.name
+            return f"{name}({arguments})"  # Python raises NameError or TypeError on execution
+
+        if code[restart] != "{":
+            return parse_expression_statement(start, end, defined)
+
+        # Function definition; looks like name (args) {...}
+        bodyend = brackets[restart]
+        afterstart, afterend = trim(bodyend + 1, end)
+        if afterstart != afterend:
+            raise error(afterstart, "SyntaxError: invalid syntax")
+
+        if keyword.iskeyword(name):
+            raise error(start, f"SyntaxError: invalid function name {name!r}")
+        parameters, parameter_names = parse_parameters(paren + 1, close, defined)
+        function_defined = defined.copy()
+        function_defined[name] = PyCodeFunction(name)  # So the function can call itself
+        for parameter in parameter_names:
+            function_defined[parameter] = parameter
+        body = parse_block(restart + 1, bodyend, function_defined)
+        defined[name] = PyCodeFunction(name)
+        return f"def {name}({parameters}):\n{indent(body)}"
+
+    def parse_block(start, end, defined):
+        """Translate the statements in code[start:end]."""
+        defined = defined.copy()
+        blocks = []
+        for s, e in split_code(start, end, ";"):
+            if s != e:
+                blocks.append(parse_statement(s, e, defined))
+        return blocks
+
+    commands = {
+        name: PyCodeFunction(python) for name, python in pycode_commands.items()
+    }
+    return parse_block(0, len(code), {**commands, **defined})
 
 
 def pcdone(nc):
@@ -56,37 +867,53 @@ def say(string):
 
 
 def pcrun(code):
-    """Run already-translated Python code (one PyCode statement per
-    line, as pcread() produces) against vars(state), reporting each
-    line's error separately rather than aborting the rest.
+    """Run a list of already-translated Python code blocks (one PyCode
+    statement each, as the PyCode parser produces) against vars(state),
+    reporting each block's error separately rather than aborting the
+    rest.
     """
-    code = code.split("\n")
-    for line in code:
+    for block in code:
         try:
-            exec(line, vars(state))
+            exec(block, vars(state))
         except tk.TclError:
             pass
         except Exception as error:
             error = str(error)
             state.root.error(
                 "Error",
-                f'Error in running the translated PyCode line\n"{line}":\n{error}',
+                f'Error in running the translated PyCode block\n"{block}":\n{error}',
             )
 
 
-def pcexecaction(code):
-    """Run one already-translated line of Python code (e.g. a
-    keybinding's action) against vars(state), reporting any error.
+def pcexecaction(index):
+    """Run the function of the key binding state.pckeyactions[index],
+    reporting any error.
     """
     try:
-        exec(code, vars(state))
+        state.pckeyactions[index]()
     except tk.TclError:
         pass
     except Exception as error:
         error = str(error)
-        state.root.error(
-            "Error", f'Error in running the translated PyCode line\n"{code}":\n{error}'
-        )
+        state.root.error("Error", f"Error in running the PyCode key binding:\n{error}")
+
+
+def pccallwithinput(function, commandinput):
+    """Call a function PyCode registered for an Alt-X command or event
+    hook: it gets commandinput as its argument if it takes one, and the
+    `commandinput` variable is set to it for the ones which do not.
+    """
+    vars(state)["commandinput"] = commandinput
+    try:
+        parameters = inspect.signature(function).parameters.values()
+    except (TypeError, ValueError):
+        parameters = ()
+    if any(
+        parameter.kind in (parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD)
+        for parameter in parameters
+    ):
+        return function(commandinput)
+    return function()
 
 
 def pcopenhelp(thing):
@@ -175,8 +1002,7 @@ def pcmin():
 
 def pcrunhook(when, event, commandinput=None):
     """Run every PyCode event hook registered for event at time when
-    ("before"/"after"), setting the `commandinput` variable to
-    commandinput first for the hook's code to read. event may be
+    ("before"/"after"), see pccallwithinput(). event may be
     "kind:detail" (e.g. "alt-x-command:save"); hooks registered for
     just "kind" (e.g. "alt-x-command") run for every detail too. Errors
     in one hook are reported without stopping the others.
@@ -187,11 +1013,9 @@ def pcrunhook(when, event, commandinput=None):
         pass
     hooks = state.pcbeforehooks if when == "before" else state.pcafterhooks
     for key in dict.fromkeys((event, event.split(":", 1)[0])):
-        for code in hooks.get(key, []):
+        for function in hooks.get(key, []):
             try:
-                vars(state)["commandinput"] = commandinput
-                for line in code.split("\n"):
-                    exec(line, vars(state))
+                pccallwithinput(function, commandinput)
             except Exception as error:
                 error = str(error)
                 state.root.error(
@@ -211,7 +1035,11 @@ def pccopytext(text):
     state.root.update()
 
 
-def pcgosettitle(title):
+def pcgosettitle(title=None):
+    """PyCode's `set_window_title` command: with no title, unset it."""
+    if title is None:
+        pcunsettitle()
+        return
     state.root.title(title)
     utils.show(f"set window title to '{title}'")
     state.pcsettitle = True
@@ -240,20 +1068,10 @@ def pckillexit():
 
 
 def pcsetvar(var, val):
-    """PyCode's `setvar` command: set a state variable by name, so
-    PyCode source (which can't reference Python objects directly) can
-    define values other PyCode code will read.
+    """PyCode's `set_variable` command: set a state variable by name, for
+    where an assignment cannot be written, like in a lambda.
     """
     vars(state)[var] = val
-
-
-def pcwhileloop(condfunc, bodyfunc):
-    """Implements PyCode's `while (condition) {code}` loop syntax (see
-    pycodewhileexpr()): call condfunc() before each iteration, running
-    bodyfunc() while it's true.
-    """
-    while condfunc():
-        bodyfunc()
 
 
 def pccolor(name, *args, **kwargs):
@@ -1375,758 +2193,140 @@ def pcunindentselection():
     pcrunhook("after", "unindent-region", (start, end))
 
 
-# Maps each PyCode command name to the Python expression (usually just
-# a function name in vars(state), since every module's globals end up
-# there - see main.py) that pycodeindex()/pcread() substitute in when
-# translating PyCode source to Python. Plugins' own PyCode commands are
-# added directly into this same dict at startup (see main.py).
-pycodetopythoncommands = {
-    "aboutpynotes": "abt",
-    "ask": "pcask",
-    "backspace": "pcbackspace",
-    "balancebuffers": "balance",
-    "cleareditor": "pccleareditor",
-    "closebuffer": "pcclosebuff",
-    "cmdrun": "cmdrun",
-    "color": "pccolor",
-    "commentregion": "pccommentregion",
-    "commentselection": "pccommentselection",
-    "copy": "pccopy",
-    "copytext": "pccopytext",
-    "cut": "pccut",
-    "delete": "pcdelete",
-    "deletekey": "pcdeletekey",
-    "dictate": "st",
-    "downloadplugins": "dp",
-    "fileinfoconfig": "active.fileinfoconfig",
-    "findreplace": "pcfindreplace",
-    "findtext": "pcfindtext",
-    "fullscreen": "pcfullscreen",
-    "get": "pcget",
-    "getattr": "getattr",
-    "getselection": "pcgetselection",
-    "gotoline": "pcgotoline",
-    "hmode": "pchmode",
-    "indentregion": "pcindentregion",
-    "indentselection": "pcindentselection",
-    "insert": "pcinsert",
-    "killquit": "pckillexit",
-    "latexgoendof": "pclatexendof",
-    "latexgostartof": "pclatexstartof",
-    "left": "pcleft",
-    "mark": "pcmark",
-    "markdowngoendof": "pcmarkdownendof",
-    "markdowngostartof": "pcmarkdownstartof",
-    "markselection": "pcmarkselection",
-    "mathgod": "mathgod",
-    "maximize": "pcmax",
-    "minimize": "pcmin",
-    "movecursor": "pcmovecursor",
-    "neweditor": "neweditor",
-    "newfile": "pcnewfile",
-    "openfile": "pcopenfile",
-    "openfilenewedit": "pcneweditfile",
-    "openhelp": "pcopenhelp",
-    "openplugindir": "op",
-    "openpycode": "pc",
-    "openterm": "term",
-    "pageback": "pcpageback",
-    "pageforw": "pcpageforw",
-    "pass": "pass",
-    "paste": "pcpaste",
-    "preferences": "prf",
-    "prompt": "pcprompt",
-    "pynotessourcecode": "ss",
-    "pyshell": "pythonshell.openpythonshell",
-    "pythongoendof": "pcpyendof",
-    "pythongostartof": "pcpystartof",
-    "pythongodef": "pcgodef",
-    "quit": "ext",
-    "redo": "pcredo",
-    "repeatxcommand": "pcrepeatx",
-    "removeselectionpoint": "pcremoveselectionpoint",
-    "return": "return",
-    "right": "pcright",
-    "runcode": "pcruncode",
-    "saveasfile": "pcsaveasfile",
-    "savefile": "pcsavefile",
-    "say": "say",
-    "selall": "pcselall",
-    "select": "pcselecttext",
-    "setattr": "setattr",
-    "setselectionpoint": "pcsetselectionpoint",
-    "setvar": "pcsetvar",
-    "setwingeometry": "root.geometry",
-    "setwintitle": "pcgosettitle",
-    "show": "show",
-    "speaktext": "pcspeaktext",
-    "spliteditor": "pcsplitedit",
-    "switchbuffer": "setactive",
-    "openemailbuf": "pcopenemailbuf",
-    "tag": "pctag",
-    "termexec": "pctermexec",
-    "tkindex": "pctkindex",
-    "toggleselectionpoint": "pctoggleselectionpoint",
-    "typecommand": "cmd",
-    "uncommentregion": "pcuncommentregion",
-    "uncommentselection": "pcuncommentselection",
-    "undo": "pcundo",
-    "unfullscreen": "pcunfullscreen",
-    "unindentregion": "pcunindentregion",
-    "unindentselection": "pcunindentselection",
-    "unmark": "pcunmark",
-    "unmarkall": "pcunmarkall",
-    "unmaximize": "pcunmax",
-    "unsetwintitle": "pcunsettitle",
-    "untag": "pcuntag",
-    "wait": "time.sleep",
-    "write": "pccmdwrite",
-}
-pycodecommands = sorted(list(pycodetopythoncommands))
-pythoncommands = [pycodetopythoncommands[x] for x in pycodecommands]
-
-
-def finddelimitedspans(s, opener, closer):
-    """Find every top-level opener...closer span in s (e.g. matching
-    '{'/'}' or '['/']'), respecting nesting and skipping content inside
-    single-quoted strings; return a list of (start, end) index pairs
-    covering the opener through the closer.
+def pcparse(code, inwhat="of code"):
+    """Translate PyCode source to a list of blocks of Python code with
+    the PyCode parser. Shows the error and returns None if the source
+    is not valid PyCode.
     """
-    spans = []
-    depth = 0
-    instring = False
-    start = -1
-    i = 0
-    while i < len(s):
-        ch = s[i]
-        if ch == "'":
-            instring = not instring
-        if not instring:
-            if s.startswith(opener, i):
-                if depth == 0:
-                    start = i
-                depth += 1
-                i += len(opener)
-                continue
-            elif s.startswith(closer, i):
-                depth -= 1
-                i += len(closer)
-                if depth == 0 and start != -1:
-                    spans.append((start, i))
-                    start = -1
-                continue
-        i += 1
-    return spans
-
-
-def pycodesplitdownarrow(s):
-    """Split s on top-level '↓' characters (PyCode's statement
-    separator inside a {block}), respecting bracket nesting and
-    single-quoted strings.
-    """
-    parts = []
-    depth = 0
-    instring = False
-    current = ""
-    i = 0
-    while i < len(s):
-        ch = s[i]
-        if ch == "'":
-            instring = not instring
-        if not instring:
-            if ch in "([{":
-                depth += 1
-            elif ch in ")]}":
-                depth -= 1
-        if not instring and depth == 0 and s.startswith("↓", i):
-            parts.append(current)
-            current = ""
-            i += 1
-            continue
-        current += ch
-        i += 1
-    parts.append(current)
-    return parts
-
-
-def pycodeblocktoexpr(blockcode):
-    """Translate a {block}'s body (one or more '↓'-separated PyCode
-    statements) to a Python tuple expression "(expr1, expr2, ...)" that
-    evaluates each in order when the tuple is built, or "None" if the
-    block is empty; returns None (not the string) if any statement
-    fails to translate.
-    """
-    pieces = [
-        piece.strip() for piece in pycodesplitdownarrow(blockcode) if piece.strip()
-    ]
-    if not pieces:
-        return "None"
-    exprs = []
-    for piece in pieces:
-        expr = pycodeindex(piece)
-        if not expr:
-            return None
-        exprs.append(expr)
-    if len(exprs) == 1:
-        return f"({exprs[0]})"
-    return "(" + ", ".join(exprs) + ")"
-
-
-def pycodecondexpr(condition):
-    """Translate a condition string as a PyCode command if it looks
-    like one, otherwise pass it through unchanged (so a condition can
-    be either a PyCode command or already-plain Python, e.g. '1 == 1').
-    """
-    return pycodeindex(condition) or condition
-
-
-def pycodeifexpr(pycodecode):
-    """Translate PyCode's 'if (cond) {code} elif (cond) {code} else
-    {code}' syntax to an equivalent Python conditional expression (a
-    chain of nested "(x if cond else y)" ternaries, innermost being the
-    else branch); return None if pycodecode isn't an if-statement at
-    all, or raise if it is one but malformed.
-    """
-    text = pycodecode.strip()
-    ifmatch = re.match(r"if\s*(?=\()", text)
-    if not ifmatch:
+    try:
+        return pycodeparse(code, {}, inwhat)
+    except Exception as error:
+        state.root.error("Error in PyCode", str(error))
         return None
-    pos = ifmatch.end()
-    condspans = finddelimitedspans(text[pos:], "(", ")")
-    if not condspans or condspans[0][0] != 0:
-        return None
-    cs, ce = condspans[0]
-    condition = pycodecondexpr(text[pos + cs + 1 : pos + ce - 1].strip())
-    pos += ce
-    gapmatch = re.match(r"\s*", text[pos:])
-    pos += gapmatch.end()
-    if pos >= len(text) or text[pos] != "{":
-        return None
-    codespans = finddelimitedspans(text[pos:], "{", "}")
-    if not codespans or codespans[0][0] != 0:
-        return None
-    bs, be = codespans[0]
-    blockcode = text[pos + bs + 1 : pos + be - 1]
-    trueexpr = pycodeblocktoexpr(blockcode)
-    if trueexpr is None:
-        raise Exception(f'Invalid command "{blockcode.strip()}"')
-    pos += be
-    branches = []
-    while True:
-        gapmatch = re.match(r"\s*", text[pos:])
-        nextpos = pos + gapmatch.end()
-        elifmatch = re.match(r"elif\s*(?=\()", text[nextpos:])
-        if not elifmatch:
-            break
-        nextpos += elifmatch.end()
-        econdspans = finddelimitedspans(text[nextpos:], "(", ")")
-        if not econdspans or econdspans[0][0] != 0:
-            raise Exception(f'Invalid condition in "{text}"')
-        ecs, ece = econdspans[0]
-        econdition = pycodecondexpr(text[nextpos + ecs + 1 : nextpos + ece - 1].strip())
-        nextpos += ece
-        ebracematch = re.match(r"\s*", text[nextpos:])
-        nextpos += ebracematch.end()
-        if nextpos >= len(text) or text[nextpos] != "{":
-            raise Exception(f'Invalid syntax in "{text}"')
-        ecodespans = finddelimitedspans(text[nextpos:], "{", "}")
-        if not ecodespans or ecodespans[0][0] != 0:
-            raise Exception(f'Invalid syntax in "{text}"')
-        ebs, ebe = ecodespans[0]
-        eblockcode = text[nextpos + ebs + 1 : nextpos + ebe - 1]
-        eexpr = pycodeblocktoexpr(eblockcode)
-        if eexpr is None:
-            raise Exception(f'Invalid command "{eblockcode.strip()}"')
-        branches.append((econdition, eexpr))
-        pos = nextpos + ebe
-    gapmatch = re.match(r"\s*", text[pos:])
-    nextpos = pos + gapmatch.end()
-    elseexpr = "None"
-    if re.match(r"else\s*(?=\{)", text[nextpos:]):
-        elsematch = re.match(r"else\s*", text[nextpos:])
-        nextpos += elsematch.end()
-        ocodespans = finddelimitedspans(text[nextpos:], "{", "}")
-        if not ocodespans or ocodespans[0][0] != 0:
-            raise Exception(f'Invalid syntax in "{text}"')
-        obs, obe = ocodespans[0]
-        oblockcode = text[nextpos + obs + 1 : nextpos + obe - 1]
-        oexpr = pycodeblocktoexpr(oblockcode)
-        if oexpr is None:
-            raise Exception(f'Invalid command "{oblockcode.strip()}"')
-        elseexpr = oexpr
-        pos = nextpos + obe
-    if text[pos:].strip():
-        raise Exception(f'Invalid syntax in "{text}"')
-    result = elseexpr
-    for econdition, eexpr in reversed(branches):
-        result = f"({eexpr} if ({econdition}) else {result})"
-    return f"({trueexpr} if ({condition}) else {result})"
 
 
-def pycodewhileexpr(pycodecode):
-    """Translate PyCode's 'while (cond) {code}' syntax to a call to
-    pcwhileloop() with the condition/body wrapped as lambdas (so
-    they're only evaluated per-iteration, not once up front); return
-    None if pycodecode isn't a while-statement, or raise if it is one
-    but malformed.
+def pcevaluate(code):
+    """Translate and run PyCode source (the `pccmd` Alt-X command, and
+    the console's pycode-eval command).
     """
-    text = pycodecode.strip()
-    whilematch = re.match(r"while\s*(?=\()", text)
-    if not whilematch:
-        return None
-    pos = whilematch.end()
-    condspans = finddelimitedspans(text[pos:], "(", ")")
-    if not condspans or condspans[0][0] != 0:
-        return None
-    cs, ce = condspans[0]
-    condition = pycodecondexpr(text[pos + cs + 1 : pos + ce - 1].strip())
-    pos += ce
-    gapmatch = re.match(r"\s*", text[pos:])
-    pos += gapmatch.end()
-    if pos >= len(text) or text[pos] != "{":
-        return None
-    codespans = finddelimitedspans(text[pos:], "{", "}")
-    if not codespans or codespans[0][0] != 0:
-        return None
-    bs, be = codespans[0]
-    blockcode = text[pos + bs + 1 : pos + be - 1]
-    bodyexpr = pycodeblocktoexpr(blockcode)
-    if bodyexpr is None:
-        raise Exception(f'Invalid command "{blockcode.strip()}"')
-    pos += be
-    if text[pos:].strip():
-        raise Exception(f'Invalid syntax in "{text}"')
-    return f"pcwhileloop(lambda: ({condition}), lambda: {bodyexpr})"
-
-
-def splittoplevelcommas(s):
-    """Split s on top-level commas (not inside parens or single-quoted
-    strings), e.g. for a command's comma-separated argument list.
-    """
-    parts = []
-    depth = 0
-    instring = False
-    current = ""
-    for ch in s:
-        if ch == "'":
-            instring = not instring
-        if not instring:
-            if ch == "(":
-                depth += 1
-            elif ch == ")":
-                depth -= 1
-        if ch == "," and depth == 0 and not instring:
-            parts.append(current)
-            current = ""
-        else:
-            current += ch
-    parts.append(current)
-    return parts
-
-
-def indexargs(s):
-    """Translate a comma-separated argument list s, running
-    pycodeindex() on any argument that's itself a PyCode command (so a
-    command's arguments can be other commands' results), leaving plain
-    Python expression arguments untouched.
-    """
-    parts = splittoplevelcommas(s)
-    for i, part in enumerate(parts):
-        partstripped = part.strip()
-        if (
-            partstripped in pycodecommands
-            or partstripped.split(" ")[0] in pycodecommands
-        ):
-            parts[i] = pycodeindex(partstripped)
-    return ",".join(parts)
-
-
-def pycodeindex(pycodecode):
-    """Translate one PyCode statement/expression to Python: if/while
-    forms go through pycodeifexpr()/pycodewhileexpr(); otherwise, if
-    pycodecode is (or starts with) a known command name, translate it
-    to that command's Python call, recursively translating its input
-    if the input is itself a bracketed command call or a command
-    name/comma list. Returns None if pycodecode isn't a recognized
-    command at all (plain Python is passed through unchanged by
-    pcread(), which calls this).
-    """
-    ifexpr = pycodeifexpr(pycodecode)
-    if ifexpr is not None:
-        return ifexpr
-    whileexpr = pycodewhileexpr(pycodecode)
-    if whileexpr is not None:
-        return whileexpr
-    if pycodecode in pycodecommands:
-        if pycodecode in ("pass", "return"):
-            return pythoncommands[pycodecommands.index(pycodecode)]
-        return pythoncommands[pycodecommands.index(pycodecode)] + "()"
-    elif pycodecode.split(" ", 1)[0] in pycodecommands:
-        func = pycodecode.split(" ", 1)[0]
-        rest = pycodecode.split(" ", 1)[1]
-        rest_lstripped = rest.lstrip()
-        if rest_lstripped.startswith("("):
-            depth = 0
-            close_idx = -1
-            for i, ch in enumerate(rest_lstripped):
-                if ch == "(":
-                    depth += 1
-                elif ch == ")":
-                    depth -= 1
-                    if depth == 0:
-                        close_idx = i
-                        break
-            if close_idx != -1:
-                inner = rest_lstripped[1:close_idx].strip()
-                after = rest_lstripped[close_idx + 1 :]
-                return (
-                    pythoncommands[pycodecommands.index(func)]
-                    + f"({indexargs(inner)})"
-                    + after
-                )
-        giveninput = rest
-        if (
-            giveninput.strip() in pycodecommands
-            or giveninput.strip().split(" ")[0] in pycodecommands
-        ):
-            giveninput = pycodeindex(giveninput)
-        elif "," in giveninput:
-            giveninput = indexargs(giveninput)
-        return pythoncommands[pycodecommands.index(func)] + f"({giveninput})"
+    blocks = pcparse(code, "of the PyCode expression")
+    if blocks is None:
+        utils.show("invalid pycode expression")
+        return
+    pcrun(blocks)
+    utils.show("evaluated pycode expression")
 
 
 def pcread(code):
-    """Translate a block of PyCode source (semicolon-separated
-    statements) into runnable Python and return it, one translated
-    Python statement per output line.
-
-    Most lines are plain PyCode commands, translated via
-    pycodeindex(). A handful of statement forms are recognized and
-    compiled specially instead: '<keys> → <commands>' keybindings
-    (including chord sequences like '<Control-x & Control-s>',
-    compiled into a small key-sequence state machine and bound via
-    state.wholenewwords/bindrecur), '(name:args) →: (commands)'
-    function definitions, '(python:name:args) →: (python code)' Python
-    function definitions (with embedded 'pycode:{command}' calls back
-    into PyCode), '⌊name⌋ → ⌊commands⌋' Alt-X command definitions
-    (stored in state.pcwrittencommands), '[before/after:event] :→
-    [commands]' event hooks (stored in state.pcbeforehooks/
-    pcafterhooks), and '|commands|' startup code blocks. Called
-    whenever PyCode source needs to be (re-)compiled: on startup, and
+    """Forget everything the previous PyCode source registered (Alt-X
+    commands, event hooks, key bindings), translate code with the PyCode
+    parser and run it, then bind the keys it asked for with key_bind().
+    Called whenever PyCode source needs to be (re-)run: on startup, and
     by pcdone() (which the PyCode editor's Done button calls with its
     edited source).
     """
-    global pycodecommands
-    global pythoncommands
+    state.pcwrittencommands = {}
+    state.pcbeforehooks = {}
+    state.pcafterhooks = {}
+    state.pckeybindings = []
+    state.pcdeferkeybindings = True
+    try:
+        blocks = pcparse(code)
+        if blocks is not None:
+            pcrun(blocks)
+    finally:
+        state.pcdeferkeybindings = False
+        pcapplykeybindings()
+
+
+def pckeybind(key, function, where=None):
+    """PyCode's `key_bind` command: run function when key (like
+    '<Control-x>', or a chord like '<Control-x & Control-s>') is
+    pressed. where is None for any buffer, or 'editor' for only the
+    editors (which also replaces their default binding of the key).
+    """
+    if not isinstance(key, str) or not re.match(r"^<.+>$", key):
+        raise ValueError(f"invalid key {key!r}, it must look like '<Control-x>'")
+    if not callable(function):
+        raise TypeError("a key binding needs a function to run")
+    if where not in (None, "editor"):
+        raise ValueError(f"invalid binding place {where!r}, it can be 'editor'")
+    state.pckeybindings.append((key, function, where))
+    if not state.pcdeferkeybindings:
+        pcapplykeybindings()
+
+
+def pcaddcommand(name, function):
+    """PyCode's `add_command` command: make function the Alt-X command
+    name. If function takes a parameter, it gets the command's input.
+    """
+    if not callable(function):
+        raise TypeError("an Alt-X command needs a function to run")
+    state.pcwrittencommands[name] = function
+
+
+def pcaddeventhook(event, function):
+    """PyCode's `add_event_hook` command: run function before or after
+    an event, where event is 'before:event' or 'after:event' (see
+    pchookevents). If function takes a parameter, it gets the event's
+    input.
+    """
+    when, _, name = event.partition(":")
+    if when not in ("before", "after"):
+        raise ValueError(
+            f"invalid event {event!r}, it must start with before: or after:"
+        )
+    if name.split(":", 1)[0] not in pchookevents:
+        raise ValueError(f"invalid event {name!r}")
+    if not callable(function):
+        raise TypeError("an event hook needs a function to run")
+    (state.pcbeforehooks if when == "before" else state.pcafterhooks).setdefault(
+        name, []
+    ).append(function)
+
+
+def pcapplykeybindings():
+    """Bind the default keys and every key_bind() of state.pckeybindings,
+    first removing the keys bound by the previous call. A key binding
+    runs state.pckeyactions[its index in state.pckeybindings]. A binding
+    with where None works in every buffer, one with where 'editor' only
+    in the editors. Chords like '<Control-x & Control-s>' are compiled
+    into a small key-sequence state machine.
+    """
     for binded in state.wholenewwords:
         state.root.unbind(binded)
         for buffer in state.all_buffers:
             unbindrecur(buffer, binded)
     state.wholenewwords.clear()
-    pycodecommands = sorted(list(pycodetopythoncommands))
-    pythoncommands = [pycodetopythoncommands[x] for x in pycodecommands]
-    state.pcwrittencommands = {}
-    state.pcbeforehooks = {}
-    state.pcafterhooks = {}
-    code = code.replace("\n", "").split(";")
-    cdt = ""
-    type_bind_cdt = ""
-    startupcdt = ""
-    simple_bindings_seen = {}
-    chord_any_defined = False
-    nonmod_completions = []
-    nonmod_transitions = []
-    mod_key_transitions = {}
-    mod_key_completions = {}
-    for line_ in code:
-        line = line_.strip() + ";"
-        if line_:
-            try:
-
-                def matchtransition(s, opener, closer, arrow, requireafterarrow=None):
-                    lhsspans = finddelimitedspans(s, opener, closer)
-                    if not lhsspans:
-                        return []
-                    lhsstart, lhsend = lhsspans[0]
-                    rest = s[lhsend:]
-                    arrowmatch = re.match(r"\s*" + re.escape(arrow) + r"\s*", rest)
-                    if not arrowmatch:
-                        return []
-                    if requireafterarrow is not None and not re.match(
-                        requireafterarrow, s[lhsstart:lhsend]
-                    ):
-                        return []
-                    afterarrow = rest[arrowmatch.end() :]
-                    rhsspans = finddelimitedspans(afterarrow, opener, closer)
-                    if not rhsspans:
-                        return []
-                    rhsstart, rhsend = rhsspans[0]
-                    tailmatch = re.match(r"\s*;", afterarrow[rhsend:])
-                    if not tailmatch:
-                        return []
-                    fullend = lhsend + arrowmatch.end() + rhsend + tailmatch.end()
-                    return [s[:fullend]]
-
-                def matchpipeblock(s):
-                    if not s.startswith("|"):
-                        return []
-                    instring = False
-                    for i in range(1, len(s)):
-                        ch = s[i]
-                        if ch == "'":
-                            instring = not instring
-                        elif ch == "|" and not instring:
-                            return [s[: i + 1]]
-                    return []
-
-                ks = matchtransition(line, "<", ">", "→")
-                f = matchtransition(line, "(", ")", "→:")
-                c = matchtransition(line, "⌊", "⌋", "→")
-                s = matchpipeblock(line)
-                p = matchtransition(
-                    line, "(", ")", "→:", requireafterarrow=r"\(\s*python\s*:"
-                )
-                h = matchtransition(
-                    line, "[", "]", ":→", requireafterarrow=r"\[\s*(before|after)\s*:"
-                )
-
-                def nonlambdafunc(string):
-                    nonlocal action_parts
-                    if not pycodeindex(string.strip()):
-                        raise Exception(f'Invalid command "{string.strip()}"')
-                    else:
-                        return pycodeindex(string.strip())
-
-                if ks and len(ks) == 1:
-                    ks = ks[0].strip()[:-1]
-                    key_part = ks.split("→")[0].strip()
-                    action_parts = "\\n".join(
-                        map(
-                            nonlambdafunc,
-                            ks.split("→")[1].strip()[:-1][1:].strip().split("↩"),
-                        )
-                    )
-                    if re.match(r"^<.+&.+>$", key_part):
-                        chord_keys = [
-                            "<" + k.strip() + ">" for k in key_part[1:-1].split("&")
-                        ]
-                        for ck in chord_keys:
-                            state.wholenewwords.append(ck)
-                        chord_any_defined = True
-                        last_key = chord_keys[-1]
-                        expected_state = "+".join(chord_keys[:-1])
-                        prefix_positions = {}
-                        for i in range(len(chord_keys) - 1):
-                            prefix_positions.setdefault(chord_keys[i], []).append(i)
-                        for ck, positions in prefix_positions.items():
-                            if ck == last_key:
-                                continue
-                            if re.match(r"^<(Control|Shift|Alt|Meta|Super)-", ck):
-                                for pos in sorted(positions):
-                                    from_s = (
-                                        "+".join(chord_keys[:pos]) if pos > 0 else None
-                                    )
-                                    to_s = "+".join(chord_keys[: pos + 1])
-                                    mod_key_transitions.setdefault(ck, []).append(
-                                        (from_s, to_s)
-                                    )
-                            else:
-                                ck_inner = ck[1:-1]
-                                for pos in sorted(positions):
-                                    from_s = (
-                                        "+".join(chord_keys[:pos]) if pos > 0 else None
-                                    )
-                                    to_s = "+".join(chord_keys[: pos + 1])
-                                    nonmod_transitions.append((from_s, ck_inner, to_s))
-                        last_key_inner = last_key[1:-1]
-                        last_key_is_mod = bool(
-                            re.match(
-                                r"^(Control|Shift|Alt|Meta|Super)-", last_key_inner
-                            )
-                        )
-                        overlap_positions = sorted(
-                            [i for i, k in enumerate(chord_keys[:-1]) if k == last_key],
-                            reverse=True,
-                        )
-                        if last_key_is_mod:
-                            mod_key_completions.setdefault(last_key, []).append(
-                                (expected_state, action_parts)
-                            )
-                            for pos in overlap_positions:
-                                from_s = "+".join(chord_keys[:pos]) if pos > 0 else None
-                                to_s = "+".join(chord_keys[: pos + 1])
-                                mod_key_transitions.setdefault(last_key, []).append(
-                                    (from_s, to_s)
-                                )
-                        else:
-                            nonmod_completions.append(
-                                (expected_state, last_key_inner, action_parts)
-                            )
-                            for pos in overlap_positions:
-                                from_s = "+".join(chord_keys[:pos]) if pos > 0 else None
-                                to_s = "+".join(chord_keys[: pos + 1])
-                                nonmod_transitions.append(
-                                    (from_s, last_key_inner, to_s)
-                                )
-                    else:
-                        state.wholenewwords.append(key_part)
-                        simple_bindings_seen[key_part] = action_parts
-                        type_bind_cdt += (
-                            f"for buffer in all_buffers: bindrecur(buffer, '{key_part}', lambda event: pcexecaction(\"{action_parts}\"))"
-                            + "\n"
-                        )
-                        cdt += (
-                            f"root.bind('{key_part}', lambda event: pcexecaction(\"{action_parts}\") or 'break')"
-                            + "\n"
-                        )
-                elif p and len(p) == 1:
-                    p = p[0].strip()[:-1]
-                    func_name = p.split("→:")[0].strip()[:-1][1:].strip()
-                    to_do = p.split("→:")[1].strip()[:-1][1:].strip().split("↩")
-                    for i in range(len(to_do)):
-                        if not to_do[i].strip():
-                            continue
-                        if "pycode:" in to_do[i]:
-
-                            def replacepycodeblocks(text):
-                                out = ""
-                                pos = 0
-                                while True:
-                                    idx = text.find("pycode:", pos)
-                                    if idx == -1:
-                                        out += text[pos:]
-                                        break
-                                    out += text[pos:idx]
-                                    bracematch = re.match(
-                                        r"\s*", text[idx + len("pycode:") :]
-                                    )
-                                    braceidx = idx + len("pycode:") + bracematch.end()
-                                    if braceidx >= len(text) or text[braceidx] != "{":
-                                        out += text[idx : braceidx + 1]
-                                        pos = braceidx + 1
-                                        continue
-                                    spans = finddelimitedspans(
-                                        text[braceidx:], "{", "}"
-                                    )
-                                    if not spans:
-                                        out += text[idx:]
-                                        break
-                                    spanstart, spanend = spans[0]
-                                    inner = text[
-                                        braceidx
-                                        + spanstart
-                                        + 1 : braceidx
-                                        + spanend
-                                        - 1
-                                    ]
-                                    indexedinner = pycodeindex(inner.strip())
-                                    if not indexedinner:
-                                        raise Exception(
-                                            f'Invalid command "{inner.strip()}"'
-                                        )
-                                    out += indexedinner
-                                    pos = braceidx + spanend
-                                return out
-
-                            to_do[i] = replacepycodeblocks(to_do[i])
-                        to_do[i] = (
-                            "    "
-                            + re.sub(
-                                r"^\s*",
-                                lambda m: m.group(0).replace("\t", "    "),
-                                to_do[i],
-                            ).rstrip()
-                        )
-                    to_do = "\\n".join(to_do)
-                    funcrest = func_name.split(":", 1)[1]
-                    funcrealname, _, funcparams = funcrest.partition(":")
-                    funcrealname = funcrealname.strip()
-                    funcparams = funcparams.strip()
-                    if funcparams:
-                        cdt += f'exec("def {funcrealname}({funcparams}):\\n{to_do}")\n'
-                    else:
-                        cdt += f'exec("def {funcrealname}():\\n{to_do}")\n'
-                    if funcrealname not in pycodecommands:
-                        pycodecommands.append(funcrealname)
-                        pythoncommands.append(funcrealname)
-                elif f and len(f) == 1:
-                    f = f[0].strip()[:-1]
-                    func_name = f.split("→:")[0].strip()[:-1][1:].strip()
-                    to_do = f.split("→:")[1].strip()[:-1][1:].strip().split("↩")
-                    for i in range(len(to_do)):
-                        if not to_do[i].strip():
-                            continue
-                        oldtodo = to_do[i].strip()
-                        to_do[i] = pycodeindex(to_do[i].strip())
-                        if not to_do[i]:
-                            raise Exception(f'Invalid command "{oldtodo}"')
-                        to_do[i] = (
-                            "    "
-                            + re.sub(
-                                r"^\s*",
-                                lambda m: m.group(0).replace("\t", "    "),
-                                to_do[i],
-                            ).rstrip()
-                        )
-                    to_do = "\\n".join(to_do)
-                    funcrealname, _, funcparams = func_name.partition(":")
-                    funcrealname = funcrealname.strip()
-                    funcparams = funcparams.strip()
-                    if funcparams:
-                        cdt += f'exec("def {funcrealname}({funcparams}):\\n{to_do}")\n'
-                    else:
-                        cdt += f'exec("def {funcrealname}():\\n{to_do}")\n'
-                    if funcrealname not in pycodecommands:
-                        pycodecommands.append(funcrealname)
-                        pythoncommands.append(funcrealname)
-                elif c and len(c) == 1:
-                    c = c[0].strip()[:-1]
-                    cmd = c.split("→")[0].strip()[:-1][1:].strip()
-                    to_do = c.split("→")[1].strip()[:-1][1:].strip().split("↩")
-                    for i in range(len(to_do)):
-                        if to_do[i]:
-                            oldtodo = to_do[i].strip()
-                            to_do[i] = pycodeindex(to_do[i].strip())
-                            if not to_do[i]:
-                                raise Exception(f'Invalid command "{oldtodo}"')
-                        else:
-                            to_do[i] = ""
-                    to_do = "\n".join(to_do)
-                    state.pcwrittencommands[cmd] = to_do
-                elif h and len(h) == 1:
-                    h = h[0].strip()[:-1]
-                    hookdef = h.split(":→")[0].strip()[:-1][1:].strip()
-                    to_do = h.split(":→")[1].strip()[:-1][1:].strip().split("↩")
-                    for i in range(len(to_do)):
-                        if to_do[i]:
-                            oldtodo = to_do[i].strip()
-                            to_do[i] = pycodeindex(to_do[i].strip())
-                            if not to_do[i]:
-                                raise Exception(f'Invalid command "{oldtodo}"')
-                        else:
-                            to_do[i] = ""
-                    to_do = "\n".join(to_do)
-                    when, _, event = hookdef.partition(":")
-                    when = when.strip()
-                    event = event.strip()
-                    if event.split(":", 1)[0] not in pchookevents:
-                        raise Exception(f"Invalid event '{event}'")
-                    (
-                        state.pcbeforehooks if when == "before" else state.pcafterhooks
-                    ).setdefault(event, []).append(to_do)
-                elif s and len(s) == 1:
-                    s = s[0].strip()
-                    startupcdt += (
-                        f'{'\n'.join(map(nonlambdafunc, s[1:-1].strip().split('↩')))}'
-                        + "\n"
-                    )
-                else:
-                    state.root.error(
-                        "Error in PyCode", f'Invalid syntax in line:\n"{line}"'
-                    )
-            except Exception as error:
-                error = str(error)
-                state.root.error("Error in PyCode", f'Error in line "{line}":\n{error}')
+    vars(state).setdefault("_pychord_state", [None])[0] = None
+    state.pckeyactions = [function for _, function, _ in state.pckeybindings]
+    simple_global = {}
+    simple_editor = {}
+    chords_global = []
+    chords_editor = []
+    for action, (key_part, _, where) in enumerate(state.pckeybindings):
+        if re.match(r"^<.+&.+>$", key_part):
+            chord_keys = ["<" + k.strip() + ">" for k in key_part[1:-1].split("&")]
+            state.wholenewwords.extend(chord_keys)
+            (chords_global if where is None else chords_editor).append(
+                (action, chord_keys)
+            )
+        else:
+            state.wholenewwords.append(key_part)
+            (simple_global if where is None else simple_editor)[key_part] = action
+    cdt = []
+    type_bind_cdt = []
+    for key_part, action in simple_global.items():
+        type_bind_cdt.append(
+            f"for buffer in all_buffers: bindrecur(buffer, '{key_part}', lambda event: pcexecaction({action}))"
+        )
+        cdt.append(
+            f"root.bind('{key_part}', lambda event: pcexecaction({action}) or 'break')"
+        )
+    for key_part, action in simple_editor.items():
+        type_bind_cdt.append(
+            f"for buffer in all_buffers: bindtype_(buffer, '{key_part}', lambda event: pcexecaction({action}))"
+        )
     default_root_bindings = [
         ("<Alt-x>", "cmd()"),
         ("<Control-N>", "neweditor()"),
@@ -2159,21 +2359,21 @@ def pcread(code):
         ("<F5>", "editor.f5()"),
         ("<Control-space>", "editor.toggleselpoint()"),
     ]
-    defaults_cdt_root = "".join(
-        f"bindrecur(root, '{key}', lambda event: {action})\n"
+    defaults_cdt_root = [
+        f"bindrecur(root, '{key}', lambda event: {action})"
         for key, action in default_root_bindings
-    )
-    defaults_cdt_type_ = "".join(
-        f"for buffer in all_buffers: bindtype_(buffer, '{key}', lambda event, editor = buffer: {action})\n"
+    ]
+    defaults_cdt_type_ = [
+        f"for buffer in all_buffers: bindtype_(buffer, '{key}', lambda event, editor = buffer: {action})"
         for key, action in default_type_bindings
-    )
-    defaults_cdt_type_ += """\
-for buffer in all_buffers: bindtype_(buffer, '<KeyRelease>', lambda event, editor = buffer: editor.keypress(), break_ = False)
-for buffer in all_buffers: bindtype_(buffer, '<Return>', lambda event, editor = buffer: editor.indent(), break_ = False)
-for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, editor = buffer: editor.selkeypress(event), False, '+')
-"""
-    cdt = defaults_cdt_root + cdt
-    type_bind_cdt = defaults_cdt_type_ + type_bind_cdt
+    ]
+    defaults_cdt_type_ += [
+        "for buffer in all_buffers: bindtype_(buffer, '<KeyRelease>', lambda event, editor = buffer: editor.keypress(), break_ = False)",
+        "for buffer in all_buffers: bindtype_(buffer, '<Return>', lambda event, editor = buffer: editor.indent(), break_ = False)",
+        "for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, editor = buffer: editor.selkeypress(event), False, '+')",
+    ]
+    pycode_default_type_actions = dict(default_type_bindings)
+    pycode_default_root_actions = dict(default_root_bindings)
 
     def pycodechordhandler(transitions, completions, standalone, guard):
         """Build the expression a chord-involved key's handler runs. A
@@ -2197,63 +2397,129 @@ for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, editor 
             advance = f"_pychord_state.__setitem__(0, '{to_s}')"
             handler = f"({advance} if _pychord_state[0] in ('{from_s}',){guard} else {handler})"
         for es, ap in reversed(completions):
-            handler = f"((pcexecaction(\"{ap}\") or {reset}) if _pychord_state[0] in ('{es}',){guard} else {handler})"
+            handler = f"((pcexecaction({ap}) or {reset}) if _pychord_state[0] in ('{es}',){guard} else {handler})"
         return handler
 
-    pycode_default_type_actions = dict(default_type_bindings)
-    pycode_default_root_actions = dict(default_root_bindings)
-    for mod_key in set(list(mod_key_transitions) + list(mod_key_completions)):
-        if mod_key in simple_bindings_seen:
-            standalone_t = standalone_r = (
-                f'pcexecaction("{simple_bindings_seen[mod_key]}")'
+    def pycodechordcode(chords, simple_actions, editors):
+        """Compile the chords (a list of (action, chord keys)) into
+        (root bindings, buffer bindings, the <KeyPress> handler's
+        expression). simple_actions maps the keys with a standalone
+        binding to its action. With editors the bindings are only for
+        the editors and there are no root bindings; otherwise they are
+        for the root and every buffer which is not an editor.
+        """
+        cdt = []
+        type_bind_cdt = []
+        nonmod_completions = []
+        nonmod_transitions = []
+        mod_key_transitions = {}
+        mod_key_completions = {}
+        for action, chord_keys in chords:
+            last_key = chord_keys[-1]
+            expected_state = "+".join(chord_keys[:-1])
+            prefix_positions = {}
+            for i in range(len(chord_keys) - 1):
+                prefix_positions.setdefault(chord_keys[i], []).append(i)
+            for ck, positions in prefix_positions.items():
+                if ck == last_key:
+                    continue
+                if re.match(r"^<(Control|Shift|Alt|Meta|Super)-", ck):
+                    for pos in sorted(positions):
+                        from_s = "+".join(chord_keys[:pos]) if pos > 0 else None
+                        to_s = "+".join(chord_keys[: pos + 1])
+                        mod_key_transitions.setdefault(ck, []).append((from_s, to_s))
+                else:
+                    ck_inner = ck[1:-1]
+                    for pos in sorted(positions):
+                        from_s = "+".join(chord_keys[:pos]) if pos > 0 else None
+                        to_s = "+".join(chord_keys[: pos + 1])
+                        nonmod_transitions.append((from_s, ck_inner, to_s))
+            last_key_inner = last_key[1:-1]
+            last_key_is_mod = bool(
+                re.match(r"^(Control|Shift|Alt|Meta|Super)-", last_key_inner)
             )
-        else:
-            standalone_t = (
-                f"({pycode_default_type_actions[mod_key]} if isinstance(editor, Editor) else None)"
-                if mod_key in pycode_default_type_actions
-                else None
+            overlap_positions = sorted(
+                [i for i, k in enumerate(chord_keys[:-1]) if k == last_key],
+                reverse=True,
             )
-            standalone_r = pycode_default_root_actions.get(mod_key)
-        transitions = mod_key_transitions.get(mod_key, [])
-        completions = mod_key_completions.get(mod_key, [])
-        handler_t = pycodechordhandler(transitions, completions, standalone_t, "")
-        handler_r = pycodechordhandler(transitions, completions, standalone_r, "")
-        type_bind_cdt += f"for editor in all_buffers: bindrecur(editor, '{mod_key}', lambda event, editor = editor: {handler_t})\n"
-        cdt += f"root.bind('{mod_key}', lambda event: {handler_r}{" or 'break'" if standalone_r else ''})\n"
-    for key_part in dict.fromkeys(
-        list(simple_bindings_seen) + list(pycode_default_type_actions)
-    ):
-        simple_match = re.match(r"^<([^<>\-]+)>$", key_part)
-        if not simple_match:
-            continue
-        simple_inner = simple_match.group(1)
-        simple_transitions = [
-            (from_s, to_s)
-            for from_s, ks_, to_s in nonmod_transitions
-            if ks_ == simple_inner
-        ]
-        simple_completions = [
-            (es, ap) for es, ks_, ap in nonmod_completions if ks_ == simple_inner
-        ]
-        if not simple_transitions and not simple_completions:
-            continue
-        if key_part in simple_bindings_seen:
-            standalone_t = standalone_r = (
-                f'pcexecaction("{simple_bindings_seen[key_part]}")'
+            if last_key_is_mod:
+                mod_key_completions.setdefault(last_key, []).append(
+                    (expected_state, action)
+                )
+                for pos in overlap_positions:
+                    from_s = "+".join(chord_keys[:pos]) if pos > 0 else None
+                    to_s = "+".join(chord_keys[: pos + 1])
+                    mod_key_transitions.setdefault(last_key, []).append((from_s, to_s))
+            else:
+                nonmod_completions.append((expected_state, last_key_inner, action))
+                for pos in overlap_positions:
+                    from_s = "+".join(chord_keys[:pos]) if pos > 0 else None
+                    to_s = "+".join(chord_keys[: pos + 1])
+                    nonmod_transitions.append((from_s, last_key_inner, to_s))
+        buffer_test = "" if editors else "not "
+
+        def bindhandler(key_part, handler_t, handler_r, standalone_r):
+            type_bind_cdt.append(
+                f"for editor in all_buffers: (bindrecur(editor, '{key_part}', lambda event, editor = editor: {handler_t}) if {buffer_test}isinstance(editor, Editor) else None)"
             )
-        else:
-            standalone_t = f"({pycode_default_type_actions[key_part]} if isinstance(editor, Editor) else None)"
-            standalone_r = None
-        guard = " and not (event.state & 12)"
-        handler_t = pycodechordhandler(
-            simple_transitions, simple_completions, standalone_t, guard
-        )
-        handler_r = pycodechordhandler(
-            simple_transitions, simple_completions, standalone_r, guard
-        )
-        type_bind_cdt += f"for editor in all_buffers: bindrecur(editor, '{key_part}', lambda event, editor = editor: {handler_t})\n"
-        cdt += f"root.bind('{key_part}', lambda event: {handler_r}{" or 'break'" if standalone_r else ''})\n"
-    if chord_any_defined:
+            if not editors:
+                cdt.append(
+                    f"root.bind('{key_part}', lambda event: {handler_r}{" or 'break'" if standalone_r else ''})"
+                )
+
+        for mod_key in set(list(mod_key_transitions) + list(mod_key_completions)):
+            if mod_key in simple_actions:
+                standalone_t = standalone_r = f"pcexecaction({simple_actions[mod_key]})"
+            else:
+                standalone_t = (
+                    f"({pycode_default_type_actions[mod_key]} if isinstance(editor, Editor) else None)"
+                    if mod_key in pycode_default_type_actions
+                    else None
+                )
+                standalone_r = pycode_default_root_actions.get(mod_key)
+            transitions = mod_key_transitions.get(mod_key, [])
+            completions = mod_key_completions.get(mod_key, [])
+            bindhandler(
+                mod_key,
+                pycodechordhandler(transitions, completions, standalone_t, ""),
+                pycodechordhandler(transitions, completions, standalone_r, ""),
+                standalone_r,
+            )
+        for key_part in dict.fromkeys(
+            list(simple_actions) + list(pycode_default_type_actions)
+        ):
+            simple_match = re.match(r"^<([^<>\-]+)>$", key_part)
+            if not simple_match:
+                continue
+            simple_inner = simple_match.group(1)
+            simple_transitions = [
+                (from_s, to_s)
+                for from_s, ks_, to_s in nonmod_transitions
+                if ks_ == simple_inner
+            ]
+            simple_completions = [
+                (es, ap) for es, ks_, ap in nonmod_completions if ks_ == simple_inner
+            ]
+            if not simple_transitions and not simple_completions:
+                continue
+            if key_part in simple_actions:
+                standalone_t = standalone_r = (
+                    f"pcexecaction({simple_actions[key_part]})"
+                )
+            else:
+                standalone_t = f"({pycode_default_type_actions[key_part]} if isinstance(editor, Editor) else None)"
+                standalone_r = None
+            guard = " and not (event.state & 12)"
+            bindhandler(
+                key_part,
+                pycodechordhandler(
+                    simple_transitions, simple_completions, standalone_t, guard
+                ),
+                pycodechordhandler(
+                    simple_transitions, simple_completions, standalone_r, guard
+                ),
+                standalone_r,
+            )
         MODS = "('Control_L', 'Control_R', 'Shift_L', 'Shift_R', 'Alt_L', 'Alt_R', 'Meta_L', 'Meta_R', 'Super_L', 'Super_R', 'Caps_Lock', 'Num_Lock', 'Scroll_Lock', 'ISO_Level3_Shift')"
         kp_body = (
             f"None if event.keysym in {MODS} else _pychord_state.__setitem__(0, None)"
@@ -2267,65 +2533,49 @@ for buffer in all_buffers: bindtype_(buffer, '<KeyPress>', lambda event, editor 
                 )
                 kp_body = f"((_pychord_state.__setitem__(0, '{to_s}') or 'break') if {state_check} and event.keysym in ('{ks_}',) and not (event.state & 12) else {kp_body})"
         for es, ks_, ap in reversed(nonmod_completions):
-            kp_body = f"((pcexecaction(\"{ap}\") or _pychord_state.__setitem__(0, None) or 'break') if _pychord_state[0] in ('{es}',) and event.keysym in ('{ks_}',) and not (event.state & 12) else {kp_body})"
-        chord_init = "globals().setdefault('_pychord_state', [None])\n"
-        chord_init += f"root.bind('<KeyPress>', lambda event: {kp_body})\n"
-        type_bind_cdt = (
-            f"for editor in all_buffers: bindtype_(editor, '<KeyPress>', lambda event: {kp_body}, False, '+')\n"
-            + type_bind_cdt
+            kp_body = f"((pcexecaction({ap}) or _pychord_state.__setitem__(0, None) or 'break') if _pychord_state[0] in ('{es}',) and event.keysym in ('{ks_}',) and not (event.state & 12) else {kp_body})"
+        return cdt, type_bind_cdt, kp_body
+
+    cdt = defaults_cdt_root + cdt
+    type_bind_cdt = defaults_cdt_type_ + type_bind_cdt
+    if chords_global or chords_editor:
+        global_cdt, global_type, global_kp_body = pycodechordcode(
+            chords_global, simple_global, False
         )
-        cdt = chord_init + cdt
+        _, editor_type, editor_kp_body = pycodechordcode(
+            sorted(chords_global + chords_editor),
+            {**simple_global, **simple_editor},
+            True,
+        )
+        cdt = (
+            [f"root.bind('<KeyPress>', lambda event: {global_kp_body})"]
+            + cdt
+            + global_cdt
+        )
+        type_bind_cdt = (
+            [
+                f"for editor in all_buffers: bindtype_(editor, '<KeyPress>', lambda event: {editor_kp_body}, False, '+')"
+            ]
+            + type_bind_cdt
+            + global_type
+            + editor_type
+        )
         state.wholenewwords.append("<KeyPress>")
     state.pycode_keybindings_cdt = type_bind_cdt
     pcrun(cdt)
     pcrun(type_bind_cdt)
-    return startupcdt
 
 
 def edit(widget, editfrom):
-    """The PyCode editor's special-key handler, bound to the symbol
-    keyboard shortcuts (Control-=/Enter/Down/[/]) and to opening
-    bracket/quote keys, so it can insert PyCode's non-keyboard symbols
-    ('→', '↩', '↓', '⌊', '⌋') and auto-close brackets/quotes with the
-    cursor left in between them.
+    """The PyCode editor's special-key handler, bound to the opening
+    brackets/quotes so it can auto-close them with the cursor left in
+    between, and to ; so it can start a new line after it.
     """
-    if editfrom == "c=":
-        widget.insert("insert", "→")
-        return "break"
-    elif editfrom == "ce":
-        widget.insert("insert", "↩")
-        return "break"
-    elif editfrom == "cd":
-        widget.insert("insert", "↓")
-        return "break"
-    elif editfrom == "fbl":
-        widget.insert("insert", "⌊⌋")
-        widget.mark_set("insert", "insert-1c")
-        return "break"
-    elif editfrom == "fbr":
-        widget.insert("insert", "⌋")
-        return "break"
-    elif editfrom == "|":
-        widget.insert("insert", "|")
-        widget.mark_set("insert", "insert-1c")
-    elif editfrom == "<":
-        widget.insert("insert", ">")
-        widget.mark_set("insert", "insert-1c")
-    elif editfrom == ";":
+    if editfrom == ";":
         widget.insert("insert", ";\n")
         return "break"
-    elif editfrom == "(":
-        widget.insert("insert", ")")
-        widget.mark_set("insert", "insert-1c")
-    elif editfrom == "[":
-        widget.insert("insert", "]")
-        widget.mark_set("insert", "insert-1c")
-    elif editfrom == "'":
-        widget.insert("insert", "'")
-        widget.mark_set("insert", "insert-1c")
-    elif editfrom == '"':
-        widget.insert("insert", '"')
-        widget.mark_set("insert", "insert-1c")
+    widget.insert("insert", {"(": ")", "[": "]", "{": "}"}.get(editfrom, editfrom))
+    widget.mark_set("insert", "insert-1c")
 
 
 # Every event name a PyCode "[before/after:event] :→ [commands]" hook
@@ -2375,14 +2625,28 @@ pchookevents = [
 ]
 
 
+def pcgraphicalstatements(commands, indent=""):
+    """The PyCode statements calling the given commands, one per line."""
+    return "".join(f"{indent}{command}();\n" for command in commands)
+
+
+def pcgraphicallambda(commands):
+    """A PyCode lambda calling the given commands, for key_bind(),
+    add_command(), and add_event_hook().
+    """
+    if not commands:
+        return "lambda: None"
+    return "lambda: [\n" + "".join(f"    {command}(),\n" for command in commands) + "]"
+
+
 def pc():
     """Open the PyCode editor window: a text editor (codeedit,
     pre-loaded from and, on Done, saved back to ~/.pynotes via
     pcdone()) plus a "Define" sidebar for graphical coding - picking a
-    construct (Function, Python Function, Variable, Startup Code,
-    Keyboard Shortcut, Alt-X Command, or Event Hook) walks through
-    prompts and/or a button list of every available command, then
-    inserts the corresponding PyCode syntax into codeedit.
+    construct (Function, Variable, Startup Code, Keyboard Shortcut,
+    Alt-X Command, or Event Hook) walks through prompts and/or a button
+    list of every available command, then inserts the corresponding
+    PyCode into codeedit.
     """
     pcrunhook("before", "open-pycode")
     utils.show("open pycode")
@@ -2398,13 +2662,43 @@ def pc():
         ),
         add="+",
     )
-    _bf_active = [False]
     pccmddonebutton = ctk.Button(
         gcframe, text="Done", command=lambda: [setcommand("Done"), gcframe.update()]
     )
     gcframe.pack(side="left", fill="y", expand=True, padx=10, pady=10)
     ctk.Label(buttonframe, text="Define:").grid(column=0)
     todefine = tk.StringVar(pcwin)
+
+    def pickcommands():
+        """Show the command buttons until Done is pressed, and return
+        the commands pressed.
+        """
+        prompttext = ctk.Label(buttonframe, text="Commands:")
+        prompttext.grid(column=0, row=0)
+        row = 0
+        for button in buttons:
+            row += 1
+            button.grid(column=0, row=row, sticky="ew", pady=2)
+        pccmddonebutton.pack(side="bottom", fill="x")
+        while not commanddone:
+            pcwin.update()
+        prompttext.grid_forget()
+        picked = commandtodo.copy()
+        commandtodo.clear()
+        commanddone.clear()
+        return picked
+
+    def askname(title, prompt):
+        """Ask for a name which is a valid PyCode identifier, or return
+        None if it was cancelled or is not valid.
+        """
+        name = state.root.askstring(title, prompt, parent=pcwin)
+        if not name:
+            return None
+        if not name.isidentifier() or keyword.iskeyword(name):
+            state.root.error("Error", f"'{name}' is not a valid name.")
+            return None
+        return name
 
     def define(todefine):
         def shortcutselected():
@@ -2423,58 +2717,14 @@ def pc():
             keycombination.append(key)
             showkey.config(text="+".join(keycombination))
 
-        def pyfunccodedone():
-            code = pyfunccodeedit.get("1.0", "end-1c")
-            pyfunccodewin.destroy()
-            codeedit.insert(
-                "insert",
-                f'\n(python:{pyfuncname}) →: (\n{code.replace("\n", " ↩\n")}\n);',
-            )
-            codeedit.focus()
-
         if todefine == "Function":
-            funcname = state.root.askstring(
-                "Name", "Name of the Function:", parent=pcwin
-            )
+            funcname = askname("Name", "Name of the Function:")
             if not funcname:
                 return
-            prompttext = ctk.Label(buttonframe, text="Commands:")
-            prompttext.grid(column=0, row=0)
-            row = 0
-            for button in buttons:
-                row += 1
-                button.grid(column=0, row=row, sticky="ew", pady=2)
-            pccmddonebutton.pack(side="bottom", fill="x")
-            _bf_active[0] = True
-            while not commanddone:
-                pcwin.update()
-            codeedit.insert(
-                "insert", f'\n({funcname}) →: (\n{" ↩\n".join(commandtodo)}\n);\n'
-            )
-            commandtodo.clear()
-            commanddone.clear()
-            prompttext.grid_forget()
-        elif todefine == "Python Function":
-            pyfuncname = state.root.askstring(
-                "Name", "Name of the Python Function:", parent=pcwin
-            )
-            if not pyfuncname:
-                return
-            pyfunccodewin = state.root.subwin()
-            pyfunccodewin.title("PyCode Python Function Code")
-            pyfunccodeedit = ctk.Textbox(pyfunccodewin, font=(monospace, 11))
-            pyfunccodeedit.grid(column=0, row=0, sticky="nsew")
-            pyfunccodeedit.focus()
-            ctk.Button(pyfunccodewin, text="Done", command=pyfunccodedone).grid(
-                column=0, row=1, sticky="ew"
-            )
-            pyfunccodewin.update()
-            utils.lock_window_size(pyfunccodewin)
-            pyfunccodewin.wait_window(pyfunccodewin)
+            statements = pcgraphicalstatements(pickcommands(), "    ")
+            codeedit.insert("insert", f"\n{funcname} () {{\n{statements}}};\n")
         elif todefine == "Variable":
-            varname = state.root.askstring(
-                "Name", "Name of the Variable:", parent=pcwin
-            )
+            varname = askname("Name", "Name of the Variable:")
             if not varname:
                 return
             value = state.root.askstring(
@@ -2482,22 +2732,9 @@ def pc():
             )
             if not value:
                 return
-            codeedit.insert("insert", f"\n[{varname}] :→ [{value}];")
+            codeedit.insert("insert", f"\n{varname} = {value};\n")
         elif todefine == "Startup Code":
-            prompttext = ctk.Label(buttonframe, text="Commands:")
-            prompttext.grid(column=0)
-            row = 0
-            for button in buttons:
-                row += 1
-                button.grid(column=0, row=row, sticky="ew")
-            pccmddonebutton.pack(side="bottom", fill="x")
-            _bf_active[0] = True
-            while not commanddone:
-                pcwin.update()
-            codeedit.insert("insert", f'\n|\n{" ↩\n".join(commandtodo)}\n|;\n')
-            prompttext.grid_forget()
-            commandtodo.clear()
-            commanddone.clear()
+            codeedit.insert("insert", f"\n{pcgraphicalstatements(pickcommands())}")
         elif todefine == "Keyboard Shortcut":
             keygetting = state.root.subwin()
             keygetting.title("Keyboard Shortcut")
@@ -2535,44 +2772,20 @@ def pc():
                 keygetting.update()
             keygetting.destroy()
             shortcut = "".join(shortcut).replace("+", "-")
-            prompttext = ctk.Label(buttonframe, text="Commands:")
-            prompttext.grid(column=0)
-            row = 0
-            for button in buttons:
-                row += 1
-                button.grid(column=0, row=row, sticky="ew")
-            pccmddonebutton.pack(side="bottom", fill="x")
-            _bf_active[0] = True
-            while not commanddone:
-                pcwin.update()
             codeedit.insert(
-                "insert", f'\n<{shortcut}> → <\n{" ↩\n".join(commandtodo)}\n>;\n'
+                "insert",
+                f"\nkey_bind({f'<{shortcut}>'!r}, {pcgraphicallambda(pickcommands())});\n",
             )
-            prompttext.grid_forget()
-            commandtodo.clear()
-            commanddone.clear()
         elif todefine == "Alt-X Command":
             cmdname = state.root.askstring(
                 "Name", "Name of the Alt-X Command:", parent=pcwin
             )
             if not cmdname:
                 return
-            prompttext = ctk.Label(buttonframe, text="Commands:")
-            prompttext.grid(column=0, row=0)
-            row = 0
-            for button in buttons:
-                row += 1
-                button.grid(column=0, row=row, sticky="ew")
-            pccmddonebutton.pack(side="bottom", fill="x")
-            _bf_active[0] = True
-            while not commanddone:
-                pcwin.update()
             codeedit.insert(
-                "insert", f'\n⌊{cmdname}⌋ →: ⌊\n{" ↩\n".join(commandtodo)}\n⌋;\n'
+                "insert",
+                f"\nadd_command({cmdname!r}, {pcgraphicallambda(pickcommands())});\n",
             )
-            commandtodo.clear()
-            commanddone.clear()
-            prompttext.grid_forget()
         elif todefine == "Event Hook":
             hookwin = state.root.subwin()
             hookwin.title("PyCode Event Hook Definition")
@@ -2612,29 +2825,16 @@ def pc():
                 )
                 if subcmd:
                     event = f"{event}:{subcmd.strip()}"
-            prompttext = ctk.Label(buttonframe, text="Commands:")
-            prompttext.grid(column=0, row=0)
-            row = 0
-            for button in buttons:
-                row += 1
-                button.grid(column=0, row=row, sticky="ew")
-            pccmddonebutton.pack(side="bottom", fill="x")
-            _bf_active[0] = True
-            while not commanddone:
-                pcwin.update()
             codeedit.insert(
-                "insert", f'\n[{when}:{event}] :→ [\n{" ↩\n".join(commandtodo)}\n];\n'
+                "insert",
+                f"\nadd_event_hook({f'{when}:{event}'!r}, {pcgraphicallambda(pickcommands())});\n",
             )
-            commandtodo.clear()
-            commanddone.clear()
-            prompttext.grid_forget()
         optionsdropdown.config(state="normal")
 
     optionsdropdown = ctk.OptionMenu(
         buttonframe,
         todefine,
         "Function",
-        "Python Function",
         "Variable",
         "Startup Code",
         "Keyboard Shortcut",
@@ -2647,7 +2847,7 @@ def pc():
         ],
     )
     optionsdropdown.grid(column=0)
-    commands = pycodecommands
+    commands = sorted(pycode_commands)
     buttons = []
     commandtodo = []
     commanddone = []
@@ -2663,7 +2863,6 @@ def pc():
         for button in buttons:
             button.grid_forget()
         pccmddonebutton.pack_forget()
-        _bf_active[0] = False
 
     for command in commands:
         button = ctk.Button(
@@ -2681,16 +2880,10 @@ def pc():
     codeedit = ctk.Textbox(pcwin, scrolled=True, font=monospace, wrap="word")
     codeedit.pack(side="left", fill="both")
     codeedit.focus_set()
-    codeedit.bind("<Control-equal>", lambda event: edit(codeedit, "c="))
-    codeedit.bind("<Control-Return>", lambda event: edit(codeedit, "ce"))
-    codeedit.bind("<Control-Down>", lambda event: edit(codeedit, "cd"))
-    codeedit.bind("<less>", lambda event: edit(codeedit, "<"))
     codeedit.bind("<semicolon>", lambda event: edit(codeedit, ";"))
     codeedit.bind("(", lambda event: edit(codeedit, "("))
     codeedit.bind("[", lambda event: edit(codeedit, "["))
-    codeedit.bind("|", lambda event: edit(codeedit, "|"))
-    codeedit.bind("<Control-bracketleft>", lambda event: edit(codeedit, "fbl"))
-    codeedit.bind("<Control-bracketright>", lambda event: edit(codeedit, "fbr"))
+    codeedit.bind("<braceleft>", lambda event: edit(codeedit, "{"))
     codeedit.bind("<quoteright>", lambda event: edit(codeedit, "'"))
     codeedit.bind("<quotedbl>", lambda event: edit(codeedit, '"'))
     try:

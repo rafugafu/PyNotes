@@ -61,6 +61,7 @@ state.options, state.files_to_open = argparse(
 # The changelog shown by --changes / the "What's new" menu item.
 changelist = [
     "Rewrote PyNotes to use canvastk instead of easytk/ttkbootstrap for amazing aesthetics!\n  - Made many built-in common themes.\n  - Made a custom ttkcreator-like theme creator accessible in preferences.\n  - Made the Linux graphical filedialog also use canvastk's native filedialog instead of zenity.\n  - Made gridpanedwindows which are capable of splitting and reorganizing in any place and direction.\n  - Added drag-and-drop to buffers to move them (drag the fileinfo bar).",
+    "Rewrote the entire PyCode language to be much more normal, without using unicode characters for syntax, and with scopes!",
     "Fixed the terminal not deleting old overflowing text on resize.",
     "Fixed an editor which becomes a split view of another editor not stopping its old file change observer.",
     "Made the PyNotes syntax highlighting module registration search in the editor's working directory instead of PyNotes' own sys.path which would not include local project modules and packages, causing them to not be highlighted.",
@@ -752,15 +753,18 @@ state.root.protocol("WM_DELETE_WINDOW", ext)
 state.mg.add_command(label="Start", command=mathgod)
 state.mg.add_separator()
 state.mg.add_command(label="Help", command=helpmathgod)
-# state.wholenewwords tracks PyCode `bind` keybindings so they can be
-# cleared/rebuilt on every (re)compile of PyCode source, in pcread()
-# (see pycode.py); merge each plugin's own PyCode commands into the
-# same translation table as PyCode's built-in ones so they're parsed
-# identically.
+# state.wholenewwords tracks PyCode `key_bind` keybindings so they can be
+# cleared/rebuilt on every (re)run of PyCode source, in
+# pcapplykeybindings() (see pycode.py); merge each plugin's own PyCode
+# commands into the same translation table as PyCode's built-in ones so
+# they're parsed identically.
 state.wholenewwords = []
 for command in state.plgnpccmds:
-    pycodetopythoncommands[command] = state.plgnpccmds[command][1]
-state.pycode_keybindings_cdt = ""
+    pycode_commands[command] = state.plgnpccmds[command][1]
+state.pycode_keybindings_cdt = []
+state.pckeybindings = []
+state.pckeyactions = []
+state.pcdeferkeybindings = False
 state._open_terminal_closers = []
 state.all_buffers = []
 state.buffindex = -1
@@ -786,26 +790,15 @@ else:
     state.root.settheme("Default")
 vars(state).update(globals())
 # Load the user's ~/.pynotes PyCode config (unless --no-load-pycode),
-# append --pycode-exec if given, and run the result, one statement per
-# line so one bad line doesn't stop the rest from running.
+# append --pycode-exec if given, and run the result.
 pycodecode = ""
 if not state.options["no-load-pycode"]:
     pycodecode += open(f"{homedir}/.pynotes", "r", encoding="utf-8").read()
 if state.options["pycode-exec"]:
     if pycodecode:
-        pycodecode += ";"
+        pycodecode += "\n;"
     pycodecode += state.options["pycode-exec"]
-try:
-    pycodestartupcdt = pcread(pycodecode)
-except Exception:
-    pass
-else:
-    for line in pycodestartupcdt.split("\n"):
-        try:
-            exec(line, vars(state))
-        except Exception as error:
-            error = str(error)
-            state.root.error("Error", f"Error in PyCode: {error}")
+pcread(pycodecode)
 if state.options["command-exec"]:
     cmdrun(state.options["command-exec"])
 # Plugin "last" code runs once startup is otherwise complete.
@@ -836,17 +829,7 @@ def consoleexec(task):
     if task[0] == "command-exec":
         cmdrun(task[1])
     elif task[0] == "pycode-eval":
-        try:
-            translated = pycode.pycodeindex(task[1])
-            if translated:
-                exec(translated, vars(state))
-            else:
-                utils.show("invalid pycode expression")
-                return
-        except Exception as error:
-            error = str(error)
-            state.root.error("Error", f"Error in PyCode: {error}")
-        utils.show("evaluated pycode expression")
+        pycode.pcevaluate(task[1])
     elif task[0] == "open-file":
         neweditor(task[1])
     elif task[0] == "close":

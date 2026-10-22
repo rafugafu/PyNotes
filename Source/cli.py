@@ -818,12 +818,12 @@ class Console:
                         elif nl == "CANCEL":
                             expc = ""
                             break
-                        expc += nl
+                        expc += "\n" + nl
                     if not expc:
                         self.outpt("\x1b[33mcancelled.\x1b[0m")
                         continue
                     if state.options["pycode-exec"]:
-                        state.options["pycode-exec"] += ";" + expc
+                        state.options["pycode-exec"] += "\n;" + expc
                     else:
                         state.options["pycode-exec"] = expc
                     self.n += 1

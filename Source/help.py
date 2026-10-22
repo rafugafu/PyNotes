@@ -2,10 +2,13 @@
 Help-with-X topics), each a self-contained window builder.
 """
 
+import inspect
+import re
 import canvastk as ctk
 import state
 from init import v, rootdir, homedir, monospace
 import pycode
+import python_scope_build
 import utils
 
 
@@ -241,592 +244,695 @@ re:(hmode:py;w:print('hello')*1;sw)*3;w:\\n'back'*1""",
 
 def helppycode():
     """Show the Help with PyCode window: syntax, commands, graphical
-    coding, keyboard shortcuts, variables, functions, startup code,
-    Alt-X command definitions, event hooks, and loops/conditions, each
-    as its own tab.
+    coding, keyboard shortcuts, variables, functions, loops and conditions,
+    each as its own tab.
     """
+
+    def make_code_box(master, code, disabled=True, *args, **kwargs):
+        """Make and return a textbox showing the code, with basic syntax highlighting,
+        with a copy button in the top right corner."""
+
+        def match(key, expr):
+            """Find and tag all exprs found in the code with key for syntax highlighting."""
+            code = f.t.get("1.0", "end")
+            if not code:
+                return
+            for m in re.finditer(expr, code, re.DOTALL):
+                for tag in f.t.tag_names():
+                    if tag == "sel":
+                        continue
+                    f.t.tag_remove(tag, f"1.0+{m.start()}c", f"1.0+{m.end()}c")
+                f.t.tag_add(key, f"1.0+{m.start()}c", f"1.0+{m.end()}c")
+
+        def ha():
+            """Syntax highlight the PyCode code. Converts numbers, variables,
+            function calls and definitions, keywords, strings, and
+            comments.
+            """
+
+            import keyword
+
+            for tag in f.t.tag_names():
+                if tag == "sel":
+                    continue
+                f.t.tag_remove(tag, "1.0", "end")
+            match("number", r"\b\d+\b")
+            match("variable", r"(?<![\w.])[^\W\d]\w*(?=\s*\=)")
+            match("function_call", r"(?<![\w.])[^\W\d]\w*(?=\s*\()")
+            match("function_definition", r"(?<![\w.])[^\W\d]\w*(?=\s*\([^)]*\)\s*\{)")
+            match(
+                "keyword",
+                rf"\b({'|'.join(keyword.kwlist)})\b",
+            )
+            match("string", r"'.+?'")
+            match("string", r'".+?"')
+            match("comment", r"#.+?(?=\n)")
+            f.t.edit_modified(False)
+
+        f = ctk.Frame(master)
+        kwargs.setdefault("scrolled", True)
+        kwargs.setdefault("font", (monospace, 12))
+        kwargs.setdefault("wrap", "word")
+        if disabled:
+            f.t = utils.EnabledLookTextbox(f, *args, **kwargs)
+        else:
+            f.t = ctk.Textbox(f, *args, **kwargs)
+        f.t.pack(fill="both", expand=True)
+        if code is not None:
+            f.t.insert("end", code)
+        f.t.tag_config("function_call", foreground="blue")
+        f.t.tag_config("function_definition", foreground="brown")
+        f.t.tag_config("string", foreground="green")
+        f.t.tag_config("comment", foreground="grey", font=(monospace, 12, "italic"))
+        f.t.tag_config("variable", foreground="red")
+        f.t.tag_config("keyword", foreground="purple", font=(monospace, 12, "bold"))
+        f.t.tag_config("number", foreground="orange")
+        ha()
+        if disabled:
+            f.t.config(state="disabled")
+        f.t.bind("<<Modified>>", lambda _: ha())
+        ctk.Button(
+            f.t,
+            text="⮺",
+            radius=99,
+            command=lambda: [
+                state.root.clipboard_clear(),
+                state.root.clipboard_append(f.t.get("1.0", "end-1c")),
+            ],
+        ).place(relx=1.0, x=-30, y=10, anchor="ne")
+        return f
+
+    def make_text(master, text):
+        """Make and return a label showing the help text, which automatically adjusts
+        its wrap on width change."""
+        f = ctk.Frame(master)
+        t = ctk.Label(f, text=text)
+        t.pack(fill="both", expand=True)
+        hpwin.update()
+        t.config(wraplength=f.winfo_width())
+        f.bind("<Configure>", lambda _: t.config(wraplength=f.winfo_width()))
+        return f
+
     utils.show("open pycode help")
     hpwin = state.root.subwin()
     hpwin.title("Help with PyCode")
+    hpwin.geometry("1200x800")
     hptabs = ctk.Notebook(hpwin)
-    hptabs.pack(side="top", fill="both", padx=10, pady=10)
-    bt = ctk.Frame(hpwin)
-    hptabs.add(bt, text="Basics")
-    ct = ctk.Frame(hpwin)
-    hptabs.add(ct, text="Commands")
-    gt = ctk.Frame(hpwin)
-    hptabs.add(gt, text="Graphical Coding")
-    kst = ctk.Frame(hpwin)
-    hptabs.add(kst, text="Keyboard Shortcuts")
-    vt = ctk.Frame(hpwin)
-    hptabs.add(vt, text="Variables")
-    ft = ctk.Frame(hpwin)
-    hptabs.add(ft, text="Functions")
-    st = ctk.Frame(hpwin)
-    hptabs.add(st, text="Startup Code")
-    act = ctk.Frame(hpwin)
-    hptabs.add(act, text="Alt-X Command Definition")
-    ht = ctk.Frame(hpwin)
-    hptabs.add(ht, text="Event Hooks")
-    lct = ctk.Frame(hpwin)
-    hptabs.add(lct, text="Loops and Conditions")
-    ctk.Label(
-        bt,
-        text="""Syntax -
-All Keyboard Shortcuts, Event Hooks, Functions, and Startup Code should end with a semicolon ';'.
-Inputs to a command must be given with one and only one space between
-the command and the input.
-If the input to a command is a string, it can only be inside single quotes 'input'.
-Spaces do not matter between full commands and between brackets.
-Newlines do not matter between full commands and between brackets.
-For example, the code""",
-    ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    _help_code_label(bt, "(something) →: (say 'hello' ↩ say 'this is a test');").grid(
-        column=0, row=1, padx=10, pady=10, sticky="w"
-    )
-    ctk.Label(bt, text="is the same as").grid(
-        column=0, row=2, padx=10, pady=10, sticky="w"
-    )
-    _help_code_label(
-        bt, "(\nsomething\n)\n→:\n(\nsay 'hello'\n↩\nsay 'this is a test'\n);"
-    ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    ctk.Label(
-        bt,
-        text="""PyCode uses some symbols which are not on the keyboard.
-To type '→', press 'Control + =' on your keyboard.
-To type '↩', press 'Control + Enter'.
-To type '↓', press 'Control + Down Arrow'.
-To type '⌊', press 'Control + ['.
-To type '⌋', press 'Control + ]'.
-The functions and uses of these symbols are explained later in the Help.
-PyCode also has a simple autocomplete to help you type code faster.
-Typing any of these characters will make PyCode automatically close them with the opposite,
-and put your cursor in the middle: '|/|', '</>', '(/)', '[/]', \"'/'\", '\"/\"'.
-Pressing ';' will automatically put your cursor on a new line after the semicolon.
-PyCode runs in the same global space as the rest of PyNotes.
-So, you can access PyNotes variables directly, like 'active' for the currently active buffer.""",
-    ).grid(column=0, row=4, padx=10, pady=10, sticky="w")
-    ctk.Label(
-        ct,
-        text="These are all the commands in PyCode which you can use to make or change Functions, Keyboard Shortcuts,\nStartup Code, and Alt-X commands:",
-    ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    pccmdlist = utils.EnabledLookTextbox(ct, scrolled=True)
-    l1 = pccmdlist.index("end-1c")
-    pccmdlist.insert("end", "PyNotes' Commands Help\n\n")
-    r1 = pccmdlist.index("end-1c")
-    pccmdlist.tag_add("bigstuff", l1, r1)
-    pccmdlist.insert(
-        "end",
-        """aboutpynotes - Opens the PyNotes About.
+    hptabs.pack(fill="both", expand=True, padx=10, pady=10)
 
-ask 'prompt' - Asks an input from the user and returns the answer.
+    # =========================================================================
+    # SYNTAX
+    # =========================================================================
 
-backspace - Presses BackSpace in the active editor: deletes the selection, or one indentation level if only whitespace is before the cursor, or the previous character.
+    st = ctk.Frame(hptabs)
+    hptabs.add(st, text="Syntax")
+    st.grid_columnconfigure(0, weight=1)
+    st.grid_rowconfigure(1, weight=1)
 
-balancebuffers 'all/horizontal/vertical' - Balance the horizontal/vertical/both buffers to make them equal size.`
-
-cleareditor - Clears the active editor.
-
-closebuffer n = current - Closes the nth buffer if n is given, defaults to the currently active buffer.
-
-cmdrun 'command' - Runs the given Alt-X command.
-
-color name, ... - Makes a tag named 'name' with the options .... Same options as tkinter textbox.tag_config. Can be used later with tag name, a, b.
-
-commentregion 'a', 'b' - Coments the text from a given line number 'a' to a given line number 'b' in the active editor if the HMode is Python / LaTeX / HTML / Markdown.
-
-commentselection - Comments the selected code if the HMode is Python / LaTeX / HTML / Markdown.
-
-copy - Copies the selected text in the active editor.
-
-copytext 'text' - Copies the given input to the clipboard
-
-cut - Cuts the selected text in the active editor.
-
-delete 'a', 'b' - Deletes the text from a given tkinter-style index 'a' to a given tkinter-style index 'b' in the active editor.
-
-deletekey - Presses Delete in the active editor: deletes the selection, or one indentation level if only whitespace is before the cursor and whitespace follows it, or the next character.
-
-dictate - Opens the speech-to-text, lets you dictate text to the active editor.
-
-downloadplugins - Automatically opens a link to the PyNotes GitHub Plugin page to let you download plugins in your default browser.
-
-fileinfoconfig name_1 = val_1, name_2 = val_2, ... - Configs or reconfigs if already existent the names in the file info bar to the values in the active buffer. Editors have filename, filetype, filesize, and filesaved inbuilt, Terminals use buffertype, title, and command, the Python Shell uses buffertype and interpreter, and Email uses buffertype.
-
-findreplace dir = 'forward' | 'backward' | 'beginning' - Opens Find & Replace with optional dir. Default dir = 'forward'.
-
-findtext dir = 'forward' | 'backward' | 'beginning' - Opens Find with optional dir. Default dir = 'forward'.
-
-fullscreen - Makes the PyNotes window fullscreen.
-
-get 'a', 'b' - Gets the text in the active editor from a given tkinter style index 'a' to a given tkinter-style index 'b'.
-
-getattr *args, **kwargs - Python getattr(*args, **kwargs).
-
-getselection - Gets the range of the selected text in the active editor and returns it.
-
-gotoline n = None - Moves the cursor to the given line number n if given, otherwise prompts the user for a line number and goes to it.
-
-hmode 'py/la/html/md/norm' - Switches the HMode (PyNotes mode) to Python / LaTeX / HTML / Markdown / Normal.
-
-indentregion 'a', 'b' - Indents the text from a given line number 'a' to a given line number 'b' in the active editor.
-
-indentselection - Indents the selected region in the active editor.
-
-insert 'index', 'text' - Inserts the text at a given tkinter-style index in the active editor.
-
-killquit - Forcibly kills PyNotes without saving files or cleaning up.
-
-latexgoendof 'c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title' - If the HMode is LaTeX, jumps to the end of the current chapter/section/subsection/subsubsection the cursor is in if given the respective keyword, otherwise jumps to the end of the section with the given title if it exists in the active editor.
-
-latexgostartof 'c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection/title' - If the HMode is LaTeX, jumps to the start of the current chapter/section/subsection/subsubsection the cursor is in if given the respective keyword, otherwise jumps to the start of the section with the given title if it exists in the active editor.
-
-left - Presses Left in the active editor: moves the cursor back one indentation level if only whitespace is before it, otherwise one character.
-
-mark 'a', 'b' - Visually marks the text between a tkinter-style index 'a' and a tkinter-style index 'b' in the active editor.
-
-markdowngoendof 'h1/h2/h3/h4/h5/h6/s/sec/section/title' - If the HMode is Markdown, jumps to the end of the current section of the given level the cursor is in if given h1-h6, or of any level if given 's/sec/section', otherwise jumps to the end of the section with the given title if it exists in the active editor.
-
-markdowngostartof 'h1/h2/h3/h4/h5/h6/s/sec/section/title' - If the HMode is Markdown, jumps to the start of the current section of the given level the cursor is in if given h1-h6, or of any level if given 's/sec/section', otherwise jumps to the start of the section with the given title if it exists in the active editor.
-
-markselection - Visually marks the selected text in the active editor.
-
-mathgod - Opens MathGod.
-
-maximize - Maximizes the PyNotes window.
-
-minimize - Minimizes the PyNotes window.
-
-movecursor 'index' - Moves the cursor to a given tkinter-style index in the active editor.
-
-neweditor file = None, orient = 'horizontal' - Opens a new editor loading file if given and being horizontal or vertical depending on orient (default 'horizontal').
-
-newfile - Opens a new file in the currently active editor.
-
-openemailbuf - Opens (or switches to) the standalone Email buffer.
-
-openfile - Opens a file picker to open a file in the currently active editor.
-
-openfilenewedit orient = 'horizontal' - Opens a new editor with orientation orient (default horizontal) loading the file from a filedialog that is shown.
-
-openhelp 'commands/email/pycode/mathgod/plugins' - Opens the Help about the given feature.
-
-openplugindir - Opens the plugins directory in your file manager.
-
-openpycode - Opens PyCode.
-
-openterm command = None, title = 'Terminal', endmessage = None, blocking = False, orient = 'vertical' - Opens the PyNotes terminal in a buffer with orientation orient running a given command list (example [command, input1, input2]), /bin/bash or powershell.exe if not specified. Set optional title (the title of the terminal buffer) and endmessage (the message shown at the end after the process stops, terminal buffer closes immediately if no endmessage is set). If blocking is set to True (default False), it doesn't return till the process finishes.
-
-pageback - Goes to the previous page in the active editor.
-
-pageforw - Goes to the next page in the active editor.
-
-pass - Do nothing.
-
-paste - Pastes your clipboard in the active editor.
-
-preferences - Opens the PyNotes preferences.
-
-prompt text, autocompletefunc = None, defaultinput = None - Prompts the user with text in the Alt-X command box and returns input. Calls the function inside the string autocomplete with the currently typed text if it is a string, otherwise uses the fixed list/tuple if given in it when Tab is pressed. If defaultinput is given, starts the prompt with it.
-
-pynotessourcecode - Show any PyNotes source code file selected by you in /usr/share/PyNotes/ on Linux and C:/Program Files/PyNotes/ on Windows in a new editor.
-
-pyshell orient = 'vertical' - Opens a Python REPL buffer in the given orientation.
-
-pythongoendof 'f/fun/func/function/c/class/b/block/name' - If the HMode is Python, jumps to the end of the current function/class/block the cursor is in if given 'f/fun/func/function/c/class/b/block', otherwise jumps to the end of the given function/class name (an attribute chain like 'Outer.Inner.name' from the module level for nested ones) if it exists in the active editor.
-
-pythongostartof 'f/fun/func/function/c/class/b/block/name' - If the HMode is Python, jumps to the start of the current function/class/block the cursor is in if given 'f/fun/func/function/c/class/b/block', otherwise jumps to the start of the given function/class name (an attribute chain like 'Outer.Inner.name' from the module level for nested ones) if it exists in the active editor.
-
-pythongodef 'name' - If the HMode is Python, jumps to the definition of the given name in the active editor (an attribute chain like 'Outer.Inner.name' from the module level for names inside classes/functions).
-
-quit - Cleanly closes PyNotes.
-
-redo - Redos the last undo in the active editor.
-
-repeatxcommand 'command', n - Repeats the given Alt-X command n times.
-
-removeselectionpoint - Removes the selection point if set.
-
-return value - Returns the given value from a function.
-
-right - Presses Right in the active editor: moves the cursor forward one indentation level if only whitespace is before it and whitespace follows it, otherwise one character.
-
-runcode - Runs the code in the active editor if the HMode is Python / LaTeX / HTML.
-
-saveasfile - Save the text in the active editor to another filename.
-
-savefile - Saves the file in the active editor.
-
-say 'input' - Opens a graphical messagebox showing the given input. You can also use a variable here.
-
-selall - Selects all the text in the active editor.
-
-select 'a', 'b' - Selects the text from a given tkinter-style index 'a' to a given tkinter-style index 'b' in the active editor.
-
-setattr *args, **kwargs - Python setattr(*args, **kwargs).
-
-setselectionpoint index = None - Sets the selection point at the index if given, otherwise cursor position.
-
-setvar 'var', 'val' - Makes a variable with a given name 'var' and a given value 'val'.
-
-setwingeometry geo - Calls the tkinter root.geometry(geo).
-
-setwintitle 'title' - Sets the title of the PyNotes window to a given string.
-
-show 'text' - Shows the given text in the Alt-X command box.
-
-speaktext - Speaks the selected text in the active editor.
-
-spliteditor n = active, orient = 'horizontal' - Splits the nth editor (default active) horizontally or vertically depending on orient (default horizontal).
-
-switchbuffer n = current + 1 - Switches focus to the nth buffer if given n, otherwise cycle buffers.
-
-tag ... - Uses a tag previously set with color name, ... . Same options as tkinter textbox.tag_add.
-
-termexec 'command' - Executes the given command in a terminal and shows the output in the Alt-X command box.
-
-tkindex 'toindex', (optional: 'line') - Indexes the given tkinter-style input in the active editor and returns the output. If the optional 'line' input is also given, it returns only the linenumber as a string.
-
-toggleselectionpoint - Sets the selection point at the cursor if not set, otherwise removes it.
-
-typecommand - Lets you type an Alt-X command.
-
-uncommentregion a, b - Uncomments the text from a given line number a to another given line number b in the active editor if the HMode is Python / LaTeX / HTML / Markdown.
-
-uncommentselection - Uncomments the selected text in the active editor if the HMode is Python / LaTeX / HTML / Markdown.
-
-undo - Undoes the last edit in the active editor.
-
-unfullscreen - Makes PyNotes windowed mode from fullscreen.
-
-unindentregion a, b - Unindents the text from a given line number a to another given line number b in the active editor if the HMode is Python / LaTeX / HTML / Markdown.
-
-unindentselection - Unindents the selected text in the active editor.
-
-unmark 'a', 'b' - Unmark the visually marked text in the active editor from a tkinter-style index 'a' to a tkinter-style index 'b'.
-
-unmarkall - Unmarks all the visually marked text in the active editor.
-
-unmaximize - Unmaximizes the main window.
-
-unsetwintitle - Sets the window title back to normal after the command 'setwintitle'
-
-untag ... - Untags a tag previouslyl set with tag .... Same options as tkinter textbox.tag_remove.
-
-wait n - Freezes PyNotes for n seconds.
-
-write 'text', n - Writes the given text repeated n times in the active editor.""",
-    )
-    l2 = pccmdlist.index("end-1c")
-    if state.plgnspccmdhelp:
-        pccmdlist.insert("end", "\n\nPlugins' Commands Help")
-    r2 = pccmdlist.index("end-1c") + "+2c"
-    pccmdlist.insert("end-1c", state.plgnspccmdhelp)
-    pccmdlist.tag_add("bigstuff", l2, r2)
-    pccmdlist.tag_config("bigstuff", font=(monospace, 15, "bold"))
-    pccmdlist.config(state="disabled")
-    pccmdlist.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
-    ctk.Label(
-        ct,
-        text="By default, a command will take all the text that comes after it after a space as it's input.\nTo avoid that, you can give the input inside () brackets.\nThen, the command will only take the text after itself which is inside the brackets as input.",
-    ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    ct.grid_columnconfigure(0, weight=1)
-    ctk.Label(
-        gt,
-        text="""There is a dropdown menu in the top left corner, using which you can code graphically.
-Whenever you click something in it, it will ask for inputs.
-It will also show a list of all the commands on the side if it needs it.
-Then, you can click any commands you want, and it will put them in the
-Function / Keyboard Shortcut / Startup Code in order.
-It will not ask for the inputs of commands that take inputs,
-you will have to put those in the code yourself.""",
-    ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    _help_image_label(gt, f"{rootdir}/Images/PYCODE1.png", 2).grid(
-        column=0, row=1, padx=10, pady=10, sticky="w"
-    )
-    _help_image_label(gt, f"{rootdir}/Images/PYCODE2.png", 2).grid(
-        column=1, row=1, padx=10, pady=10, sticky="e"
-    )
-    ctk.Label(
-        kst,
-        text="""You can bind or rebind Keyboard Shortcuts to any of the PyCode commands.
-To put more than one command in a Keyboard Shortcut, separate them with '↩'.
-If you want to make a keyboard shortcut where you have to press and hold 2 keys,
-(eg. Control or Alt + something else), you will have to put a dash between them.
-Control and Alt keys, when used, can never be after a normal letter.
-You can never repeat Control or Alt keys in the same keyboard shortcut.
-You can bind keys to any commands, or a function made by you.
-This uses the same syntax as tkinter's bindings.
-If you do not know how to bind a key to something, you can use the graphical coding.
-There, PyCode will automatically detect which keys you press and put them in the code.
-You can also bind chord keys like Control-x Control-s by separating the keys inside the first '<>' with '&'.
-You cannot bind chord keys using the graphical programming till now.
-Examples:""",
-    ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    _help_code_label(kst, "<Control-q> → <close>;").grid(
-        column=0, row=1, padx=10, pady=10, sticky="w"
-    )
-    _help_code_label(kst, "<Control-x & Control-s> → <savefile>;").grid(
-        column=0, row=2, padx=10, pady=10, sticky="w"
-    )
-    _help_code_label(
-        kst, "<Control-t> → <say 'Hello!' ↩ say 'PyNotes is the best!'>;"
-    ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    ctk.Label(
-        vt,
-        text="""Variables can be defined using the PyCode command 'setvar'.
-This can be used like a normal PyCode command.
-The syntax is: setvar 'varname', value.
-For example, here is how to make a variable named 'something' with the value 'something else' on startup:""",
-    ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    _help_code_label(vt, "|setvar 'something', 'something else'|;").grid(
-        column=0, row=1, padx=10, pady=10, sticky="w"
-    )
-    ctk.Label(
-        vt, text="This can then be used in Keyboard Shortcuts and Functions like this:"
-    ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    _help_code_label(vt, "<Control-q> → <say something>;").grid(
-        column=0, row=3, padx=10, pady=10, sticky="w"
-    )
-    ctk.Label(ft, text="The syntax to define a function is:").grid(
-        column=0, row=0, padx=10, pady=10, sticky="w"
-    )
-    _help_code_label(ft, "(funcname:args) →: (commands);").grid(
-        column=0, row=1, padx=10, pady=10, sticky="w"
-    )
-    ctk.Label(
-        ft,
-        text="""The input definition syntax is exactly like Python's function inputs.
-The commands inside the function are separated by a '↩'. For example, here is how to make a function named 'something'
-which clears the editor and writes any given text 5 times
-with a default value of 'text':""",
-    ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    _help_code_label(
-        ft, "(something:text = 'text') →: (cleareditor ↩ write text, 5);"
-    ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    ctk.Label(
-        ft,
-        text="This can then be used in other Functions, Keyboard Shortcuts, Startup Code, and Alt-X commands like a normal PyCode command.",
-    ).grid(column=0, row=4, padx=10, pady=10, sticky="w")
-    ctk.Label(
-        ft,
-        text="If you want to make a more complex function that cannot be made with normal PyCode commands,\nyou can make a Python Function in PyCode.\nThe syntax is:",
-    ).grid(column=0, row=5, padx=10, pady=10, sticky="w")
-    _help_code_label(ft, "(python:funcname:args) → (python code);").grid(
-        column=0, row=6, padx=10, pady=10, sticky="w"
-    )
-    ctk.Label(
-        ft,
-        text="""The input definition syntax is exactly the same as normal PyCode functions,
-and the inputs also work exactly the same way.
-The lines of the Python code are separated by a '↩', not newlines.
-Also remember to put the 'python:' prefix before the name of the function.
-To use PyCode commands in a Python function, use the prefix 'pycode:' before the command, and put the command in curly brackets.
-There cannot be any spaces between the 'pycode' and the semicolon.
-PyCode commands used in a Python function should maintain proper indentation in the Python code.
-For example, here is how to make a Python function named 'something' that asks for 1+1 and shows 'correct' or 'wrong' for the answer in the Alt-X command box:""",
-    ).grid(column=0, row=7, padx=10, pady=10, sticky="w")
-    _help_code_label(
-        ft,
-        """(python:something) →: (
-useranswer = int(root.askstring('Question', 'What is 1+1?')) ↩
-if useranswer == 2: ↩
-    pycode:{show 'correct'} ↩
-else: ↩
-    pycode:{show 'wrong'}
-);""",
-    ).grid(column=0, row=8, padx=10, pady=10, sticky="w")
-    ctk.Label(
+    make_text(
         st,
-        text="""Startup Code runs automatically every time PyNotes starts.
-This can be used to execute some commands everytime on startup or configure PyNotes in some way.
-Everything that is inside a '| |' is executed as startup code.
-To run multiple commands on startup, you can use a Function,
-have multiple '| |'s, or separate the commands inside one
-'| |' with '↩'.
-For example, these are all the ways you can make PyNotes start with an empty editor instead of the Zen of Python in Python HMode:""",
-    ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    _help_code_label(st, "(startup) →: (newfile ↩ hmode 'py');\n|startup|;").grid(
-        column=0, row=1, padx=10, pady=10, sticky="w"
-    )
-    _help_code_label(st, "|newfile|;\n|hmode 'py'|;").grid(
-        column=0, row=2, padx=10, pady=10, sticky="w"
-    )
-    _help_code_label(st, "|newfile ↩ hmode 'py'|;").grid(
-        column=0, row=3, padx=10, pady=10, sticky="w"
-    )
-    ctk.Label(
-        act,
-        text="You can make or change Alt-X commands in PyCode.\nPyCode commands inside the Alt-X command definition are separated by a '↩'. The syntax is:",
-    ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    _help_code_label(act, "⌊cmdname⌋ → ⌊commands⌋;").grid(
-        column=0, row=1, padx=10, pady=10, sticky="w"
-    )
-    ctk.Label(
-        act,
-        text="Any input given from the Alt-X command will be saved to the variable 'commandinput'.\nYou can then use it in PyCode commands. For example, here is how to make an Alt-X command named 'tktemplate' which writes code in the editor that\nopens a window using canvastk with the title and text 'PyCode CanvasTK Window Template':",
-    ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    _help_code_label(
-        act,
-        r"""
-⌊tktemplate⌋
-→
-⌊
-newfile ↩
-hmode 'py' ↩
-write '
-import canvastk as ctk\n
-root = ctk.Window()\n
-root.title("PyCode CanvasTK Window Template")\n
-ctk.Label(root, text = "PyCode CanvasTK Window Template").grid()\n
-root.mainloop()',
-1
-⌋;
-""",
-    ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    ctk.Label(
-        ht,
-        text="You can make event hooks to execute some code before or after the event runs.\nThe syntax is:",
-    ).grid(column=0, row=0, padx=10, pady=10, sticky="w")
-    _help_code_label(ht, "[before/after:event] :→ [pycode];").grid(
-        column=0, row=1, padx=10, pady=10, sticky="w"
-    )
-    ctk.Label(
-        ht,
-        text="Commands should be separated with a '↩'.\nThese are all the events you can hook into:",
-    ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    pceventhooklist = utils.EnabledLookTextbox(ht, scrolled=True)
-    pceventhooklist.insert(
-        "end",
-        """new-file-current-editor
-
-new-file-new-editor
-
-open-file-current-editor
-
-open-file-new-editor
-
-save-file
-
-save-as-file
-
-exit-pynotes
-
-close-buffer
-
-switch-buffer
-
-run-code
-
-mark-region
-
-unmark-region
-
-comment-region
-
-uncomment-region
-
-indent-region
-
-unindent-region
-
-open-mathgod
-
-term-exec
-
-alt-x-command:{command}
-
-pycode-command:{command}
-
-undo
-
-redo
-
-show-pynotes-source-code
-
-open-terminal
-
-open-preferences
-
-next-page
-
-previous-page
-
-copy-text
-
-paste-text
-
-cut-text
-
-fullscreen
-
-un-fullscreen
-
-maximize-window
-
-unmaximize-window
-
-minimize-window
-
-clear-editor
-
-open-pycode
-
-change-hmode
-
-open-python-shell
-
-open-email-buffer
-
-resize-window""",
-    )
-    pceventhooklist.config(state="disabled")
-    pceventhooklist.grid(column=0, row=3, padx=10, pady=10, sticky="nsew")
-    ctk.Label(
-        ht,
-        text="""The events 'open-file-current-editor' (filename, or None if cancelled), 'open-file-new-editor' (filename, or None if cancelled),
-'save-as-file' (filename, or None if cancelled), 'switch-buffer' (new editor number),'*-region' (tuple (a, b) containing the incides of the region), 'term-exec' (command), 'open-terminal' (command),
-alt-x-command (command input),pycode-command (command input), 'change-hmode' (new HMode), 'copy-text' (selected text),
-'cut-text' (selected text), 'paste-text' (pasted text) will all set a variable 'commandinput' for the code to run which contains
-the previously shown possible inputs. For events involving a file dialog, the 'before' hook runs after the dialog closes (with commandinput
-set to None if the dialog was cancelled), but the 'after' hook only runs if the dialog was not cancelled.""",
-    ).grid(column=0, row=4, padx=10, pady=10, sticky="w")
-    ctk.Label(ht, text="Example:").grid(column=0, row=5, padx=10, pady=10, sticky="w")
-    _help_code_label(
-        ht,
-        "[after:new-file-current-editor] :→ [hmode 'py'];\n[after:new-file-new-editor] :→ [hmode 'py'];",
-    ).grid(column=0, row=6, padx=10, pady=10, sticky="w")
-    ctk.Label(lct, text="The syntax to make conditions in PyCode is:").grid(
-        column=0, row=0, padx=10, pady=10, sticky="w"
-    )
-    _help_code_label(
-        lct, "if (condition) {code} elif (condition) {code} else (condition) {code}"
-    ).grid(column=0, row=1, padx=10, pady=10, sticky="w")
-    ctk.Label(
-        lct,
-        text="""These can be put anywhere where normal PyCode commands can be used, in Keyboard Shortcuts, Functions, Python Functions pycode:{} wrappers, etc.
-You can have any number of 'elif's in the condition.
-The code inside these conditions is separated by '↓'s.
-Make sure to not put any '↩'s, semicolons, etc between the 'if's, 'elif's, and 'else's, because they are all part of the same statement.
+        """The syntax of PyCode is similar to C and Python. \
+Statements are separated by semicolons, and all whitespace between tokens \
+is ignored. There does not need to be a semicolon at the end of a code block. \
+All names must be valid syntax in Python. The syntax of calling functions is the \
+same as Python, including the arguments, but the syntax of defining functions is: \
+name (python-args) {code}; . The syntax of defining variables is simply name = val. \
+The syntax of conditions is if (cond) {code} elif (cond) {code} else {code}; , and \
+the syntax of loops is while (cond) {code}; . Keywords are global, nonlocal, return, \
+del, pass, break, and continue. They can be used normally as in Python. You can always \
+include a plain Python expression anywhere. The syntax for comments is also the same \
+as Python (# this is a comment). All PyCode is translated to plain Python before being \
+executed. You can test how PyCode translates in the 'Testing' tab in this help window.
 Example:""",
-    ).grid(column=0, row=2, padx=10, pady=10, sticky="w")
-    _help_code_label(
+    ).grid(column=0, row=0, padx=10, pady=10, sticky="ew")
+    make_code_box(
+        st,
+        """\
+# This is a comment.
+
+func_1 (*args, **kwargs) {}; # Do nothing
+
+func_1(None, arg1=None); # Function call with positional and keyword arguments
+
+func_2 (a, b) {
+    local_func () {
+        # This is a local function, not visible outside
+    };
+    return a + b; # Add and return a and b
+};
+
+a = 2;
+b = 3;
+
+if (True) {
+    show_message(f"{a}+{b}={func_2(a, b)}");
+}
+else {
+    show_message("This is not possible");
+};
+
+i = 0;
+while (i <= 2) {
+    show_message(func_2(i, i + 2));
+    i = i + 1;
+};\
+""",
+    ).grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
+
+    # =========================================================================
+    # COMMANDS
+    # =========================================================================
+
+    ct = ctk.Frame(hptabs)
+    hptabs.add(ct, text="Commands")
+    ct.grid_columnconfigure(0, weight=1)
+    ct.grid_rowconfigure(1, weight=1)
+
+    make_text(
+        ct,
+        """Commands are built-in PyCode functions used to control the PyNotes editor.
+All the commands are:""",
+    ).grid(column=0, row=0, padx=10, pady=10, sticky="ew")
+    ctt = utils.EnabledLookTextbox(ct, scrolled=True, font=(monospace, 12))
+    ctt.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
+    l1 = ctt.index("end-1c")
+    ctt.insert("end", "PyNotes' Commands Help\n\n")
+    r1 = ctt.index("end-1c")
+    ctt.tag_add("bigstuff", l1, r1)
+    ctt.insert(
+        "end",
+        """\
+about_pynotes() - Opens the PyNotes About.
+
+add_command(name, function) - Makes the given function the Alt-X command name. If the function takes a parameter, it gets the command's input.
+
+add_event_hook(event, function) - Runs the given function before or after an event, where event is 'before:event' or 'after:event'. If the function takes a parameter, it gets the event's input.
+
+ask_dialog(prompt) - Asks an input from the user in a dialog and returns the answer.
+
+backspace() - Presses BackSpace in the active editor: deletes the selection, or one indentation level if only whitespace is before the cursor, or the previous character.
+
+balance_buffers(orient = 'all') - Balance the horizontal/vertical/both ('horizontal', 'vertical', 'all') buffers to make them equal size.
+
+clear_editor() - Clears the active editor.
+
+close_buffer(n = None) - Closes the nth buffer if n is given, defaults to the currently active buffer.
+
+close_pynotes() - Cleanly closes PyNotes.
+
+comment_region(start, end) - Comments the text from a given line number start to a given line number end in the active editor if the HMode is Python / LaTeX / HTML / Markdown.
+
+comment_selection() - Comments the selected code if the HMode is Python / LaTeX / HTML / Markdown.
+
+configure_fileinfo(name_1 = val_1, name_2 = val_2, ...) - Configs or reconfigs if already existent the names in the file info bar to the values in the active buffer. Editors have filename, filetype, filesize, and filesaved inbuilt, Terminals use buffertype, title, and command, the Python Shell uses buffertype and interpreter, and Email uses buffertype.
+
+copy_clipboard(text) - Copies the given text to the clipboard.
+
+copy_selection() - Copies the selected text in the active editor.
+
+cut_selection() - Cuts the selected text in the active editor.
+
+delete_key() - Presses Delete in the active editor: deletes the selection, or one indentation level if only whitespace is before the cursor and whitespace follows it, or the next character.
+
+delete_text(index_1, index_2 = None) - Deletes the text from a given tkinter-style index_1 to a given tkinter-style index_2 in the active editor (only the character at index_1 if index_2 is not given).
+
+dictate_text() - Opens the speech-to-text, lets you dictate text to the active editor.
+
+download_plugins() - Automatically opens a link to the PyNotes GitHub Plugin page to let you download plugins in your default browser.
+
+find_replace(dir = 'forward') - Opens Find & Replace with optional dir ('forward', 'backward', 'beginning').
+
+find_text(dir = 'forward') - Opens Find with optional dir ('forward', 'backward', 'beginning').
+
+fullscreen_window() - Makes the PyNotes window fullscreen.
+
+get_selection() - Gets the range of the selected text in the active editor and returns it as a tuple (start, end), or an empty tuple if nothing is selected.
+
+get_text(index_1, index_2 = None) - Gets the text in the active editor from a given tkinter-style index_1 to a given tkinter-style index_2 and returns it.
+
+go_to_line(n = None) - Moves the cursor to the given line number n if given, otherwise prompts the user for a line number and goes to it.
+
+indent_region(start, end) - Indents the text from a given line number start to a given line number end in the active editor.
+
+indent_selection() - Indents the selected region in the active editor.
+
+insert_text(index, text) - Inserts the text at a given tkinter-style index in the active editor.
+
+key_bind(key, function, where = None) - Runs the function when the tkinter-style key (like '<Control-x>', or a chord like '<Control-x & Control-s>') is pressed. where can be None to work in every buffer or 'editor' to work only in editors.
+
+kill_pynotes() - Forcibly kills PyNotes without saving files or cleaning up.
+
+latex_go_to_end_of(target) - If the HMode is LaTeX, jumps to the end of the current chapter/section/subsection/subsubsection the cursor is in if target is 'c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection', otherwise jumps to the end of the section with the title target if it exists in the active editor.
+
+latex_go_to_start_of(target) - If the HMode is LaTeX, jumps to the start of the current chapter/section/subsection/subsubsection the cursor is in if target is 'c/chapter/s/sec/section/ss/subsec/subsection/sss/subsubsec/subsubsection', otherwise jumps to the start of the section with the title target if it exists in the active editor.
+
+left() - Presses Left in the active editor: moves the cursor back one indentation level if only whitespace is before it, otherwise one character.
+
+mark_region(start, end) - Visually marks the text between a tkinter-style index start and a tkinter-style index end in the active editor.
+
+mark_selection() - Visually marks the selected text in the active editor.
+
+markdown_go_to_end_of(target) - If the HMode is Markdown, jumps to the end of the current section of the given level the cursor is in if target is 'h1-h6', or of any level if target is 's/sec/section', otherwise jumps to the end of the section with the title target if it exists in the active editor.
+
+markdown_go_to_start_of(target) - If the HMode is Markdown, jumps to the start of the current section of the given level the cursor is in if target is 'h1-h6', or of any level if target is 's/sec/section', otherwise jumps to the start of the section with the title target if it exists in the active editor.
+
+maximize_window() - Maximizes the PyNotes window.
+
+minimize_window() - Minimizes the PyNotes window.
+
+move_cursor(index) - Moves the cursor to a given tkinter-style index in the active editor.
+
+new_editor(file = None, orient = 'horizontal') - Opens a new editor loading file if given and being horizontal or vertical depending on orient (default 'horizontal').
+
+new_file() - Opens a new file in the currently active editor.
+
+open_email_buffer() - Opens (or switches to) the standalone Email buffer.
+
+open_file() - Opens a file picker to open a file in the currently active editor.
+
+open_file_new_editor(orient = 'horizontal') - Opens a new editor with orientation orient (default 'horizontal') loading the file from a filedialog that is shown.
+
+open_help(topic) - Opens the Help about the given feature, topic can be 'commands/email/pycode/mathgod/plugins'.
+
+open_mathgod() - Opens MathGod.
+
+open_plugin_directory() - Opens the plugins directory in your file manager.
+
+open_preferences() - Opens the PyNotes preferences.
+
+open_pycode() - Opens PyCode.
+
+open_python_shell(orient = 'vertical') - Opens a Python REPL buffer in the given orientation.
+
+open_terminal(command = None, title = 'Terminal', endmessage = None, blocking = False, orient = 'vertical') - Opens the PyNotes terminal in a buffer with orientation orient running a given command list (example [command, input1, input2]), /bin/bash or powershell.exe if not specified. Set optional title (the title of the terminal buffer) and endmessage (the message shown at the end after the process stops, terminal buffer closes immediately if no endmessage is set). If blocking is set to True (default False), it doesn't return till the process finishes.
+
+page_back() - Goes to the previous page in the active editor.
+
+page_forward() - Goes to the next page in the active editor.
+
+paste_clipboard() - Pastes your clipboard in the active editor.
+
+prompt(text, autocompletefunc = None, defaultinput = None) - Prompts the user with text in the Alt-X command box and returns input. Calls autocompletefunc with the currently typed text if it is a function, otherwise uses the fixed list/tuple if given in it when Tab is pressed. If defaultinput is given, starts the prompt with it.
+
+python_go_to_definition(name) - If the HMode is Python, jumps to the definition of the given name in the active editor (an attribute chain like 'Outer.Inner.name' from the module level for names inside classes/functions).
+
+python_go_to_end_of(target) - If the HMode is Python, jumps to the end of the current function/class/block the cursor is in if target is 'f/fun/func/function/c/class/b/block', otherwise jumps to the end of the given function/class name (an attribute chain like 'Outer.Inner.name' from the module level for nested ones) if it exists in the active editor.
+
+python_go_to_start_of(target) - If the HMode is Python, jumps to the start of the current function/class/block the cursor is in if target is 'f/fun/func/function/c/class/b/block', otherwise jumps to the start of the given function/class name (an attribute chain like 'Outer.Inner.name' from the module level for nested ones) if it exists in the active editor.
+
+redo_editor() - Redos the last undo in the active editor.
+
+remove_selection_point() - Removes the selection point if set.
+
+repeat_command(command, n) - Repeats the given Alt-X command n times.
+
+right() - Presses Right in the active editor: moves the cursor forward one indentation level if only whitespace is before it and whitespace follows it, otherwise one character.
+
+run_code() - Runs the code in the active editor if the HMode is Python / LaTeX / HTML.
+
+run_command(command) - Runs the given Alt-X command.
+
+run_shell(command) - Executes the given command in a terminal and shows the output in the Alt-X command box.
+
+save_file() - Saves the file in the active editor.
+
+save_file_as() - Save the text in the active editor to another filename.
+
+select_all() - Selects all the text in the active editor.
+
+select_text(start, end) - Selects the text from a given tkinter-style index start to a given tkinter-style index end in the active editor.
+
+set_hmode(mode) - Switches the HMode (PyNotes mode) to Python / LaTeX / HTML / Markdown / Normal, mode can be 'py/la/html/md/norm'.
+
+set_selection_point(index = None) - Sets the selection point at the index if given, otherwise cursor position.
+
+set_variable(var, val) - Makes a variable with a given name var and a given value val.
+
+set_window_geometry(geo) - Calls the tkinter root.geometry(geo).
+
+set_window_title(title = None) - Sets the title of the PyNotes window to a given string, or sets it back to normal if title is not given.
+
+show_message(text) - Shows the given text in the Alt-X command box.
+
+show_popup(text) - Opens a graphical messagebox showing the given text. You can also use a variable here.
+
+show_pynotes_source_code() - Show any PyNotes source code file selected by you in /usr/share/PyNotes/ on Linux and C:/Program Files/PyNotes/ on Windows in a new editor.
+
+sleep(n) - Freezes PyNotes for n seconds.
+
+speak_selection() - Speaks the selected text in the active editor.
+
+split_editor(n = None, orient = 'horizontal') - Splits the nth editor (default active) horizontally or vertically depending on orient (default 'horizontal').
+
+switch_buffer(n = None) - Switches focus to the nth buffer if given n, otherwise cycle buffers.
+
+tag_add(tag, index_1, index_2) - Uses a tag previously set with tag_config. Same options as tkinter textbox.tag_add.
+
+tag_config(name, **options) - Makes a tag named name with the given options. Same options as tkinter textbox.tag_config. Can be used later with tag_add.
+
+tag_remove(tag, index_1, index_2) - Untags a tag previously set with tag_add. Same options as tkinter textbox.tag_remove.
+
+tk_index(index, line = False) - Indexes the given tkinter-style input in the active editor and returns the output. If line is 'line', it returns only the linenumber as a string.
+
+toggle_selection_point() - Sets the selection point at the cursor if not set, otherwise removes it.
+
+type_command() - Lets you type an Alt-X command.
+
+uncomment_region(start, end) - Uncomments the text from a given line number start to another given line number end in the active editor if the HMode is Python / LaTeX / HTML / Markdown.
+
+uncomment_selection() - Uncomments the selected text in the active editor if the HMode is Python / LaTeX / HTML / Markdown.
+
+undo_editor() - Undoes the last edit in the active editor.
+
+unfullscreen_window() - Makes PyNotes windowed mode from fullscreen.
+
+unindent_region(start, end) - Unindents the text from a given line number start to another given line number end in the active editor if the HMode is Python / LaTeX / HTML / Markdown.
+
+unindent_selection() - Unindents the selected text in the active editor.
+
+unmark_all() - Unmarks all the visually marked text in the active editor.
+
+unmark_region(start, end) - Unmark the visually marked text in the active editor from a tkinter-style index start to a tkinter-style index end.
+
+unmaximize_window() - Unmaximizes the main window.
+
+write_editor(text, n) - Writes the given text repeated n times in the active editor.\
+""",
+    )
+    l2 = ctt.index("end-1c")
+    if state.plgnspccmdhelp:
+        ctt.insert("end", "\n\nPlugins' Commands Help")
+    r2 = ctt.index("end-1c") + "+2c"
+    ctt.insert("end-1c", state.plgnspccmdhelp)
+    ctt.tag_add("bigstuff", l2, r2)
+    ctt.tag_config("bigstuff", font=(monospace, 15, "bold"))
+    ctt.config(state="disabled")
+
+    # =========================================================================
+    # FUNCTIONS
+    # =========================================================================
+
+    ft = ctk.Frame(hptabs)
+    hptabs.add(ft, text="Functions")
+    ft.grid_columnconfigure(0, weight=1)
+    ft.grid_rowconfigure(1, weight=1)
+
+    make_text(
+        ft,
+        """Make functions using the syntax: \
+name (python_args) {code}; . Function names which are invalid in Python cannot \
+be used. Use the return keyword to return values.
+Example:""",
+    ).grid(column=0, row=0, padx=10, pady=10, sticky="ew")
+    make_code_box(
+        ft,
+        """\
+add (a, b) { # A function which adds and returns a and b.
+    return a + b;
+};
+
+# Usage:
+show_message("2 + 3 is " + add(2, 3) + ".") # Result: 2 + 3 is 5.\
+""",
+    ).grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
+
+    # =========================================================================
+    # VARIABLES
+    # =========================================================================
+
+    vt = ctk.Frame(hptabs)
+    hptabs.add(vt, text="Variables")
+    vt.grid_columnconfigure(0, weight=1)
+    vt.grid_rowconfigure(1, weight=1)
+
+    make_text(
+        vt,
+        """Make variables using the syntax: var = val. Variable names which \
+are invalid in Python cannot be used. val can be any valid PyCode or Python \
+expression.
+Example:""",
+    ).grid(column=0, row=0, padx=10, pady=10, sticky="ew")
+    make_code_box(
+        vt,
+        """\
+a = 2;
+b = 3;
+sum_a_b = a + b;\
+""",
+    ).grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
+
+    # =========================================================================
+    # LOOPS AND CONDITIONS
+    # =========================================================================
+
+    lct = ctk.Frame(hptabs)
+    hptabs.add(lct, text="Loops and Conditions")
+    lct.grid_columnconfigure(0, weight=1)
+    lct.grid_rowconfigure(1, weight=1)
+
+    make_text(
         lct,
-        "(sayhellofunc) →:\n(\nif (ask ('Say hello.') == 'hello') {\nsay 'Good job!'\n}\nelse {\nsay 'You did not say hello'\n}\n);",
-    ).grid(column=0, row=3, padx=10, pady=10, sticky="w")
-    ctk.Label(lct, text="The syntax of making loops in PyCode is very similar:").grid(
-        column=0, row=4, padx=10, pady=10, sticky="w"
+        """The syntax of loops and conditions is similar to functions. The \
+syntax of conditions is: if (cond) {code} elif (cond) {code} else {code}; . \
+while is the only loop in PyCode. The syntax is: while (cond) {code}; . \
+Additionally, you can always use inline Python loops and conditions.
+Example:""",
+    ).grid(column=0, row=0, padx=10, pady=10, sticky="ew")
+    make_code_box(
+        lct,
+        """\
+# =======================
+# LOOPS
+# =======================
+
+score = 85;
+if (score >= 90) {
+    show_popup("Grade: A");
+}
+elif (score >= 80) {
+    show_popup("Grade: B");
+}
+elif (score >= 70) {
+    show_popup("Grade: C");
+}
+else {
+    show_popup("Grade: F");
+};
+
+less_than_5 = (True if 2 + 3 < 5 else False); # Inline condition
+
+# =======================
+# CONDITIONS
+# =======================
+
+i = 0;
+l1 = [];
+while (i < 5) { # Loop 5 times
+    l1.append(i);
+    i = i + 1;
+};
+
+l2 = [i for i in range(5)]; # Same as l1: [0, 1, 2, 3, 4]
+""",
+    ).grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
+
+    # =========================================================================
+    # KEYBOARD SHORTCUTS
+    # =========================================================================
+
+    kst = ctk.Frame(hptabs)
+    hptabs.add(kst, text="Keyboard Shortcuts")
+    kst.grid_columnconfigure(0, weight=1)
+    kst.grid_rowconfigure(1, weight=1)
+
+    make_text(
+        kst,
+        """Make keyboard shortcuts using the command key_bind(key, function, what=None).
+key is a tkinter-style key string like '<Control-a>'. For chord bindings, separate tkinter-style \
+keys with an &. For example, to bind Control-a Control-b, use the string \
+'<Control-a & Control-b>'. Whitespace between the <, key, &, key, > does not matter. \
+Chords can be of infinite length.
+function is any callable (function or lambda) object.
+what can be None or the string 'editor'. If it is None, the key works everywhere. \
+If it is 'editor', it is bound only on editors.
+Example:""",
+    ).grid(column=0, row=0, padx=10, pady=10, sticky="ew")
+    make_code_box(
+        kst,
+        """\
+# Bind Control-Alt-x to type an Alt-X command.
+key_bind("<Control-Alt-x>", type_command);
+# The same as above, using a lambda instead of directly giving the function.
+key_bind("<Control-Alt-x>", lambda: type_command());
+
+end_of_line () { # Move the cursor to the end of the current line.
+    cur_line = tk_index("insert", "line");
+    move_cursor(cur_line + ".end");
+};
+
+# Bind Control-e to move the cursor to the end of the line in editors.
+key_bind("<Control-e>", end_of_line, "editor");
+""",
+    ).grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
+
+    # =========================================================================
+    # TESTING
+    # =========================================================================
+
+    def ha():
+        """Highlight the translated Python in ttpyt the same way the editor
+        highlights Python."""
+        for tag in PYTHON_HIGHLIGHT_TAGS:
+            ttpyt.tag_remove(tag, "1.0", "end")
+        text = ttpyt.get("1.0", "end")
+        # The translated code calls the commands' Python names, which exist in vars(state) at runtime
+        command_names = {}
+        for expression in pycode.pycode_commands.values():
+            name = re.match(r"[^\W\d]\w*", expression)
+            if name is None:
+                continue
+            name = name.group()
+            if "." in expression:
+                command_names[name] = (
+                    "module" if inspect.ismodule(vars(state).get(name)) else "var"
+                )
+            else:
+                command_names[name] = "func"
+        result = python_scope_build._python_build_scopes(
+            ttpyt_scan_host, text, seed_names=command_names
+        )
+        if result is None:
+            return
+        (
+            scopes,
+            call_kwargs,
+            _module_aliases,
+            _local_classes,
+            module_literals,
+            _scope_var_types,
+            literal_attrs,
+            def_names,
+            typed_attrs,
+            param_default_tags,
+            kwarg_positions,
+            import_dotted_lines,
+            import_orig_name_tags,
+            _class_module_origin,
+            _local_class_method_params,
+            _local_class_accepts_any,
+            name_positions,
+            _local_class_module_origins,
+            _from_func_module,
+            _class_type_maps,
+            _class_attr_types,
+            _func_params,
+            _func_accepts_any,
+            _class_bases,
+            _inherited,
+            _module_scope_class_keys,
+            _instance_only,
+            instance_name_positions,
+            global_stmt_kind_positions,
+        ) = result
+        ops = python_scope_build._python_highlight_ops(
+            text,
+            "1.0",
+            "",
+            scopes,
+            call_kwargs,
+            module_literals,
+            literal_attrs,
+            name_positions,
+            def_names,
+            typed_attrs,
+            param_default_tags,
+            kwarg_positions,
+            import_dotted_lines,
+            instance_name_positions,
+            global_stmt_kind_positions,
+            import_orig_name_tags,
+        )
+        for op in ops:
+            if op[0] == "add":
+                for tag in PYTHON_HIGHLIGHT_TAGS:
+                    ttpyt.tag_remove(tag, op[2], op[3])
+                ttpyt.tag_add(op[1], op[2], op[3])
+            elif op[0] == "clear_other":
+                for tag in PYTHON_HIGHLIGHT_TAGS:
+                    ttpyt.tag_remove(tag, op[1], op[2])
+        ttpyt.tag_raise("sel")
+
+    def parse():
+        code = ttpct.t.get("1.0", "end-1c").strip()
+        if not code:
+            return
+        ttpyt.config(state="normal")
+        ttpyt.delete("1.0", "end")  # This also removes the error tag if present
+        try:
+            translated = "\n".join(pycode.pycodeparse(code, {}))
+        except pycode.PyCodeError as e:
+            translated = e
+            ttpyt.insert("end", translated)
+            ttpyt.tag_add("error", "1.0", "end")
+        else:
+            ttpyt.insert("end", translated)
+            ha()
+        ttpyt.config(state="disabled")
+
+    PYTHON_HIGHLIGHT_TAGS = (
+        "hpa",
+        "hpb",
+        "hpv",
+        "hpi",
+        "hpf",
+        "hpx",
+        "hpfa",
+        "hpm",
+        "hpo",
+        "hpd",
+        "hpc",
     )
-    _help_code_label(lct, "while (condition) {code}").grid(
-        column=0, row=5, padx=10, pady=10, sticky="w"
+    ttpyt_scan_host = python_scope_build._PythonStandaloneScanHost()
+
+    tt = ctk.Panedwindow(hptabs)
+    hptabs.add(tt, text="Testing")
+
+    ttpct = make_code_box(
+        tt,
+        None,
+        disabled=False,
+        placeholder="Type PyCode here to see how it translates!",
+        undo=True,
     )
-    ctk.Label(
-        lct, text="The code inside the loop is also separated by '↓'s.\nExample:"
-    ).grid(column=0, row=6, padx=10, pady=10, sticky="w")
-    _help_code_label(lct, "while (True) {say 'Spam'}").grid(
-        column=0, row=7, padx=10, pady=10, sticky="w"
+    ttpct.t.bind("<<Modified>>", lambda _: parse(), "+")
+    tt.add(ttpct, weight=1)
+    ttpyt = utils.EnabledLookTextbox(
+        tt, scrolled=True, wrap="word", font=(monospace, 12)
     )
-    utils.lock_window_size(hpwin)
+    ctk.Button(
+        ttpyt,
+        text="⮺",
+        radius=99,
+        command=lambda: [
+            state.root.clipboard_clear(),
+            state.root.clipboard_append(ttpyt.get("1.0", "end-1c")),
+        ],
+    ).place(relx=1.0, x=-30, y=10, anchor="ne")
+    ttpyt.tag_config("error", foreground="red")
+    ttpyt.tag_config("hpa", foreground="#7C3AED", font=(monospace, 12, "bold"))
+    ttpyt.tag_config("hpb", foreground="#D97706")
+    ttpyt.tag_config("hpv", foreground="#DC2626")
+    ttpyt.tag_config("hpi", foreground="#155E75")
+    ttpyt.tag_config("hpf", foreground="#2563EB")
+    ttpyt.tag_config("hpx", foreground="#0891B2")
+    ttpyt.tag_config("hpfa", foreground="#0F766E")
+    ttpyt.tag_config("hpm", foreground="#0369A1")
+    ttpyt.tag_config("hpo", foreground="white", background="light grey")
+    ttpyt.tag_config("hpd", foreground="#15803D")
+    ttpyt.tag_config("hpc", foreground="#6B7280", font=(monospace, 12, "italic"))
+    ttpyt.config(state="disabled")
+    tt.add(ttpyt, weight=1)
+
     hpwin.focus()
 
 
