@@ -2973,7 +2973,7 @@ class Editor(Buffer):
                 plugin_name = entry.get("plugin", "") if isinstance(entry, dict) else ""
                 if isinstance(entry, dict):
                     func = entry.get("func", None)
-                    cond = entry.get("if", True)
+                    cond = entry.get("if", "True")
                     hl = entry.get("hl", "{}")
                     else_fn = entry.get("else", None)
                     if func is not None:
@@ -4428,7 +4428,7 @@ class Editor(Buffer):
             "\\times",
             "\\div",
             "\\leq",
-            "\\meq",
+            "\\geq",
             "\\neq",
             "\\infty",
             "\\sum",
@@ -4436,7 +4436,7 @@ class Editor(Buffer):
             "\\pi",
             "\\theta",
             "\\alpha",
-            "\\Alpha",
+            "A",
             "$$",
         ]
         whichchar = replaces[original.index(whichchar)]
