@@ -546,26 +546,45 @@ def pycodeparse(code, defined, inwhat="of code"):
         """Translate the arguments of a function call."""
         translated = []
         keywords = set()
+        has_varkeywords = False
         for s, e in split_items(start, end):
+            stars = e - s - len(code[s:e].lstrip("*"))
+            if stars > 2:
+                raise error(s, "There can be at most two * before an argument")
+            if stars:
+                if stars == 1 and has_varkeywords:
+                    raise error(s, "A * argument cannot come after a ** argument")
+                if stars == 2:
+                    has_varkeywords = True
+                value_start, value_end = trim(s + stars, e)
+                if value_start == value_end:
+                    raise error(value_start, "Nothing follows the *")
+                check_expression(value_start, value_end)
+                translated.append(
+                    "*" * stars
+                    + translate_expression(value_start, value_end, defined)
+                )
+                continue
             match = PYCODE_KEYWORD_ARGUMENT_PATTERN.match(code, s, e)
             if match:
                 name = match.group(1)
                 if keyword.iskeyword(name):
-                    raise error(s, f"SyntaxError: invalid argument name {name!r}")
+                    raise error(s, f"{name!r} cannot be used as an argument name")
                 if name in keywords:
-                    raise error(s, f"SyntaxError: keyword argument repeated: {name}")
+                    raise error(s, f"The argument {name!r} is given more than once")
                 keywords.add(name)
                 value_start, value_end = trim(match.end(), e)
                 if value_start == value_end:
-                    raise error(value_start, "SyntaxError: invalid syntax")
+                    raise error(value_start, f"The argument {name!r} has no value")
                 check_expression(value_start, value_end)
                 translated.append(
                     f"{name}={translate_expression(value_start, value_end, defined)}"
                 )
             else:
-                if keywords:
+                if keywords or has_varkeywords:
                     raise error(
-                        s, "SyntaxError: positional argument follows keyword argument"
+                        s,
+                        "A plain argument must come before the named arguments and the ** argument",
                     )
                 check_expression(s, e, "_(")
                 translated.append(translate_expression(s, e, defined, "argument"))
