@@ -250,7 +250,8 @@ def helppycode():
 
     def make_code_box(master, code, disabled=True, *args, **kwargs):
         """Make and return a textbox showing the code, with basic syntax highlighting,
-        with a copy button in the top right corner."""
+        with a copy button in the top right corner.
+        """
 
         def match(key, expr):
             """Find and tag all exprs found in the code with key for syntax highlighting."""
@@ -322,7 +323,8 @@ def helppycode():
 
     def make_text(master, text):
         """Make and return a label showing the help text, which automatically adjusts
-        its wrap on width change."""
+        its wrap on width change.
+        """
         f = ctk.Frame(master)
         t = ctk.Label(f, text=text)
         t.pack(fill="both", expand=True)
@@ -779,7 +781,8 @@ key_bind("<Control-e>", end_of_line, "editor");
 
     def ha():
         """Highlight the translated Python in ttpyt the same way the editor
-        highlights Python."""
+        highlights Python.
+        """
         for tag in PYTHON_HIGHLIGHT_TAGS:
             ttpyt.tag_remove(tag, "1.0", "end")
         text = ttpyt.get("1.0", "end")
@@ -861,6 +864,7 @@ key_bind("<Control-e>", end_of_line, "editor");
         ttpyt.tag_raise("sel")
 
     def parse():
+        """Translate the PyCode in the input box and show the result or the error."""
         code = ttpct.t.get("1.0", "end-1c").strip()
         ttpyt.config(state="normal")
         ttpyt.delete("1.0", "end")  # This also removes the error tag if present

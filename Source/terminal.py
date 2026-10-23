@@ -570,20 +570,27 @@ class Terminal(CustomTextbox):
     # so they can be used with this terminal's tracked cursor just like
     # with tkinter's own insertion cursor.
     def index(self, idx, *args, **kwargs):
+        """The index with "insert" resolved to the terminal's own cursor."""
         return self.inner.index(self._resolve_insert(idx), *args, **kwargs)
 
     def delete(self, *indices):
+        """Delete text, with "insert" resolved to the terminal's own cursor."""
         super().delete(*(self._resolve_insert(_i) for _i in indices))
 
     def compare(self, index1, op, index2):
+        """Compare two indices, with "insert" resolved to the terminal's own cursor."""
         return self.inner.compare(
             self._resolve_insert(index1), op, self._resolve_insert(index2)
         )
 
     def see(self, idx):
+        """Scroll idx into view, with "insert" resolved to the terminal's own cursor."""
         return self.inner.see(self._resolve_insert(idx))
 
     def bbox(self, idx):
+        """The bounding box of idx, with "insert" resolved to the terminal's own
+        cursor.
+        """
         return super().bbox(self._resolve_insert(idx))
 
     # after/after_idle/after_cancel track every id they schedule in
@@ -591,11 +598,13 @@ class Terminal(CustomTextbox):
     # _terminate_process() can cancel every still-pending callback on
     # close instead of leaking timers on a destroyed widget.
     def after(self, ms, func=None, *args):
+        """Like tkinter's after, but track the pending id so it can be cancelled."""
         if func is None:
             return super().after(ms)
         _holder = []
 
         def _wrapped(*a):
+            """Forget the pending id, then call func."""
             self._pending_after_ids.discard(_holder[0])
             return func(*a)
 
@@ -605,9 +614,13 @@ class Terminal(CustomTextbox):
         return _aid
 
     def after_idle(self, func, *args):
+        """Like tkinter's after_idle, but track the pending id so it can be
+        cancelled.
+        """
         _holder = []
 
         def _wrapped(*a):
+            """Forget the pending id, then call func."""
             self._pending_after_ids.discard(_holder[0])
             return func(*a)
 
@@ -617,6 +630,7 @@ class Terminal(CustomTextbox):
         return _aid
 
     def after_cancel(self, id):
+        """Cancel the pending callback id and stop tracking it."""
         self._pending_after_ids.discard(id)
         return super().after_cancel(id)
 
@@ -1191,6 +1205,10 @@ class Terminal(CustomTextbox):
             self._start_blink()
 
     def insert(self, index, chars, *tags):
+        """Insert chars at index, with "insert" resolved to the terminal's own cursor.
+
+        Without tags the text gets the empty tag, so it isn't tagged by default.
+        """
         index = self._resolve_insert(index)
         if tags:
             super().insert(index, chars, *tags)
@@ -2970,6 +2988,7 @@ class Terminal(CustomTextbox):
         return "break"
 
     def _clear_selection(self):
+        """Remove the selection."""
         try:
             self.tag_remove("sel", "1.0", "end")
         except Exception:
@@ -3031,6 +3050,7 @@ class Terminal(CustomTextbox):
         return "break"
 
     def _select_all(self, e=None):
+        """Select all text."""
         self.tag_add("sel", "1.0", "end-1c")
         utils.show("select all text")
         return "break"
@@ -3068,6 +3088,7 @@ class Terminal(CustomTextbox):
         """
 
         def _do():
+            """Re-apply the tracked cursor position."""
             try:
                 self.mark_set("insert", self.index("insert"))
             except Exception:
@@ -3184,6 +3205,7 @@ class Terminal(CustomTextbox):
     # click/select/paste/context-menu behavior if that declined to
     # handle it.
     def _term_button1_press(self, event):
+        """Handle a left click: report it, or focus the terminal and clear menus."""
         self._unpost_menu()
         self.focus_set()
         if self._term_send_mouse(0, event):
@@ -3192,6 +3214,7 @@ class Terminal(CustomTextbox):
             return "break"
 
     def _term_button1_release(self, event):
+        """Handle a left-button release: report it, or place the caret."""
         self.focus_set()
         if self._term_send_mouse(0, event, release=True):
             return "break"
@@ -3200,6 +3223,7 @@ class Terminal(CustomTextbox):
         self._snap_caret(event)
 
     def _term_button1_motion(self, event):
+        """Handle dragging with the left button: report it or extend the selection."""
         self.focus_set()
         if self._term_send_mouse(0, event, drag=True):
             return "break"
@@ -3207,6 +3231,7 @@ class Terminal(CustomTextbox):
             return "break"
 
     def _term_button2_press(self, event):
+        """Handle a middle click: report it, or paste the clipboard."""
         self.focus_set()
         if self._term_send_mouse(1, event):
             return "break"
@@ -3215,6 +3240,7 @@ class Terminal(CustomTextbox):
         return self._paste_clipboard(event)
 
     def _term_button2_motion(self, event):
+        """Handle dragging with the middle button: report it if the program asked."""
         self.focus_set()
         if self._term_send_mouse(1, event, drag=True):
             return "break"
@@ -3222,6 +3248,7 @@ class Terminal(CustomTextbox):
             return "break"
 
     def _term_button2_release(self, event):
+        """Handle a middle-button release: report it if the program asked."""
         self.focus_set()
         if self._term_send_mouse(1, event, release=True):
             return "break"
@@ -3229,6 +3256,7 @@ class Terminal(CustomTextbox):
             return "break"
 
     def _term_button3_press(self, event):
+        """Handle a right click: report it if the program asked."""
         self.focus_set()
         if self._term_send_mouse(2, event):
             return "break"
@@ -3236,6 +3264,7 @@ class Terminal(CustomTextbox):
             return "break"
 
     def _term_button3_release(self, event):
+        """Handle a right-button release: report it, or pop up the menu."""
         self.focus_set()
         if self._term_send_mouse(2, event, release=True):
             return "break"
@@ -3244,6 +3273,7 @@ class Terminal(CustomTextbox):
         return self._popup(event)
 
     def _term_button3_motion(self, event):
+        """Handle dragging with the right button: report it if the program asked."""
         self.focus_set()
         if self._term_send_mouse(2, event, drag=True):
             return "break"
@@ -3421,6 +3451,7 @@ class TerminalBuffer(Buffer):
 
     @property
     def running(self):
+        """Whether the terminal's process is running."""
         return self.term.running
 
     def close(self):

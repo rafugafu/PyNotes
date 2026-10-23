@@ -46,12 +46,12 @@ if CONSOLE_IS_TTY:
         import msvcrt
 
         def set_raw_mode():
+            """Do nothing: msvcrt.getch() already reads unbuffered and unechoed."""
             # msvcrt.getch() already reads unbuffered/unechoed, no raw-mode
             # setup needed on Windows.
-            pass
 
         def unset_raw_mode():
-            pass
+            """Do nothing: Windows needs no raw-mode teardown."""
 
         def get_key():
             """Block for and return the next single character from stdin."""
@@ -60,10 +60,10 @@ if CONSOLE_IS_TTY:
 else:
 
     def set_raw_mode():
-        pass
+        """Do nothing: without a terminal there is no raw mode to enter."""
 
     def unset_raw_mode():
-        pass
+        """Do nothing: without a terminal there is no raw mode to leave."""
 
     def get_key():
         """Without a terminal there are no keys: block forever."""
@@ -523,6 +523,7 @@ class Console:
         return result
 
     def _get_terminal_width(self):
+        """The console's width in columns, falling back to the shell's size."""
         try:
             return os.get_terminal_size(state.stdout.fileno())[0]
         except (OSError, ValueError):

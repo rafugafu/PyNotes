@@ -40,6 +40,7 @@ class pynoteswindow(ctk.Window):
     """
 
     def __init__(self, *args, **kwargs):
+        """Create the window; no theme is applied until one is set."""
         super().__init__(*args, **kwargs)
         self.theme = None
 
@@ -108,10 +109,12 @@ class pynoteswindow(ctk.Window):
         state_ = {"result": None}
 
         def press(label):
+            """Record the clicked button's label and close the dialog."""
             state_["result"] = label
             top.after_idle(lambda: top.destroy() if top.winfo_exists() else None)
 
         def close_dialog():
+            """Close the dialog without an answer."""
             if top.winfo_exists():
                 top.destroy()
 
@@ -156,11 +159,13 @@ class pynoteswindow(ctk.Window):
         state_ = {"result": None}
 
         def submit(*_):
+            """Record the entered text and close the dialog."""
             state_["result"] = entry.get()
             if top.winfo_exists():
                 top.destroy()
 
         def cancel(*_):
+            """Close the dialog without an answer."""
             if top.winfo_exists():
                 top.destroy()
 
@@ -201,12 +206,14 @@ class pynoteswindow(ctk.Window):
         resultq = queue.Queue()
 
         def worker():
+            """Run the console prompt and queue its answer."""
             resultq.put(console_call(cancel_event))
 
         threading.Thread(target=worker, daemon=True).start()
         top.grab_set()
 
         def poll():
+            """Close the dialog if the console has answered, else check again soon."""
             try:
                 value = resultq.get_nowait()
             except queue.Empty:

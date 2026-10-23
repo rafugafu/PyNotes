@@ -39,72 +39,92 @@ class MathGod:
     """
 
     def __init__(self):
-        pass
+        """Create the engine; it keeps no state."""
 
     def asin(self, x, *args, **kwargs):
+        """sympy's asin."""
         return asin(x, *args, **kwargs)
 
     def acos(self, x, *args, **kwargs):
+        """sympy's acos."""
         return acos(x, *args, **kwargs)
 
     def atan(self, x, *args, **kwargs):
+        """sympy's atan."""
         return atan(x, *args, **kwargs)
 
     def asinh(self, x, *args, **kwargs):
+        """sympy's asinh."""
         return asinh(x, *args, **kwargs)
 
     def acosh(self, x, *args, **kwargs):
+        """sympy's acosh."""
         return acosh(x, *args, **kwargs)
 
     def atanh(self, x, *args, **kwargs):
+        """sympy's atanh."""
         return atanh(x, *args, **kwargs)
 
     def sinh(self, x, *args, **kwargs):
+        """sympy's sinh."""
         return sinh(x, *args, **kwargs)
 
     def cosh(self, x, *args, **kwargs):
+        """sympy's cosh."""
         return cosh(x, *args, **kwargs)
 
     def tanh(self, x, *args, **kwargs):
+        """sympy's tanh."""
         return tanh(x, *args, **kwargs)
 
     def sin(self, x, *args, **kwargs):
+        """sympy's sin."""
         return sin(x, *args, **kwargs)
 
     def cos(self, x, *args, **kwargs):
+        """sympy's cos."""
         return cos(x, *args, **kwargs)
 
     def tan(self, x, *args, **kwargs):
+        """sympy's tan."""
         return tan(x, *args, **kwargs)
 
     def log(self, x, base=None, *args, **kwargs):
+        """sympy's log, with an optional base."""
         if base == None:
             return log(x, *args, **kwargs)
         else:
             return log(x, base, *args, **kwargs)
 
     def solve(self, eq, v, *args, **kwargs):
+        """Solve equation eq for variable v (sympy's solve)."""
         return solve(eq, v, *args, **kwargs)
 
     def derivative(self, f, x, *args, **kwargs):
+        """The derivative of f with respect to x (sympy's diff)."""
         return diff(f, x, *args, **kwargs)
 
     def integral(self, f, x, start=None, end=None, *args, **kwargs):
+        """The integral of f with respect to x, definite if start and end are given."""
         if start == None and end == None:
             return integrate(f, x, *args, **kwargs)
         else:
             return integrate(f, (x, start, end), *args, **kwargs)
 
     def limit(self, f, x, a, *args, **kwargs):
+        """The limit of f as x approaches a (sympy's limit)."""
         return limit(f, x, a, *args, **kwargs)
 
     def summation(self, f, x, start, end, *args, **kwargs):
+        """The sum of f for x from start to end (sympy's summation)."""
         return summation(f, (x, start, end), *args, **kwargs)
 
     def product(self, f, x, start, end, *args, **kwargs):
+        """The product of f for x from start to end (sympy's product)."""
         return product(f, (x, start, end), *args, **kwargs)
 
     def interpolate(self, *args, **kwargs):
+        """sympy's interpolate."""
         return interpolate(*args, **kwargs)
 
     def plotfunc(
@@ -244,6 +264,7 @@ class interactive_shell:
     """
 
     def __init__(self):
+        """Create the console over this module's globals."""
         self.locals = globals()
         self.shell = code.InteractiveConsole(self.locals)
 

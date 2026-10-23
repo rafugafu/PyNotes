@@ -881,6 +881,7 @@ class _LabelFrameBorder(CanvasWidget):
     TITLE_GAP = 5  # px of room around the title where the line is cut
 
     def __init__(self, master, text, radius, border_width, theme=None, **kwargs):
+        """Create the border for a LabelFrame titled text."""
         super().__init__(master, theme=theme, **kwargs)
         self.text = text
         self.radius = radius

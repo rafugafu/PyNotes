@@ -122,6 +122,7 @@ def square_image(hue, width, height, radius=8):
     """
 
     def build():
+        """Render the square image for the given hue."""
         pure = Image.new("RGB", (width, height), hsv_to_rgb(hue, 1, 1))
         white = Image.new("RGB", (width, height), (255, 255, 255))
         black = Image.new("RGB", (width, height), (0, 0, 0))
@@ -142,6 +143,7 @@ def hue_strip_image(width, height):
     """The rainbow of the hue slider as a pill-shaped RGBA image."""
 
     def build():
+        """Render the rainbow strip image."""
         pad = height / 2
         span = max(width - 2 * pad, 1)
         strip = Image.new("RGB", (width, 1))
@@ -294,6 +296,12 @@ class ColorDisplay(CanvasWidget):
         highlight=None,
         **kwargs,
     ):
+        """Create a color swatch of the given color.
+
+        size is the default width and height, radius the corner radius,
+        border_width the outline width, and highlight None, "hover", or
+        "selected".
+        """
         kwargs.setdefault("width", size)
         kwargs.setdefault("height", size)
         super().__init__(master, **kwargs)

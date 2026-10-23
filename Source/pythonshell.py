@@ -35,6 +35,7 @@ class PythonShellBuffer(Buffer):
     """
 
     def __init__(self, master, *args, **kwargs):
+        """Create the shell buffer and its menu."""
         super().__init__(master, *args, **kwargs)
         self.m = ctk.Menu(state.root)
         for label, menu in state.all_pythonshell_menus.items():
@@ -191,6 +192,7 @@ class PythonShellBuffer(Buffer):
                 _hl_pending[0] = True
 
                 def _run_hl():
+                    """Clear the pending flag and re-highlight the shell."""
                     _hl_pending[0] = False
                     self.hapyshell()
 
@@ -547,6 +549,7 @@ class PythonShellBuffer(Buffer):
             all_tags = set(self.shellcmd.tag_names())
 
             def _removable(tag):
+                """Whether tag may be removed in the current highlight mode."""
                 return tag not in state._PYTHON_SHELL_HL_SKIP_REMOVE_TAGS and (
                     tag not in state.skiptagspythonshell
                     or self.hmode not in state.skiptagspythonshell[tag]
@@ -576,6 +579,11 @@ class PythonShellBuffer(Buffer):
                 _acc += len(_l) + 1
 
             def widx(line, col):
+                """The Tk index of column col on logical line line.
+
+                A logical line may be drawn across several widget lines, so
+                the column is found by walking the line's segments.
+                """
                 segs = (
                     _shell_seg_map[line - 1]
                     if 0 <= line - 1 < len(_shell_seg_map)
@@ -597,6 +605,7 @@ class PythonShellBuffer(Buffer):
                 return f"{_last_line}.{_last_col + _last_len}"
 
             def off2lc(off):
+                """The (line, column) of an offset into the visible code."""
                 lo = 0
                 for _i in range(len(line_starts)):
                     if line_starts[_i] <= off:
@@ -606,17 +615,20 @@ class PythonShellBuffer(Buffer):
                 return shell_top_line + lo, off - line_starts[lo]
 
             def clear_idx(a, b):
+                """Remove every removable tag from a to b."""
                 for _t in all_tags:
                     if _removable(_t):
                         self.shellcmd.tag_remove(_t, a, b)
 
             def add_idx(tag, a, b):
+                """Tag a to b, replacing any other removable tag there."""
                 for _t in all_tags:
                     if _t != tag and _removable(_t):
                         self.shellcmd.tag_remove(_t, a, b)
                 self.shellcmd.tag_add(tag, a, b)
 
             def add_span(tag, off_s, off_e):
+                """Tag the span between two offsets into the visible code."""
                 l1, c1 = off2lc(off_s)
                 l2, c2 = off2lc(off_e)
                 add_idx(tag, widx(l1, c1), widx(l2, c2))
@@ -643,6 +655,7 @@ class PythonShellBuffer(Buffer):
                 line_scope_candidates[line] = _cands
 
             def _resolve_scope_idx(line, col):
+                """The key of the innermost scope containing line and col, or None."""
                 winner = None
                 winner_start = None
                 for _cstart, _ccol, _cend, _ecol, _ck in line_scope_candidates.get(
@@ -672,6 +685,7 @@ class PythonShellBuffer(Buffer):
                 )
 
             def _shell_same_block(l1, l2):
+                """Whether lines l1 and l2 belong to the same block of code."""
                 if l1 == l2:
                     return True
                 if not (0 < l1 <= len(_shell_line_blocks)) or not (
@@ -722,6 +736,10 @@ class PythonShellBuffer(Buffer):
             _shell_active_cache = {}
 
             def _shell_active_for(abs_line, scope_idx):
+                """The names active at abs_line within scope_idx, by kind.
+
+                Results are cached per (abs_line, scope_idx).
+                """
                 _ckey = (abs_line, scope_idx)
                 if _ckey in _shell_active_cache:
                     return _shell_active_cache[_ckey]

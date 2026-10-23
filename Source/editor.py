@@ -64,6 +64,7 @@ class Editor(Buffer):
         """
 
         def __init__(self, outer):
+            """Create the handler for outer's file."""
             self.outer = outer
             super().__init__()
 
@@ -82,16 +83,19 @@ class Editor(Buffer):
             self.outer._main_queue.put(self.outer._file_watch_prompt)
 
         def on_modified(self, event):
+            """Flag the file as changed when it is modified."""
             if event.is_directory:
                 return
             self._handle(event.src_path)
 
         def on_created(self, event):
+            """Flag the file as changed when it is created."""
             if event.is_directory:
                 return
             self._handle(event.src_path)
 
         def on_moved(self, event):
+            """Flag the file as changed when it is moved into place."""
             if event.is_directory:
                 return
             self._handle(event.dest_path)
@@ -233,7 +237,7 @@ class Editor(Buffer):
 
     @mainwidget.setter
     def mainwidget(self, value):
-        pass
+        """Ignore assignments: the main widget is always derived from the focus."""
 
     @property
     def type_(self):
@@ -248,6 +252,7 @@ class Editor(Buffer):
 
     @type_.setter
     def type_(self, value):
+        """Set this Editor's own Text widget."""
         self._own_type = value
 
     def _group_members(self):
@@ -276,6 +281,7 @@ class Editor(Buffer):
 
     @selectionpoint.setter
     def selectionpoint(self, value):
+        """Set the selection point of the focused pane."""
         self._focused_pane()._selectionpoint = value
 
     def _make_peer_type(self, master):
@@ -422,6 +428,7 @@ class Editor(Buffer):
             second = arguments[1] if len(arguments) > 1 else ""
 
             def hide(position):
+                """Hide the last line in the argument at position, if there is one."""
                 if position < len(arguments):
                     arguments[position] = hiding_last_line(arguments[position])
 
@@ -540,6 +547,7 @@ class Editor(Buffer):
                 bracket_match_pending[0] = True
 
                 def match_bracket():
+                    """Highlight the matching bracket, if the Editor still exists."""
                     bracket_match_pending[0] = False
                     if self.winfo_exists():
                         self.bracket_match()
@@ -1161,6 +1169,7 @@ class Editor(Buffer):
                 state.root.error("Error", f"Error in editor init code:\n{error}")
 
     def setcursortype(self, new):
+        """Set the cursor shape of this Editor's own Text widget to new."""
         self._own_type.set_cursor_shape(new)
 
     def close(self):
@@ -1218,6 +1227,7 @@ class Editor(Buffer):
         utils.show(f"selection point set at {self.selectionpoint}")
 
     def removeselpoint(self):
+        """Clear the selection point, if one is set."""
         if self.selectionpoint:
             self.selectionpoint = None
             utils.show("removed selection point")
@@ -1225,6 +1235,7 @@ class Editor(Buffer):
             utils.show("no selection point set")
 
     def toggleselpoint(self):
+        """Clear the selection point if one is set, else set it at the cursor."""
         if self.selectionpoint:
             self.removeselpoint()
         else:
@@ -1667,6 +1678,7 @@ class Editor(Buffer):
                 self.type_.after_idle(clear_programmatic_edit)
 
                 def after_search():
+                    """Select the last match before the replaced one."""
                     nonlocal i
                     for j in range(len(foundlist) - 1, -1, -1):
                         if self.type_.compare(foundlist[j][0], "<", replace_start):
@@ -1721,6 +1733,7 @@ class Editor(Buffer):
                 after_replace = "%s+%dc" % (replace_start, len(replacetext))
 
                 def after_search():
+                    """Select the first match after the replacement."""
                     nonlocal i
                     for j in range(len(foundlist)):
                         if self.type_.compare(foundlist[j][0], ">=", after_replace):
@@ -1820,6 +1833,7 @@ class Editor(Buffer):
             searching[0] = True
 
             def do_search():
+                """Find every match on a background thread and queue the results."""
                 try:
                     pat = find if useregx else re.escape(find)
                     if wholeword:
@@ -1839,6 +1853,7 @@ class Editor(Buffer):
                     pos += 1
 
                 def to_tk(offset):
+                    """The Tk index of offset into the searched text."""
                     lo, hi = 0, len(line_starts) - 1
                     while lo < hi:
                         mid = (lo + hi + 1) // 2
@@ -1859,6 +1874,7 @@ class Editor(Buffer):
                     self._main_queue.put(lambda: _start_apply(tk_results))
 
             def _start_apply(tk_results):
+                """Pick the match to select, then start showing the matches."""
                 nonlocal i, foundlist
                 if cancel.is_set():
                     searching[0] = False
@@ -1885,6 +1901,7 @@ class Editor(Buffer):
                 _apply_batch(tk_results, len(tk_results), 0)
 
             def _apply_batch(tk_results, n, idx):
+                """Tag a batch of 500 matches, then schedule the next batch."""
                 nonlocal i, foundlist
                 if cancel.is_set():
                     self._find_apply_after_id = None
@@ -2019,6 +2036,7 @@ class Editor(Buffer):
             saved_i = i
 
             def after_search():
+                """Select the match that follows the replacement."""
                 nonlocal i
                 if not foundlist:
                     return
@@ -2182,6 +2200,7 @@ class Editor(Buffer):
             search_cancel[0] = cancel
 
             def do_search():
+                """Find every match on a background thread and queue the results."""
                 try:
                     pat = find if useregx else re.escape(find)
                     if wholeword:
@@ -2201,6 +2220,7 @@ class Editor(Buffer):
                     pos += 1
 
                 def to_tk(offset):
+                    """The Tk index of offset into the searched text."""
                     lo, hi = 0, len(line_starts) - 1
                     while lo < hi:
                         mid = (lo + hi + 1) // 2
@@ -2221,6 +2241,7 @@ class Editor(Buffer):
                     self._main_queue.put(lambda: _start_apply(tk_results))
 
             def _start_apply(tk_results):
+                """Pick the match to select, then start showing the matches."""
                 nonlocal i, foundlist
                 if cancel.is_set():
                     return
@@ -2246,6 +2267,7 @@ class Editor(Buffer):
                 _apply_batch(tk_results, len(tk_results), 0)
 
             def _apply_batch(tk_results, n, idx):
+                """Tag a batch of 500 matches, then schedule the next batch."""
                 nonlocal i, foundlist
                 if cancel.is_set():
                     self._find_apply_after_id = None
@@ -2283,6 +2305,7 @@ class Editor(Buffer):
             threading.Thread(target=do_search, daemon=True).start()
 
         def updateff(event=None):
+            """Re-run the find after a keypress, except Return and Ctrl combinations."""
             if (
                 not event
                 or event
@@ -2341,6 +2364,7 @@ class Editor(Buffer):
         )
 
         def close_find():
+            """Cancel any running search and remove the find highlights and the bar."""
             if search_cancel[0]:
                 search_cancel[0].set()
             if self._find_apply_after_id is not None:
@@ -2352,6 +2376,7 @@ class Editor(Buffer):
             ok.destroy()
 
         def on_type_modified(event):
+            """Close the find bar when the text is edited."""
             event.widget.edit_modified(False)
             close_find()
 
@@ -3053,6 +3078,7 @@ class Editor(Buffer):
                             state.root.error("Error", msg)
 
         def do_hl():
+            """Build the highlight operations of every snapshot off the main thread."""
             results = [
                 (
                     member,
@@ -3067,6 +3093,7 @@ class Editor(Buffer):
             self._main_queue.put(lambda: _finish_all(results))
 
         def _done():
+            """Finish highlighting and start any highlight queued meanwhile."""
             self._ha_running[0] = False
             pending = self._ha_pending[0]
             if pending is not None:
@@ -3074,7 +3101,10 @@ class Editor(Buffer):
                 self.ha(pending)
 
         def _finish_all(results):
+            """Apply the results one view at a time on the main thread."""
+
             def _process(i):
+                """Apply the results from index i on, then continue with the next."""
                 if i >= len(results):
                     _done()
                     return
@@ -3087,6 +3117,7 @@ class Editor(Buffer):
             _process(0)
 
         def _finish_one(member, own_type, top, bottom, text, ops, on_done):
+            """Apply one view's results, unless its text changed in the meantime."""
             try:
                 if not own_type.winfo_exists():
                     on_done()
@@ -3938,6 +3969,9 @@ class Editor(Buffer):
         return self._delete_word(False)
 
     def _delete_word(self, forward):
+        """Delete the selection if the cursor is in it, else the word before the
+        cursor, or after it if forward is True.
+        """
         if self.selectionpoint:
             self.removeselpoint()
         self._set_undo_mark()
@@ -4229,6 +4263,7 @@ class Editor(Buffer):
     # selection in the matching LaTeX markup (no-op if nothing is
     # selected, except where noted).
     def boldlatex(self):
+        """Wrap the selected text in LaTeX bold."""
         try:
             select = self.type_.get("sel.first", "sel.last")
         except Exception:
@@ -4241,6 +4276,7 @@ class Editor(Buffer):
         self.keypress()
 
     def italiclatex(self):
+        """Wrap the selected text in LaTeX italics."""
         try:
             select = self.type_.get("sel.first", "sel.last")
         except Exception:
@@ -4253,6 +4289,7 @@ class Editor(Buffer):
         self.keypress()
 
     def underlinelatex(self):
+        """Wrap the selected text in a LaTeX underline."""
         try:
             select = self.type_.get("sel.first", "sel.last")
         except Exception:
@@ -4265,6 +4302,7 @@ class Editor(Buffer):
         self.keypress()
 
     def subscriptlatex(self):
+        """Make the selected text a LaTeX subscript."""
         try:
             select = self.type_.get("sel.first", "sel.last")
         except Exception:
@@ -4277,6 +4315,7 @@ class Editor(Buffer):
         self.keypress()
 
     def superscriptlatex(self):
+        """Make the selected text a LaTeX superscript."""
         try:
             select = self.type_.get("sel.first", "sel.last")
         except Exception:

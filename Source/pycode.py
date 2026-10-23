@@ -174,6 +174,7 @@ class PyCodeFunction:
     """
 
     def __init__(self, name):
+        """Create the function container for the Python name name."""
         self.name = name
 
 
@@ -283,10 +284,12 @@ class PyCodeNameTranslator(ast.NodeTransformer):
     """
 
     def __init__(self, defined):
+        """Create the translator for the functions in the defined dict."""
         self.defined = defined
         self.scopes = [set()]  # The names bound inside the expression
 
     def visit_Name(self, node):
+        """Replace a PyCode function's name with its Python expression."""
         if isinstance(node.ctx, ast.Load) and not any(
             node.id in scope for scope in self.scopes
         ):
@@ -297,11 +300,15 @@ class PyCodeNameTranslator(ast.NodeTransformer):
         return node
 
     def visit_NamedExpr(self, node):
+        """Visit the value, then record the name it binds in the current scope."""
         node.value = self.visit(node.value)
         self.scopes[-1].add(node.target.id)
         return node
 
     def visit_Lambda(self, node):
+        """Translate a lambda's defaults and body, with its parameters as a new
+        scope.
+        """
         arguments = node.args
         arguments.defaults = [self.visit(default) for default in arguments.defaults]
         arguments.kw_defaults = [
@@ -315,6 +322,7 @@ class PyCodeNameTranslator(ast.NodeTransformer):
         return node
 
     def translate_comprehension(self, node, elements):
+        """Translate a comprehension's parts, with its targets as a new scope."""
         generators = node.generators
         generators[0].iter = self.visit(generators[0].iter)  # Outside the scope
         self.scopes.append(
@@ -336,11 +344,13 @@ class PyCodeNameTranslator(ast.NodeTransformer):
         return node
 
     def visit_ListComp(self, node):
+        """Translate a list comprehension (also used for sets and generators)."""
         return self.translate_comprehension(node, ["elt"])
 
     visit_SetComp = visit_GeneratorExp = visit_ListComp
 
     def visit_DictComp(self, node):
+        """Translate a dict comprehension."""
         return self.translate_comprehension(node, ["key", "value"])
 
 
@@ -356,6 +366,7 @@ def pycodeparse(code, defined, inwhat="of code"):
     string_spans = sorted(strings.items())
 
     def error(index, message):
+        """A PyCodeError pointing at the character at index."""
         return pycode_error(code, index, inwhat, message)
 
     def trim(start, end):
@@ -513,6 +524,7 @@ def pycodeparse(code, defined, inwhat="of code"):
                 i += 1
 
         def is_value_word(word):
+            """Whether word is a name or value rather than a Python keyword."""
             return not keyword.iskeyword(word) or word in ("True", "False", "None")
 
         def starts_control(token):
@@ -956,6 +968,7 @@ def pcopenhelp(thing):
 
 
 def pctermexec(command):
+    """Run command in the terminal and show its output."""
     utils.show("output: " + terminal.termexec(command))
 
 
@@ -971,6 +984,7 @@ def pcrepeatx(command, n):
 
 
 def pcfullscreen():
+    """Make the window fullscreen."""
     pcrunhook("before", "fullscreen")
     state.root.update()
     state.root.attributes("-fullscreen", True)
@@ -980,6 +994,7 @@ def pcfullscreen():
 
 
 def pcunfullscreen():
+    """Leave fullscreen mode."""
     pcrunhook("before", "un-fullscreen")
     state.root.update()
     state.root.attributes("-fullscreen", False)
@@ -989,6 +1004,7 @@ def pcunfullscreen():
 
 
 def pcmax():
+    """Maximize the window."""
     pcrunhook("before", "maximize-window")
     state.root.update()
     if platform.system() == "Linux":
@@ -1001,6 +1017,7 @@ def pcmax():
 
 
 def pcunmax():
+    """Restore the window from being maximized."""
     pcrunhook("before", "unmaximize-window")
     state.root.update()
     if platform.system() == "Linux":
@@ -1013,6 +1030,7 @@ def pcunmax():
 
 
 def pcmin():
+    """Minimize the window."""
     pcrunhook("before", "minimize-window")
     state.root.iconify()
     pcrunhook("after", "minimize-window")
@@ -1043,10 +1061,12 @@ def pcrunhook(when, event, commandinput=None):
 
 
 def pcask(askstring):
+    """Ask the user for text with the given prompt and return it."""
     return state.root.askstring("PyCode Input", askstring)
 
 
 def pccopytext(text):
+    """Copy text to the clipboard."""
     state.root.clipboard_clear()
     state.root.clipboard_append(text)
     utils.show(f"copied '{text}'")
@@ -1064,6 +1084,7 @@ def pcgosettitle(title=None):
 
 
 def pcunsettitle():
+    """Stop overriding the window title and show the active buffer's again."""
     utils.show("unset window title")
     state.pcsettitle = False
     if getattr(state.active, "title", False):
@@ -1111,10 +1132,14 @@ def pccolor(name, *args, **kwargs):
 
 
 def pcneweditfile(orient="horizontal"):
+    """Open a new editor split off from the current one."""
     window.neweditor(True, orient)
 
 
 def pcsplitedit(n=None, orient="horizontal"):
+    """Split buffer number n (default: the current one) into a second
+    view of its file, side by side or stacked according to orient.
+    """
     if n is None:
         n = state.buffindex
     else:
@@ -1135,6 +1160,7 @@ def pcsplitedit(n=None, orient="horizontal"):
 
 
 def pcruncode():
+    """Run the active editor's code."""
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1146,102 +1172,131 @@ def pcruncode():
 # (see help.helppycode()) named after the tkinter/PyNotes action it
 # forwards to.
 def pccopy(*args, **kwargs):
+    """Copy the selection of the active buffer."""
     if not hasattr(state.active, "cp"):
         return
     return state.active.cp(*args, **kwargs)
 
 
 def pccut(*args, **kwargs):
+    """Cut the selection of the active buffer."""
     if not hasattr(state.active, "cut"):
         return
     return state.active.cut(*args, **kwargs)
 
 
 def pcfindreplace(*args, **kwargs):
+    """Forward to the active editor's find and replace; do nothing if it isn't an
+    editor.
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.fr(*args, **kwargs)
 
 
 def pcfindtext(*args, **kwargs):
+    """Forward to the active editor's find; do nothing if it isn't an editor."""
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.f(*args, **kwargs)
 
 
 def pcget(*args, **kwargs):
+    """Get text from the active editor's text widget."""
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.type_.get(*args, **kwargs)
 
 
 def pcgotoline(*args, **kwargs):
+    """Forward to the active editor's go to line; do nothing if it isn't an editor."""
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.gl(*args, **kwargs)
 
 
 def pchmode(*args, **kwargs):
+    """Forward to the active editor's highlight-mode command; do nothing if it isn't
+    an editor.
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.pchmode(*args, **kwargs)
 
 
 def pcinsert(*args, **kwargs):
+    """Insert text into the active editor's text widget."""
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.type_.insert(*args, **kwargs)
 
 
 def pcnewfile(*args, **kwargs):
+    """Forward to the active editor's new file command; do nothing if it isn't an
+    editor.
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.nw(*args, **kwargs)
 
 
 def pcopenfile(*args, **kwargs):
+    """Forward to the active editor's open file command; do nothing if it isn't an
+    editor.
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.llld(*args, **kwargs)
 
 
 def pcpageback(*args, **kwargs):
+    """Go to the previous page of the active buffer."""
     if not hasattr(state.active, "ptb"):
         return
     return state.active.ptb(*args, **kwargs)
 
 
 def pcpageforw(*args, **kwargs):
+    """Go to the next page of the active buffer."""
     if not hasattr(state.active, "ptf"):
         return
     return state.active.ptf(*args, **kwargs)
 
 
 def pcpaste(*args, **kwargs):
+    """Paste into the active buffer."""
     if not hasattr(state.active, "pst"):
         return
     return state.active.pst(*args, **kwargs)
 
 
 def pcredo(*args, **kwargs):
+    """Redo in the active buffer."""
     if not hasattr(state.active, "redo"):
         return
     return state.active.redo(*args, **kwargs)
 
 
 def pcremoveselectionpoint(*args, **kwargs):
+    """Forward to the active editor's remove-selection-point command; do nothing if
+    it isn't an editor.
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.removeselpoint(*args, **kwargs)
 
 
 def pcsaveasfile(*args, **kwargs):
+    """Forward to the active editor's save-as command; do nothing if it isn't an
+    editor.
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.ssv(*args, **kwargs)
 
 
 def pcsavefile(*args, **kwargs):
+    """Forward to the active editor's save command; do nothing if it isn't an editor."""
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.sssv(*args, **kwargs)
@@ -1284,42 +1339,55 @@ def pcdeletekey():
 
 
 def pcselall(*args, **kwargs):
+    """Forward to the active editor's select-all command; do nothing if it isn't an
+    editor.
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.selall(*args, **kwargs)
 
 
 def pcsetselectionpoint(*args, **kwargs):
+    """Forward to the active editor's set-selection-point command; do nothing if it
+    isn't an editor.
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.setselpoint(*args, **kwargs)
 
 
 def pcspeaktext(*args, **kwargs):
+    """Run the active buffer's speak command."""
     if not hasattr(state.active, "spk"):
         return
     return state.active.spk(*args, **kwargs)
 
 
 def pctag(*args, **kwargs):
+    """Add a tag to a range of the active editor's text widget."""
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.type_.tag_add(*args, **kwargs)
 
 
 def pctoggleselectionpoint(*args, **kwargs):
+    """Forward to the active editor's toggle-selection-point command; do nothing if
+    it isn't an editor.
+    """
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.toggleselpoint(*args, **kwargs)
 
 
 def pcundo(*args, **kwargs):
+    """Undo in the active buffer."""
     if not hasattr(state.active, "undo"):
         return
     return state.active.undo(*args, **kwargs)
 
 
 def pcuntag(*args, **kwargs):
+    """Remove a tag from a range of the active editor's text widget."""
     if not isinstance(state.active, editor.Editor):
         return
     return state.active.type_.tag_remove(*args, **kwargs)
@@ -1479,6 +1547,7 @@ def pcuncommentselection():
 
 
 def pccleareditor():
+    """Clear the active editor after the user confirms."""
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1492,6 +1561,7 @@ def pccleareditor():
 
 
 def pcselecttext(a, b):
+    """Select the text from a to b in the active editor."""
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1501,6 +1571,7 @@ def pcselecttext(a, b):
 
 
 def pcgetselection():
+    """The (start, end) indices of the active editor's selection, or an empty tuple."""
     if not isinstance(state.active, editor.Editor):
         return
     try:
@@ -1529,6 +1600,7 @@ def pcmark(a, b=None):
 
 
 def pcmarkselection():
+    """Mark the active editor's selection."""
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1544,6 +1616,7 @@ def pcmarkselection():
 
 
 def pcunmark(a, b=None):
+    """Unmark the region from a to b, or the (start, end) pair given as a."""
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1556,6 +1629,7 @@ def pcunmark(a, b=None):
 
 
 def pcunmarkall():
+    """Unmark all text in the active editor."""
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1577,6 +1651,7 @@ def pctkindex(toindex, line=False):
 
 
 def pcdelete(*args, **kwargs):
+    """Delete text from the active editor's text widget."""
     if not isinstance(state.active, editor.Editor):
         utils.show("not an editor")
         return
@@ -1660,6 +1735,7 @@ def _pcpyblocks(text):
     blocks = []
 
     def add(headerline, suite, keyword=None):
+        """Record the block with the given header line and suite."""
         if keyword is None:
             words = lines[headerline - 1].split()
             keyword = words[0].rstrip(":") if words else "block"
@@ -1668,6 +1744,7 @@ def _pcpyblocks(text):
         blocks.append((headerline, suite[-1].end_lineno, keyword))
 
     def findkeywordline(suite, keyword):
+        """The line of the closest keyword line above the suite's first statement."""
         for ln in range(suite[0].lineno, 0, -1):
             if re.match(rf"\s*{keyword}\s*:", lines[ln - 1]):
                 return ln
@@ -2477,6 +2554,7 @@ def pcapplykeybindings():
         buffer_test = "" if editors else "not "
 
         def bindhandler(key_part, handler_t, handler_r, standalone_r):
+            """Add the code binding key_part to the editors and, if needed, the root."""
             type_bind_cdt.append(
                 f"for editor in all_buffers: (bindrecur(editor, '{key_part}', lambda event, editor = editor: {handler_t}) if {buffer_test}isinstance(editor, Editor) else None)"
             )
@@ -2719,10 +2797,16 @@ def pc():
         return name
 
     def define(todefine):
+        """Insert PyCode for todefine (a function, variable, startup code, or
+        keyboard shortcut) into the code editor, after asking for what it needs.
+        """
+
         def shortcutselected():
+            """Store the key combination currently shown."""
             shortcut.append(showkey.cget("text"))
 
         def keypressforshortcut(event):
+            """Show the key combination of event, modifiers first."""
             state = event.state
             key = event.keysym
             keycombination = []
@@ -2871,6 +2955,7 @@ def pc():
     commanddone = []
 
     def setcommand(command):
+        """Queue command to run, or hide the buttons if it is "Done"."""
         if command == "Done":
             hidebuttons()
             commanddone.append("True")
@@ -2878,6 +2963,7 @@ def pc():
             commandtodo.append(command)
 
     def hidebuttons():
+        """Hide the command buttons and the Done button."""
         for button in buttons:
             button.grid_forget()
         pccmddonebutton.pack_forget()

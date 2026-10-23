@@ -450,7 +450,6 @@ class _FramedWidget(_WidgetPlumbing, tk.Frame):
 
     def paint_extras(self, chrome, width, height):
         """Hook for subclasses to draw more on the chrome (arrows); nothing by default."""
-        pass
 
 
 def _select_all_in_entry(entry):

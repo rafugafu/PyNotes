@@ -65,6 +65,7 @@ def load_user_themes():
     """Refresh the themes list."""
 
     def _valid_color(color):
+        """Whether color is a color name or code that tkinter accepts."""
         try:
             state.root.winfo_rgb(color)
         except Exception:
@@ -73,6 +74,7 @@ def load_user_themes():
             return True
 
     def _check_valid_themes(*themes_to_check):
+        """Raise AssertionError unless every theme in each dict is valid."""
         for themes_list in themes_to_check:
             assert type(themes_list) == dict, "Invalid user themes"
             for name, theme in themes_list.items():
@@ -135,6 +137,7 @@ class EnabledLookTextbox(ctk.Textbox):
     _ALL_ENABLED_LOOK_TEXTBOXES = weakref.WeakSet()
 
     def __init__(self, *args, **kwargs):
+        """Create the textbox and give it its enabled look."""
         super().__init__(*args, **kwargs)
         self._ALL_ENABLED_LOOK_TEXTBOXES.add(self)
         self.refresh_enabled_look()
@@ -217,12 +220,14 @@ def prompt(text, autocompletefunc=None, defaultinput=None, history=[]):
     """
 
     def check_edit(event, text, promptend):
-        nonlocal i
-        nonlocal current_history
         """Re-pin the prompt prefix after each keypress and hide the
         autocomplete list; block BackSpace from eating into the prompt.
         Move the current typed text to the bottom of the history if it
-        is not already."""
+        is not already.
+        """
+        nonlocal i
+        nonlocal current_history
+
         state.cmdentry.delete("1.0", promptend)
         state.cmdentry.insert("1.0", text)
         state.cmdentry.tag_add("prompt", "1.0", promptend)
@@ -419,6 +424,7 @@ class ErrorHandler:
     """
 
     def __init__(self):
+        """Create the handler; the error window opens on the first error."""
         self.win = None
         self.textbox = None
 
@@ -430,6 +436,7 @@ class ErrorHandler:
         if error.strip():
 
             def _do_write(error=error):
+                """Show the error in the error window, opening it if needed."""
                 threading.Thread(
                     target=state.console.dialog,
                     args=("Error", error, "41m"),
@@ -464,7 +471,7 @@ class ErrorHandler:
             state.root.after(0, _do_write)
 
     def flush(self):
-        pass
+        """Do nothing: writes are shown immediately, so there is nothing to flush."""
 
 
 def _report_callback_exception(exc, val, tb):

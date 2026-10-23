@@ -24,6 +24,7 @@ def faketerm(command):
     import canvastk as ctk
 
     def error(title, message):
+        """Show an error dialog in both the console and the graphical window."""
         threading.Thread(
             target=state.console.dialog, args=(title, message, "41m"), daemon=True
         ).start()
@@ -106,6 +107,7 @@ def _race_console_box(title, prompttext, defaultinput, *args, **kwargs):
     winner = {}
 
     def poll():
+        """Take the console's answer if one has arrived, else check again soon."""
         if "result" in winner:
             return
         try:
@@ -157,6 +159,7 @@ def _race_console_graphical(title, prompttext, native_dialog_call):
     before = set(state.root.winfo_children())
 
     def poll():
+        """Take the console's answer and close the dialog, else check again soon."""
         if "result" in winner:
             return
         try:

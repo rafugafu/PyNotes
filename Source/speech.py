@@ -42,6 +42,7 @@ def st():
         global audio
 
         def callback(indata, frames, time, status):
+            """Store each block of recorded audio."""
             audio.append(indata.copy())
 
         with sd.InputStream(

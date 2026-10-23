@@ -284,8 +284,6 @@ class _PythonScanCancelled(BaseException):
     isn't produced.
     """
 
-    pass
-
 
 class _PythonScopeBuilder(ast.NodeVisitor):
     """Walks a parsed buffer's AST once, collecting everything
@@ -303,6 +301,7 @@ class _PythonScopeBuilder(ast.NodeVisitor):
     """
 
     def __init__(self):
+        """Start with the module scope and empty accumulators."""
         self.scopes = [
             {
                 "start": 1,
@@ -420,9 +419,11 @@ class _PythonScopeBuilder(ast.NodeVisitor):
             self.add_name(args.kwarg.arg, lineno, "func_arg")
 
     def visit_FunctionDef(self, node):
+        """Visit a function definition."""
         self.visit_function(node)
 
     def visit_AsyncFunctionDef(self, node):
+        """Visit an async function definition."""
         self.visit_function(node)
 
     def visit_function(self, node):
@@ -567,6 +568,7 @@ class _PythonScopeBuilder(ast.NodeVisitor):
                 break
 
     def visit_Lambda(self, node):
+        """Visit a lambda: it gets a scope holding its parameters."""
         end = getattr(node, "end_lineno", node.lineno)
         self.push_scope(
             node.lineno,
@@ -605,15 +607,19 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         self.scope_stack.pop()
 
     def visit_ListComp(self, node):
+        """Visit a list comprehension."""
         self.visit_comp(node)
 
     def visit_SetComp(self, node):
+        """Visit a set comprehension."""
         self.visit_comp(node)
 
     def visit_DictComp(self, node):
+        """Visit a dict comprehension."""
         self.visit_comp(node)
 
     def visit_GeneratorExp(self, node):
+        """Visit a generator expression."""
         self.visit_comp(node)
 
     def _register_lambda(self, name, lineno, lam):
@@ -730,6 +736,9 @@ class _PythonScopeBuilder(ast.NodeVisitor):
         return None
 
     def visit_AnnAssign(self, node):
+        """Record the annotated name as a variable, or as a function if it is a
+        lambda.
+        """
         if isinstance(node.value, ast.Lambda) and isinstance(node.target, ast.Name):
             self.add_name(node.target.id, node.lineno, "func")
             self._register_lambda(node.target.id, node.lineno, node.value)
@@ -742,15 +751,18 @@ class _PythonScopeBuilder(ast.NodeVisitor):
             self.visit(node.value)
 
     def visit_AugAssign(self, node):
+        """Record the augmented assignment's targets as variables."""
         for nm in self.targets(node.target):
             if not isinstance(nm, ast.Attribute):
                 self.add_name(nm.id, node.lineno, "var")
         self.visit(node.value)
 
     def visit_For(self, node):
+        """Visit a for loop."""
         self.visit_for(node)
 
     def visit_AsyncFor(self, node):
+        """Visit an async for loop."""
         self.visit_for(node)
 
     def visit_for(self, node):
@@ -768,9 +780,11 @@ class _PythonScopeBuilder(ast.NodeVisitor):
             self.visit(stmt)
 
     def visit_With(self, node):
+        """Visit a with statement."""
         self.visit_with(node)
 
     def visit_AsyncWith(self, node):
+        """Visit an async with statement."""
         self.visit_with(node)
 
     def visit_with(self, node):
@@ -851,18 +865,21 @@ class _PythonScopeBuilder(ast.NodeVisitor):
                     )
 
     def visit_NamedExpr(self, node):
+        """Record the walrus target as a variable."""
         for nm in self.targets(node.target):
             if not isinstance(nm, ast.Attribute):
                 self.add_name(nm.id, node.lineno, "var")
         self.visit(node.value)
 
     def visit_Global(self, node):
+        """Record the names declared global in the current scope."""
         scope_idx = self.scope_stack[-1]
         for name in node.names:
             self.scopes[scope_idx]["globals"][name] = node.lineno
             self.global_seed_names.add(name)
 
     def visit_Nonlocal(self, node):
+        """Record the names declared nonlocal in the current scope."""
         scope_idx = self.scope_stack[-1]
         for name in node.names:
             self.scopes[scope_idx]["nonlocals"][name] = node.lineno
@@ -1164,6 +1181,7 @@ class _PythonModuleSpec:
     """
 
     def __init__(self, name, origin, search_locations):
+        """Store the module's name, origin path, and package search locations."""
         self.name = name
         self.origin = origin
         self.submodule_search_locations = search_locations
@@ -1703,10 +1721,12 @@ def _python_build_scopes(
     """
 
     def _ck():
+        """Raise _PythonScanCancelled if the buffer changed since the scan began."""
         if gen is not None and buf._python_edit_generation[0] != gen:
             raise _PythonScanCancelled()
 
     def _same_block(l1, l2):
+        """Whether lines l1 and l2 are in the same block (or no blocks are known)."""
         if line_blocks is None or l1 == l2:
             return True
         if not (0 < l1 <= len(line_blocks)) or not (0 < l2 <= len(line_blocks)):
@@ -1715,9 +1735,13 @@ def _python_build_scopes(
         return _b1 != 0 and _b1 == line_blocks[l2 - 1]
 
     def _assign_pairs(targets, value):
+        """Pair each assignment target name with the value assigned to it, if known."""
         pairs = []
 
         def _pair(t, v):
+            """Pair target t with value v, recursing into tuples, lists, and starred
+            names.
+            """
             if isinstance(t, ast.Starred):
                 _pair(t.value, None)
             elif isinstance(t, (ast.Tuple, ast.List)):
@@ -1819,11 +1843,13 @@ def _python_build_scopes(
         line_to_scope[ln] = best_idx
 
     def _scope_for_line(ln):
+        """The index of the innermost scope at line ln, or None."""
         if 0 <= ln < len(line_to_scope):
             return line_to_scope[ln]
         return None
 
     def _scope_for_pos(ln, col):
+        """The index of the innermost scope at line ln and column col, or None."""
         winner = None
         winner_start = None
         for idx, sc in enumerate(builder.scopes):
@@ -1839,6 +1865,10 @@ def _python_build_scopes(
         return winner
 
     def _def_scope_chain(lineno):
+        """The scopes visible from lineno, innermost first, ending with the module.
+
+        Class scopes are skipped unless they are the innermost.
+        """
         chain = []
         _si = _scope_for_line(lineno)
         _inner = _si
@@ -1852,12 +1882,16 @@ def _python_build_scopes(
         return chain
 
     def _rebind_def_scopes(store):
+        """Replace each definition's scope in store with the scope that binds the
+        name.
+        """
         for _rn, _rdefs in store.items():
             for _ri, _rd in enumerate(_rdefs):
                 if len(_rd) > 2:
                     _rdefs[_ri] = (_rd[0], _rd[1], _binding_scope_for(_rn, _rd[2]))
 
     def _binding_scope_of_def(lineno):
+        """The index of the scope a definition at lineno binds its name in."""
         _si = _scope_for_line(lineno)
         if _si is None:
             return 0
@@ -1865,6 +1899,11 @@ def _python_build_scopes(
         return _par if _par is not None else 0
 
     def _binding_scope_for(name, sc_idx):
+        """The index of the scope that binds name for scope sc_idx.
+
+        A global name binds in the module and a nonlocal name in the nearest
+        enclosing function that has it.
+        """
         if sc_idx is None:
             return sc_idx
         sc = builder.scopes[sc_idx]
@@ -1890,6 +1929,11 @@ def _python_build_scopes(
     _ck()
 
     def _call_name_kind(name, lineno):
+        """The kind of what name refers to at lineno, or None if it is unknown.
+
+        The latest definition before lineno wins, looking outward through the
+        enclosing scopes. "_local" means it is bound but its kind is unknown.
+        """
         sidx = _scope_for_line(lineno)
         inner = sidx
         while sidx is not None:
@@ -1930,6 +1974,9 @@ def _python_build_scopes(
     )
 
     def _line_def_at(defs, lineno):
+        """The value of the latest of defs at or before lineno, else of the nearest
+        in the same block, else None.
+        """
         if not defs:
             return None
         _best = None
@@ -1943,6 +1990,7 @@ def _python_build_scopes(
         return _best[1] if _best is not None else None
 
     def _class_origin_at(name, lineno):
+        """Where the class name at lineno comes from in a module, or None."""
         return _line_def_at(class_module_origin.get(name), lineno)
 
     dynamic_class_attrs = {}
@@ -1961,6 +2009,7 @@ def _python_build_scopes(
     global_stmt_positions = []
 
     def _skip_ws(enc, i):
+        """The index of the first byte at or after i that is not a space or tab."""
         while i < len(enc) and enc[i : i + 1] in (b" ", b"\t"):
             i += 1
         return i
@@ -2067,6 +2116,9 @@ def _python_build_scopes(
             _class_def_by_name[_tn.name] = _tn
 
     def _flatten_class_body(body, depth=0):
+        """The assignments in a class body, including those nested in loops,
+        conditions, try blocks, and the like.
+        """
         out = []
         if depth > 60:
             return out
@@ -2090,6 +2142,9 @@ def _python_build_scopes(
         return out
 
     def _compute_class_members(node):
+        """The members of a class: those of its body, plus names set by its
+        assignments.
+        """
         members = _python_inspect_ast_members(node.body)
         for _bstmt in _flatten_class_body(node.body):
             _btgts = (
@@ -2190,6 +2245,7 @@ def _python_build_scopes(
         )
 
     def _class_def_line_at(name, lineno):
+        """The line of the definition of class name that applies at lineno, or None."""
         _lns = class_def_lines.get(name)
         if not _lns:
             return None
@@ -2231,6 +2287,9 @@ def _python_build_scopes(
             _class_first_line[_tn.name] = _tn.lineno
 
     def _class_key_at(name, lineno):
+        """The key of the class name at lineno; a redefined class gets its line
+        added.
+        """
         _dl = _class_def_line_at(name, lineno)
         if _dl is None or _dl == _class_first_line.get(name):
             return name
@@ -2250,6 +2309,7 @@ def _python_build_scopes(
     _ck()
 
     def _node_class_key(node):
+        """The key of the class defined by node, as _class_key_at() gives it."""
         if node.name in local_classes and node.lineno != _class_first_line.get(
             node.name
         ):
@@ -2292,6 +2352,9 @@ def _python_build_scopes(
     module_scope_class_keys -= _nonmodule_scope_class_keys
 
     def _instance_only_attr(clskey, attr):
+        """Whether attr is only set on instances (via self) in the class and its
+        bases.
+        """
         for _ioc in _python_c3_linearize(clskey, class_bases, frozenset()):
             if attr in _class_body_members.get(_ioc, ()):
                 return False
@@ -2464,6 +2527,9 @@ def _python_build_scopes(
     var_attr_types = {}
 
     def _var_attr_type_at(sc_idx, name, attr, lineno):
+        """The type of attribute attr of variable name at lineno, looking outward
+        through the enclosing scopes, or None.
+        """
         sidx = sc_idx
         inner = sidx
         while sidx is not None:
@@ -2506,6 +2572,9 @@ def _python_build_scopes(
         _inherited_method_params.update(seed_inherited.get("method_params", ()))
 
     def _python_merge_class_bases():
+        """Add the members, attribute types, and method parameters each local class
+        inherits from its local bases.
+        """
         for cls in list(class_bases):
             if cls not in local_classes:
                 continue
@@ -2571,6 +2640,7 @@ def _python_build_scopes(
         local_classes.setdefault(_bname, dict(_bmembers))
 
     def _name_is_class_at(name, lineno):
+        """Whether name refers to a locally defined class at lineno."""
         if name not in local_classes:
             return False
         _k = _call_name_kind(name, lineno)
@@ -2626,6 +2696,7 @@ def _python_build_scopes(
                 module_contents[_dmt] = _dmems
 
     def _real_module_name(name):
+        """The module name that name stands for, which differs for dotted imports."""
         return _dotted_module_targets.get(name, name)
 
     _ck()
@@ -2761,6 +2832,7 @@ def _python_build_scopes(
                 )
 
     def _base_module_at(name, lineno):
+        """The module that the alias name stands for at lineno, or None."""
         return _line_def_at(base_to_module.get(name), lineno)
 
     for _dsc, _dln, _dname, _dmod, _dbuiltin in builder.dynamic_imports:
@@ -2784,6 +2856,9 @@ def _python_build_scopes(
             _dnames.append((_dln, "module"))
 
     def _resolve_name_kind_scope(scope_idx, name, lineno):
+        """The kind of name as seen from scope_idx at lineno, looking outward through
+        the enclosing scopes, or None if it is unknown.
+        """
         sidx = scope_idx
         inner = sidx
         while sidx is not None:
@@ -2818,6 +2893,10 @@ def _python_build_scopes(
         return None
 
     def _pick_scoped_def(defs, lineno, default):
+        """The value of the definition in defs that applies at lineno, else default.
+
+        Scopes are tried from the innermost outward.
+        """
         for _sidx in _def_scope_chain(lineno):
             best = None
             latest = None
@@ -2837,12 +2916,14 @@ def _python_build_scopes(
         return default
 
     def _func_params_at(name, lineno):
+        """The parameters of function name at lineno, or None if it isn't known."""
         defs = builder.func_params.get(name)
         if not defs:
             return None
         return _pick_scoped_def(defs, lineno, None)
 
     def _func_accepts_any_at(name, lineno):
+        """Whether function name at lineno accepts any arguments."""
         defs = builder.func_accepts_any.get(name)
         if not defs:
             return False
@@ -2922,6 +3003,10 @@ def _python_build_scopes(
     _attr_alias_func_origins = []
 
     def _dotted_chain_parts(node):
+        """Split an attribute chain like a.b.c into ("a", ["b", "c"]).
+
+        The result is (None, None) if the chain doesn't start with a name.
+        """
         attrs = []
         cur = node
         while isinstance(cur, ast.Attribute):
@@ -2933,6 +3018,7 @@ def _python_build_scopes(
         return None, None
 
     def _resolve_local_class_dotted(base, attrs, lineno):
+        """Resolve a dotted chain of local classes to the parameters of its end."""
         if not _name_is_class_at(base, lineno):
             return None
         _key = _class_key_at(base, lineno)
@@ -2955,6 +3041,7 @@ def _python_build_scopes(
         return None
 
     def _resolve_dotted_alias(base, attrs, lineno):
+        """Resolve a dotted chain that starts at an imported module alias."""
         mod = _base_module_at(base, lineno)
         if mod is None:
             return _resolve_local_class_dotted(base, attrs, lineno)
@@ -3105,6 +3192,11 @@ def _python_build_scopes(
             local_def_lines.setdefault(_aname, []).append(_aln)
 
     def _lookup_module_callable(mod_name, key, seen=None):
+        """Look for key in module mod_name, following its imports.
+
+        The result is (found, parameters), or (None, None) if there is no such key.
+        seen guards against import cycles.
+        """
         if seen is None:
             seen = set()
         if (mod_name, key) in seen:
@@ -3132,6 +3224,9 @@ def _python_build_scopes(
         return None, None
 
     def _resolve_through_module(mod_name, rest):
+        """Walk the dotted names in rest from module mod_name through submodules
+        and members, and look up what they end at.
+        """
         cur_mod = mod_name
         idx = 0
         while idx < len(rest):
@@ -3160,6 +3255,7 @@ def _python_build_scopes(
         return None, None
 
     def _params_for_dotted(dotted, lineno):
+        """The (found, parameters) of the callable named by the dotted name list."""
         if not dotted:
             return None, None
         root = dotted[0]
@@ -3365,6 +3461,7 @@ def _python_build_scopes(
     container_elem_types = {}
 
     def _elem_type_name(v, lineno):
+        """The class name of the element value v builds, or None."""
         if isinstance(v, ast.Call) and isinstance(v.func, ast.Name):
             _en = v.func.id
             if _en in local_classes and _name_is_class_at(_en, lineno):
@@ -3707,6 +3804,7 @@ def _python_build_scopes(
                     )
 
     def _fp_class_at(name, lineno):
+        """The class that owns the method whose first parameter is name at lineno."""
         best = None
         for ms, me, fp, cn in method_fp_ranges:
             if ms <= lineno <= me and name == fp and (best is None or ms > best[0]):
@@ -3714,6 +3812,9 @@ def _python_build_scopes(
         return best[1] if best else None
 
     def _var_type_at(name, lineno, col=None):
+        """The type of variable name at lineno, looking outward through the
+        enclosing scopes, or None.
+        """
         sidx = _scope_for_line(lineno) if col is None else _scope_for_pos(lineno, col)
         inner = sidx
         while sidx is not None:
@@ -3737,6 +3838,7 @@ def _python_build_scopes(
         return None
 
     def _assign_type_name(val, lineno):
+        """The type name of the value val assigned at lineno, or None."""
         if isinstance(val, ast.Call):
             func = val.func
             if isinstance(func, ast.Name):
@@ -3761,6 +3863,7 @@ def _python_build_scopes(
         return None
 
     def _literal_type(node):
+        """The type name of a literal node, or None if it is not a literal."""
         if isinstance(node, ast.Constant):
             return type(node.value).__name__
         if isinstance(node, ast.JoinedStr):
@@ -3776,6 +3879,7 @@ def _python_build_scopes(
         return None
 
     def _module_attr_kind(mod, attr):
+        """The kind of attribute attr of module mod, or None if it isn't known."""
         _mm = _python_resolve_module_members(buf, mod)
         _k = _mm.get(attr)
         if _k is not None:
@@ -3796,6 +3900,7 @@ def _python_build_scopes(
         return None
 
     def _assign_value_kind(val, lineno):
+        """The kind (func, class, module, and so on) of the value val, or None."""
         if val is None:
             return None
         val = _python_unwrap_descriptor(val)
@@ -3835,6 +3940,7 @@ def _python_build_scopes(
         return None
 
     def _value_type(val, lineno):
+        """The type of val as a tuple like ("builtin", name) or ("module", name)."""
         val = _python_unwrap_descriptor(val)
         _blt = _literal_type(val)
         if _blt is not None and _blt in _PYTHON_BUILTIN_MEMBERS:
@@ -3955,6 +4061,7 @@ def _python_build_scopes(
                         class_attr_types.setdefault(_unk, {})[_utgt.attr] = _uvt
 
     def _elem_type_at(name, lineno):
+        """The element type of the container name at lineno, or None."""
         sidx = _scope_for_line(lineno)
         inner = sidx
         while sidx is not None:
@@ -3976,6 +4083,7 @@ def _python_build_scopes(
         return None
 
     def _infer_type(node):
+        """Infer the type of an expression node, or None if it can't be told."""
         if isinstance(node, ast.NamedExpr):
             return _infer_type(node.value)
         if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
@@ -4414,6 +4522,9 @@ def _python_build_scopes(
                 ).append((_vn.lineno, _cmod, _ccls))
 
     def _var_modclass_at(name, lineno, col=None):
+        """The module class that variable name holds an instance of at lineno,
+        looking outward through the enclosing scopes, or None.
+        """
         sidx = _scope_for_line(lineno) if col is None else _scope_for_pos(lineno, col)
         inner = sidx
         while sidx is not None:
@@ -4614,6 +4725,7 @@ def _python_build_scopes(
             call_kwargs.setdefault(_cdk_ln, set()).add(_cdk_arg)
 
     def _resolve_kind_in(start_idx, name, lineno):
+        """The kind of name at lineno, looking outward from scope start_idx."""
         sidx = start_idx
         inner = sidx
         while sidx is not None:
@@ -4710,6 +4822,9 @@ def _python_build_scopes(
     global_stmt_kind_positions = {}
 
     def _gs_best(defs):
+        """The value of the latest of defs at or before the statement, else the
+        latest overall.
+        """
         best = None
         for _dl, _dv in defs:
             if _dl <= _gsend and (best is None or _dl > best[0]):
@@ -4886,6 +5001,7 @@ def _python_scan_start(buf):
     text = buf.type_.get("1.0", "end")
 
     def _get_and_scan():
+        """Scan the names, ignoring a cancelled or failed scan."""
         try:
             _python_scan_names(buf, text, gen)
         except _PythonScanCancelled:
@@ -5157,6 +5273,7 @@ def _python_highlight_ops(
         line_scope_candidates[line] = _cands
 
     def _resolve_scope_idx(line, col):
+        """The key of the innermost scope containing line and col, or None."""
         winner = None
         winner_start = None
         for (
@@ -5215,6 +5332,10 @@ def _python_highlight_ops(
     _active_cache = {}
 
     def _active_for(abs_line, scope_idx):
+        """The names active at abs_line within scope_idx, by kind.
+
+        Results are cached per (abs_line, scope_idx).
+        """
         _ckey = (abs_line, scope_idx)
         if _ckey in _active_cache:
             return _active_cache[_ckey]
@@ -5566,6 +5687,7 @@ class _PythonStandaloneScanHost:
     title = None
 
     def __init__(self):
+        """Start with empty module caches and an edit generation that never changes."""
         self._python_edit_generation = [0]
         self._python_module_spec_cache = {}
         self._python_module_members_cache = {}

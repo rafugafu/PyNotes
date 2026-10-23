@@ -79,15 +79,19 @@ def prf():
             state.root.error("Error", error, parent=pr)
 
     def setts(val):
+        """Set whether Tab inserts a tab character or spaces."""
         state.taborspace = val
 
     def setffre(val):
+        """Set whether the search bar uses Emacs-style keys."""
         state.emacskeysforsearch = val
 
     def setnoguifd(val):
+        """Set whether file dialogs are console-only instead of graphical."""
         state.nographicalfiledialogs = val
 
     def bf(opt):
+        """Set whether files are backed up regularly."""
         state.bfr = opt
 
     def adddict():

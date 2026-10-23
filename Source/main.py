@@ -494,15 +494,21 @@ state.cmdautocomplete = utils.EnabledLookCursorTextbox(
 # Populate every shared menu (state.fm, state.em, ...) each buffer type
 # assembles its own menu bar from; see init.setup_app() and
 # window.update_menus().
+
+# Plugins menu.
 state.plgnm.add_command(label="Download From PyNotes' GitHub", command=dp)
 state.plgnm.add_command(label="Open Plugins Directory", command=op)
 state.plgnm.add_separator()
 state.plgnm.add_command(label="Help with Adding Plugins", command=ap)
+
+# Run items of the Python and LaTeX menus (added to editors in those modes).
 state.pm.add_command(label="Run", accelerator="F5", command=lambda: state.active.rp())
 state.lm.add_command(
     label="Run LuaLaTeX", accelerator="F5", command=lambda: state.active.runtex("lua")
 )
 state.lm.add_command(label="Run PdfLaTeX", command=lambda: state.active.runtex("pdf"))
+
+# Edit menu of the editor.
 state.em.add_command(
     label="Undo",
     accelerator="Ctrl + Z / Alt + X - u",
@@ -547,6 +553,8 @@ state.em.add_command(
         else show("cannot select all in current buffer")
     ),
 )
+
+# Help menu.
 state.hm.add_command(label="About", command=abt)
 state.hm.add_command(label=f"What's new in {v}?", command=changes)
 state.hm.add_command(label="Help with commands", accelerator="Alt + X - h", command=hx)
@@ -556,6 +564,8 @@ state.hm.add_command(label="Help with MathGod", command=helpmathgod)
 state.hm.add_command(label="Help with Adding Plugins", command=ap)
 state.hm.add_separator()
 state.hm.add_command(label="Recover backup", command=rb)
+
+# HMode menu: the highlight modes.
 state.hmm.add_command(
     label="Normal",
     accelerator="Alt + X - hmode:norm",
@@ -582,6 +592,8 @@ for hmode in state.plgnhmodes:
         accelerator="Alt + X - hmode:" + hmode,
         command=lambda: pchmode(hmode),
     )
+
+# Edit menu of the terminal and Python shell buffers.
 state.tem.add_command(
     label="Copy",
     accelerator="Ctrl + Shift + C / Alt + X - c",
@@ -610,6 +622,8 @@ state.tem.add_command(
         else show("cannot select all in current buffer")
     ),
 )
+
+# File menu.
 state.fm.add_command(
     label="New",
     accelerator="Ctrl + N / Alt + X - n",
@@ -680,9 +694,13 @@ state.fm.add_separator()
 state.fm.add_command(
     label="Quit PyNotes", accelerator="Ctrl + Q / Alt + X - e", command=ext
 )
+
+# PyCode menu.
 state.pcm.add_command(label="Start", command=pc)
 state.pcm.add_separator()
 state.pcm.add_command(label="Help", command=helppycode)
+
+# Options menu.
 state.om.add_command(label="Preferences", accelerator="Alt + X - prf", command=prf)
 state.om.add_command(
     label="Open PyNotes Source Code", accelerator="Alt + X - source-code", command=ss
@@ -709,6 +727,8 @@ state.om.add_separator()
 state.om.add_command(label="Command", accelerator="Alt + X", command=cmd)
 state.om.add_command(label="PyCode", accelerator="Alt + X - pc", command=pc)
 state.om.add_separator()
+
+# Edit menu: the find items.
 state.em.add_command(
     label="Find", accelerator="Ctrl + F / Alt + X - f", command=lambda: state.active.f()
 )

@@ -31,6 +31,7 @@ class EmailBuffer(Buffer):
     """
 
     def __init__(self, master, *args, **kwargs):
+        """Create the email buffer and its menu, and run its plugin hooks."""
         super().__init__(master, *args, **kwargs)
         self.m = ctk.Menu(state.root)
         for label, menu in state.all_buffer_menus.items():
@@ -74,6 +75,7 @@ class EmailBuffer(Buffer):
             """
 
             def actualremoveattachment(attachment):
+                """Remove the attachment from the list and close the picker window."""
                 del self.attachmentslist[attachment]
                 del attachments[attachment]
                 self.attachmentslistwidget.config(

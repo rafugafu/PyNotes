@@ -15,6 +15,7 @@ import cli
 
 
 def exit(*ags, **kw):
+    """Close the console and exit the interpreter."""
     try:
         cli.close()
     except Exception:
@@ -58,11 +59,13 @@ def ask(title, askinput):
     import canvastk as ctk
 
     def yes():
+        """Close the popup and answer True."""
         global returnval
         askwin.destroy()
         returnval = True
 
     def no():
+        """Close the popup and answer False."""
         global returnval
         askwin.destroy()
         returnval = False
@@ -429,6 +432,7 @@ def load_plugins(no_load_plugins):
 
 
 def _report_callback_exception(*args, **kwargs):
+    """Forward Tk callback exceptions to utils' reporter."""
     import utils
 
     return utils._report_callback_exception(*args, **kwargs)

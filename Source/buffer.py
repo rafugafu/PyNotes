@@ -21,6 +21,7 @@ class Buffer(ctk.Frame):
             state.root.error("Error", f"Error in buffer init functions:\n{error}")
 
     def __init__(self, master, *args, **kwargs):
+        """Create the buffer, its file-info bar, and run the plugin init code."""
         super().__init__(master, *args, **kwargs)
         self.active = False
         # this is intentionally evil

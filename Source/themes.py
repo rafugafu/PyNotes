@@ -695,7 +695,10 @@ def creator():
             starting_radius = previewframe.get_theme()[key]
 
             class numberdisplay:
+                """The label and scale widgets that edit one number setting."""
+
                 def __init__(self, l):
+                    """Store the widgets l (a list: the label and then the scale)."""
                     self.l = l
 
             displays[key] = numberdisplay(
