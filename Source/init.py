@@ -22,7 +22,7 @@ def exit(*ags, **kw):
     sys.exit(*ags, **kw)
 
 
-v = "3.0.0"
+v = "3.0.1"
 DEBOUNCE_TIME = 300
 if platform.system() == "Linux":
     rootdir = "/usr/share/PyNotes"

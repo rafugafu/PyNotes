@@ -60,67 +60,8 @@ state.options, state.files_to_open = argparse(
 
 # The changelog shown by --changes / the "What's new" menu item.
 changelist = [
-
     # 1.
-    """\
-Rewrote PyNotes to use canvastk instead of easytk/ttkbootstrap for amazing aesthetics!
-  - Made many built-in common themes.
-  - Made a custom ttkcreator-like theme creator accessible in preferences.
-  - Made the Linux graphical filedialog also use canvastk's native filedialog instead of zenity.
-  - Made gridpanedwindows which are capable of splitting and reorganizing in any place and direction.
-  - Added drag-and-rdop to buffers to move them (drag the fileinfo bar).\
-""",
-
-    # 2.
-    """\
-Rewrote the entire PyCode language to:!
-  - Be more normal, without using unicode characters for syntax
-  - Keyboard shortcuts and event hooks are now made using normal commands not special syntax
-  - Special startup code does not exist anymore. Instead, code is directly executed statement by \
-statement (all code is like startup code)
-  - Added a special syntax for defining variables and attributes (a = b), not a setvar command
-  - Python functions do not exist anymore
-  - All plain Python expressions are now usable anywhere in PyCode
-  - Have scopes (can have local functions and variables and have global and nonlocak keywords)
-  - Give much better error messages with line number and column of error
-  - Have better, more readable command names
-  - Have comments (# comment)
-  - Be able to give and store a function without calling it (example arg=func)
-  - Rewrote the entire PyCode help text with new sections and better code block textboxes.
-  - Added a testing section to the PyCode help where you can see how PyCode translates to Python live.\
-""",
-
-    # 3.
-    "Added overscroll to editors to see even the last line halfway up the editor textbox!",
-
-    # 4.
-    "Fixed the terminal not deleting old overflowing text on resize.",
-
-    # 5.
-    "Fixed an editor which becomes a split view of another editor not stopping its old file "
-    "change observer.",
-
-    # 6.
-    "Made the PyNotes syntax highlighting module registration search in the editor's working directory "
-    "instead of PyNotes' own sys.path which would not include local project modules and packages, causing "
-    "them to not be highlighted.",
-
-    # 7.
-    "Fixed some text-wrapping and width bugs in the console.",
-
-    # 8.
-    "Made the terminal console not try to show and error when not in a tty and made Terminal=false "
-    "on Linux launchers again.",
-
-    # 9.
-    "Added an option to have block cursors, line cursors, and underline cursors (in preferences).",
-
-    # 10.
-    "Added bracket match highlighting to editors! Controlled using theme keys in preferences.",
-
-    # 11.
-    "Fixed some bugs.",
-
+    "Fixed many bugs across PyNotes.",
 ]
 state.changestr = ""
 for i in range(len(changelist) - 1):
