@@ -113,7 +113,12 @@ def boot_application(root, home, monkeypatch):
     for name in MODULES_WITH_A_HOME_DIRECTORY:
         module = sys.modules.get(name) or __import__(name)
         monkeypatch.setattr(module, "homedir", str(home), raising=False)
-    monkeypatch.setattr(init, "rootdir", str(SOURCE_DIRECTORY))
+    # The installed PyNotes directory (where the icon and the images are) is the
+    # Source directory here. Every module that copied it from init is changed,
+    # as a copy keeps the old value.
+    for name in ("init", "utils", "help"):
+        module = sys.modules.get(name) or __import__(name)
+        monkeypatch.setattr(module, "rootdir", str(SOURCE_DIRECTORY))
     monkeypatch.setattr(sys, "stderr", sys.stderr)
     saved_state = dict(vars(state))
     children_before = set(root.winfo_children())
