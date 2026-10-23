@@ -12,6 +12,7 @@ pure-logic tests (colors, file dialog helpers, theme dictionaries) also run on
 their own.
 """
 
+import inspect
 import os
 import tkinter as tk
 
@@ -35,9 +36,21 @@ def _display_works():
 _HAS_DISPLAY = ALLOWED and _display_works()
 
 
+def _makes_a_window(item):
+    """Whether a test shows a window: it uses the `root` fixture, or makes a
+    Window or Toplevel itself."""
+    if "root" in item.fixturenames:
+        return True
+    try:
+        source = inspect.getsource(item.function)
+    except (OSError, TypeError, AttributeError):
+        return False
+    return "Window(" in source or "Toplevel(" in source
+
+
 def pytest_collection_modifyitems(config, items):
-    """Skip the tests that use the `root` fixture unless windows may be shown
-    and there is a display."""
+    """Skip the tests that show windows unless windows may be shown and there
+    is a display."""
     if _HAS_DISPLAY:
         return
     reason = (
@@ -48,7 +61,7 @@ def pytest_collection_modifyitems(config, items):
     )
     skip = pytest.mark.skip(reason=reason)
     for item in items:
-        if "root" in item.fixturenames and "canvastk_tests" in str(item.fspath):
+        if "canvastk_tests" in str(item.fspath) and _makes_a_window(item):
             item.add_marker(skip)
 
 

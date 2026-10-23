@@ -69,6 +69,25 @@ def pytest_configure(config):
             setattr(state, name, [])
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """With PYNOTES_NO_SKIPS set (as in the CI), a skipped test is a failure,
+    so a test cannot quietly stop running."""
+    outcome = yield
+    report = outcome.get_result()
+    if report.skipped and os.environ.get("PYNOTES_NO_SKIPS"):
+        report.outcome = "failed"
+        report.longrepr = f"skipped, but no test may be skipped here: {report.longrepr}"
+
+
+def pytest_collection_modifyitems(config, items):
+    """Mark every test that uses the window as needing a display, so that -m
+    display selects exactly the tests that need one."""
+    for item in items:
+        if "tk_root" in item.fixturenames:
+            item.add_marker(pytest.mark.display)
+
+
 @pytest.fixture(scope="session")
 def tk_root():
     """One withdrawn PyNotes window for the whole run: it never maps a window,

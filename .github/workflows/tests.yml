@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYNOTES_REQUIRE_OPTIONAL_PACKAGES: "1"
+      PYNOTES_NO_SKIPS: "1"
 
     steps:
       - name: Checkout repository
@@ -30,7 +31,7 @@ jobs:
           python -m pip install pytest pillow numpy sympy matplotlib cairosvg ziamath pdfplumber tika watchdog SpeechRecognition pyttsx3 sounddevice
 
       - name: Run tests without a display
-        run: python -m pytest -m "not display"
+        run: python -m pytest -m "not display" --ignore=tests/canvastk_tests
 
       - name: Run tests that need a display
         run: xvfb-run -a python -m pytest -m display
