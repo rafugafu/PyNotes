@@ -4326,9 +4326,7 @@ class Editor(Buffer):
         try:
             select = self.type_.get("sel.first", "sel.last")
         except Exception:
-            self.type_.insert(
-                "insert", "\n\\begin{itemize}\n\n\\end{itemize}\n"
-            ).replace("\\item \\item ", "\\item ")
+            self.type_.insert("insert", "\n\\begin{itemize}\n\n\\end{itemize}\n")
         else:
             tryfind = re.findall(r"\\begin{itemize}.+\\end{itemize}", select, re.DOTALL)
             if not tryfind:
