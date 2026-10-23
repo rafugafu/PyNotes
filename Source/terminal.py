@@ -257,13 +257,14 @@ def _term_tcl_len(s):
     return sum(2 if ord(c) > 0xFFFF else 1 for c in s)
 
 
-def _term_split_run(run, space):
+def _term_split_run(run, space, force=True):
     """Split off the longest prefix of run that fits within `space`
     terminal columns (counting character widths via
     _term_char_width()), returning (prefix, rest, prefix's width).
-    Always consumes at least one character when run isn't empty, even
-    if that character (e.g. a wide one) doesn't actually fit, so a
-    caller looping on the remainder can't stall.
+    A first character that doesn't fit (a wide one with a single
+    column left) is consumed anyway when force is set, so a caller
+    looping on the remainder can't stall; a caller that handles it
+    itself passes force=False and gets it back in rest.
     """
     width = 0
     i = 0
@@ -271,13 +272,32 @@ def _term_split_run(run, space):
     while i < n:
         w = _term_char_width(run[i])
         if width + w > space:
-            if i == 0:
+            if i == 0 and force:
                 i = 1
                 width = w
             break
         width += w
         i += 1
     return run[:i], run[i:], width
+
+
+def _term_overwrite_chunk(run, space):
+    """What a write of run leaves on a row with `space` columns left
+    when autowrap is off: whatever fits, then the final character
+    overwriting the last column (a wide final character can't fit in
+    one column, so it becomes a blank). Returns (chunk, width).
+    """
+    chunk, rest, width = _term_split_run(run, space, False)
+    if rest:
+        last = run[-1]
+        if _term_char_width(last) == 2:
+            last = " "
+        chunk = _term_split_run(run, max(0, space - 1), False)[0] + last
+        width = sum(_term_char_width(c) for c in chunk)
+        if width < space:
+            chunk += " " * (space - width)
+            width = space
+    return chunk, width
 
 
 def _term_sgr_resolve(state, default_fg, default_bg):
@@ -1201,12 +1221,19 @@ class Terminal(CustomTextbox):
         if _k == n:
             self.delete(f"{top}.0", f"{bot}.end")
             self.insert(f"{top}.0", "\n".join([_blank] * n))
+            _first = top
         elif up > 0:
             self.delete(f"{top}.0", f"{top + _k}.0")
             self.insert(f"{bot - _k}.end", ("\n" + _blank) * _k)
+            _first = bot - _k + 1
         else:
             self.delete(f"{bot - _k}.end", f"{bot}.end")
             self.insert(f"{top}.0", (_blank + "\n") * _k)
+            _first = top
+        _fill = self._term_erase_fill_tag()
+        if _fill is not None:
+            for _r in range(_first, _first + _k):
+                self.tag_add(_fill, f"{_r}.0", f"{_r}.end")
 
     def _osc_colour_reply(self, which, colour):
         """Reply to an OSC color query (e.g. '\\x1b]10;?\\x1b\\\\' asking
@@ -1410,6 +1437,39 @@ class Terminal(CustomTextbox):
             idx += _term_tcl_len(ch)
         return idx
 
+    def _term_split_wide(self, row, col):
+        """Make terminal column col of row a character boundary: a wide
+        character straddling it is replaced by two blank cells, so
+        writing or erasing from col on neither swallows nor leaves
+        behind half of it.
+        """
+        idx = 0
+        c = 0
+        for ch in self.get(f"{row}.0", f"{row}.end"):
+            if c >= col:
+                return
+            w = _term_char_width(ch)
+            n = _term_tcl_len(ch)
+            if w == 2 and c + w > col:
+                self.delete(f"{row}.{idx}", f"{row}.{idx + n}")
+                self.insert(f"{row}.{idx}", "  ")
+                return
+            c += w
+            idx += n
+
+    def _term_move_row(self, row, delta):
+        """The screen row a vertical cursor movement of delta rows from
+        row ends on: going up it stops at the scroll region's top
+        margin from at or below it, going down at its bottom margin
+        from inside the region, otherwise at the screen's edges.
+        """
+        top = self._scroll_top if row >= self._scroll_top else 1
+        if self._scroll_top <= row <= self._scroll_bot:
+            bot = self._scroll_bot
+        else:
+            bot = self._GRID_ROWS
+        return min(max(row + delta, top), bot)
+
     def _term_index_to_col(self, row, index):
         """The terminal column that buffer character offset index on
         row corresponds to (the inverse of _term_col_to_index()).
@@ -1423,6 +1483,7 @@ class Terminal(CustomTextbox):
         """
         row = min(max(1, row), self._GRID_ROWS)
         col = min(max(0, col), self._GRID_COLS)
+        self._term_split_wide(row, col)
         self.mark_set("insert", f"{row}.{self._term_col_to_index(row, col)}")
 
     def _grid_put_run(self, run):
@@ -1455,14 +1516,18 @@ class Terminal(CustomTextbox):
                     self._grid_goto(row, gcol)
             space = self._GRID_COLS - gcol
             if not self._autowrap:
-                chunk, _rest, _w = _term_split_run(run, space)
-                if _rest:
-                    # Everything past the last column overwrites it.
-                    chunk = _term_split_run(run, max(0, space - 1))[0] + run[-1]
+                # Everything past the last column overwrites it.
+                chunk, _w = _term_overwrite_chunk(run, space)
                 run = ""
             else:
-                chunk, run, _w = _term_split_run(run, space)
+                chunk, run, _w = _term_split_run(run, space, space >= self._GRID_COLS)
+                if not chunk:
+                    # A wide character that doesn't fit leaves the last
+                    # column blank and wraps.
+                    chunk = " "
             _chunk_w = sum(_term_char_width(c) for c in chunk)
+            self._term_split_wide(row, gcol)
+            self._term_split_wide(row, gcol + _chunk_w)
             _gidx = self._term_col_to_index(row, gcol)
             _eidx = self._term_col_to_index(row, gcol + _chunk_w)
             self.delete(f"{row}.{_gidx}", f"{row}.{_eidx}")
@@ -1519,6 +1584,7 @@ class Terminal(CustomTextbox):
         _llw = self._term_col_width(_gl)
         if _gc > _llw:
             self.insert(f"{_gl}.end", " " * (_gc - _llw))
+        self._term_split_wide(_gl, _gc)
         self.mark_set("insert", f"{_gl}.{self._term_col_to_index(_gl, _gc)}")
 
     def _primary_scroll_up(self):
@@ -1720,14 +1786,17 @@ class Terminal(CustomTextbox):
                                     )
                                     self.mark_set("insert", f"{ln}.{_gidx}")
                                 elif p[0] == 1:
-                                    self.delete(f"{ln}.0", f"{ln}.{_gidx}")
+                                    _kn = min(gcol + 1, self._GRID_COLS)
+                                    self._term_split_wide(ln, _kn)
+                                    _kidx = self._term_col_to_index(ln, _kn)
+                                    self.delete(f"{ln}.0", f"{ln}.{_kidx}")
                                     self.insert(
                                         f"{ln}.0",
-                                        " " * gcol,
+                                        " " * _kn,
                                         _kfill if _kfill is not None else "",
                                     )
                                     # The newly-blanked prefix is exactly
-                                    # gcol spaces, so gcol is already the
+                                    # _kn spaces, so gcol is already the
                                     # right raw offset here.
                                     self.mark_set("insert", f"{ln}.{gcol}")
                                 else:
@@ -1753,11 +1822,13 @@ class Terminal(CustomTextbox):
                                             f"{ln}.{self._term_col_to_index(ln, col)}",
                                         )
                                 elif p[0] == 1:
-                                    _bidx = self._term_col_to_index(ln, col + 1)
+                                    _bn = min(col + 1, self._GRID_COLS)
+                                    self._term_split_wide(ln, _bn)
+                                    _bidx = self._term_col_to_index(ln, _bn)
                                     self.delete(f"{ln}.0", f"{ln}.{_bidx}")
                                     self.insert(
                                         f"{ln}.0",
-                                        " " * (col + 1),
+                                        " " * _bn,
                                         _efill if _efill is not None else "",
                                     )
                                     self.mark_set("insert", f"{ln}.{col}")
@@ -1915,7 +1986,9 @@ class Terminal(CustomTextbox):
                                     self.mark_set("insert", _ins)
                         elif cmd in ("H", "f"):
                             row_ = p[0] if p[0] else 1
-                            col_ = p[1] if len(p) > 1 and p[1] else 1
+                            col_ = min(
+                                p[1] if len(p) > 1 and p[1] else 1, self._GRID_COLS
+                            )
                             if self._alt_mode:
                                 self._grid_goto(self._origin_row(row_), col_ - 1)
                             else:
@@ -1927,17 +2000,31 @@ class Terminal(CustomTextbox):
                         elif cmd == "A":
                             mv = p[0] or 1
                             if self._alt_mode:
-                                self._grid_goto(int(ln) - mv, int(col))
+                                self._grid_goto(
+                                    self._term_move_row(int(ln), -mv), int(col)
+                                )
                             else:
-                                self._cur_line = max(self.screen_top, int(ln) - mv)
+                                self._cur_line = (
+                                    self.screen_top
+                                    + self._term_move_row(
+                                        int(ln) - self.screen_top + 1, -mv
+                                    )
+                                    - 1
+                                )
                                 self._term_goto(self._cur_line, int(col))
                         elif cmd == "B":
                             mv = p[0] or 1
                             if self._alt_mode:
-                                self._grid_goto(int(ln) + mv, int(col))
+                                self._grid_goto(
+                                    self._term_move_row(int(ln), mv), int(col)
+                                )
                             else:
-                                self._cur_line = min(
-                                    int(ln) + mv, self.screen_top + self._VT_ROWS - 1
+                                self._cur_line = (
+                                    self.screen_top
+                                    + self._term_move_row(
+                                        int(ln) - self.screen_top + 1, mv
+                                    )
+                                    - 1
                                 )
                                 self._vt_sync()
                                 self._term_goto(self._cur_line, int(col))
@@ -1954,17 +2041,29 @@ class Terminal(CustomTextbox):
                         elif cmd == "E":
                             mv = p[0] or 1
                             if self._alt_mode:
-                                self._grid_goto(int(ln) + mv, 0)
+                                self._grid_goto(self._term_move_row(int(ln), mv), 0)
                             else:
-                                self._cur_line = int(ln) + mv
+                                self._cur_line = (
+                                    self.screen_top
+                                    + self._term_move_row(
+                                        int(ln) - self.screen_top + 1, mv
+                                    )
+                                    - 1
+                                )
                                 self._vt_sync()
                                 self.mark_set("insert", f"{self._cur_line}.0")
                         elif cmd == "F":
                             mv = p[0] or 1
                             if self._alt_mode:
-                                self._grid_goto(int(ln) - mv, 0)
+                                self._grid_goto(self._term_move_row(int(ln), -mv), 0)
                             else:
-                                self._cur_line = max(self.screen_top, int(ln) - mv)
+                                self._cur_line = (
+                                    self.screen_top
+                                    + self._term_move_row(
+                                        int(ln) - self.screen_top + 1, -mv
+                                    )
+                                    - 1
+                                )
                                 self.mark_set("insert", f"{self._cur_line}.0")
                         elif cmd == "s" and not _private:
                             if self._alt_mode:
@@ -1996,7 +2095,7 @@ class Terminal(CustomTextbox):
                                 self._vt_sync()
                                 self._term_goto(self._cur_line, _sc)
                         elif cmd == "G":
-                            mv = p[0] or 1
+                            mv = min(p[0] or 1, self._GRID_COLS)
                             if self._alt_mode:
                                 self._grid_goto(int(ln), mv - 1)
                             else:
@@ -2037,13 +2136,13 @@ class Terminal(CustomTextbox):
                         elif cmd == "@":
                             mv = p[0] or 1
                             self.insert("insert", " " * mv)
-                            if self._alt_mode:
-                                # Characters pushed past the right margin
-                                # are lost, not kept in an overlong row.
-                                self.delete(
-                                    f"{ln}.{self._term_col_to_index(ln, self._GRID_COLS)}",
-                                    f"{ln}.end",
-                                )
+                            # Characters pushed past the right margin are
+                            # lost, not kept in an overlong row.
+                            self._term_split_wide(ln, self._GRID_COLS)
+                            self.delete(
+                                f"{ln}.{self._term_col_to_index(ln, self._GRID_COLS)}",
+                                f"{ln}.end",
+                            )
                         elif cmd == "L":
                             if self._alt_mode:
                                 r0 = int(ln)
@@ -2584,19 +2683,7 @@ class Terminal(CustomTextbox):
                 if sp <= 0:
                     i += 1
                     continue
-                _llw = self._term_col_width(self._cur_line)
-                if col > _llw:
-                    self.insert(f"{self._cur_line}.end", " " * (col - _llw))
-                _idx0 = self._term_col_to_index(self._cur_line, col)
-                _idx1 = self._term_col_to_index(self._cur_line, col + sp)
-                self.delete(f"{self._cur_line}.{_idx0}", f"{self._cur_line}.{_idx1}")
-                if self._sgr_tag_cache is None:
-                    self.insert(f"{self._cur_line}.{_idx0}", " " * sp)
-                else:
-                    self.insert(
-                        f"{self._cur_line}.{_idx0}", " " * sp, self._sgr_tag_cache
-                    )
-                self.mark_set("insert", f"{self._cur_line}.{_idx0 + sp}")
+                self._term_goto(self._cur_line, col + sp)
                 i += 1
             elif ch >= " " and ch != "\x7f":
                 j = i
@@ -2618,14 +2705,13 @@ class Terminal(CustomTextbox):
                     if col >= self._GRID_COLS:
                         col = self._GRID_COLS - 1
                     space = self._GRID_COLS - col
-                    chunk, _rest, _w = _term_split_run(run, space)
-                    if _rest:
-                        # Everything past the last column overwrites it.
-                        chunk = _term_split_run(run, max(0, space - 1))[0] + run[-1]
-                        _w = sum(_term_char_width(c) for c in chunk)
+                    # Everything past the last column overwrites it.
+                    chunk, _w = _term_overwrite_chunk(run, space)
                     _llw = self._term_col_width(self._cur_line)
                     if col > _llw:
                         self.insert(f"{self._cur_line}.end", " " * (col - _llw))
+                    self._term_split_wide(self._cur_line, col)
+                    self._term_split_wide(self._cur_line, col + _w)
                     _idx0 = self._term_col_to_index(self._cur_line, col)
                     _idx1 = self._term_col_to_index(self._cur_line, col + _w)
                     self.delete(
@@ -2659,10 +2745,18 @@ class Terminal(CustomTextbox):
                         col = 0
                         wrapped = True
                         space = self._GRID_COLS
-                    chunk, run, _w = _term_split_run(run, space)
+                    chunk, run, _w = _term_split_run(
+                        run, space, space >= self._GRID_COLS
+                    )
+                    if not chunk:
+                        # A wide character that doesn't fit leaves the
+                        # last column blank and wraps.
+                        chunk, _w = " ", 1
                     _llw = self._term_col_width(self._cur_line)
                     if col > _llw:
                         self.insert(f"{self._cur_line}.end", " " * (col - _llw))
+                    self._term_split_wide(self._cur_line, col)
+                    self._term_split_wide(self._cur_line, col + _w)
                     _idx0 = self._term_col_to_index(self._cur_line, col)
                     _idx1 = self._term_col_to_index(self._cur_line, col + _w)
                     self.delete(
@@ -2994,6 +3088,11 @@ class Terminal(CustomTextbox):
         row = int(line) - int(top) + 1
         row = max(1, min(row, max(1, self._GRID_ROWS)))
         true_col = self._term_index_to_col(line, int(col))
+        _end = self.bbox(idx) if self.compare(idx, "==", f"{line}.end") else None
+        if _end and self.charwidth and event.x > _end[0]:
+            # Past the end of the text there is no character to measure
+            # against, so count the empty cells out in pixels.
+            true_col += (event.x - _end[0]) // self.charwidth
         colnum = max(1, min(true_col + 1, max(1, self._GRID_COLS)))
         return colnum, row
 
