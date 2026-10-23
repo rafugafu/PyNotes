@@ -4057,6 +4057,7 @@ class Editor(Buffer):
             utils.show(f"go to line no. {l}")
             self.type_.see(f"{l}.0")
             self.type_.mark_set("insert", f"{l}.0")
+            self.type_.tag_remove("sel", "1.0", "end")
             self.type_.tag_add("sel", f"{l}.0", f"{l}.end")
 
     def selall(self):

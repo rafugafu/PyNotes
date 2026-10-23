@@ -96,7 +96,7 @@ class EmailBuffer(Buffer):
             attachment (MIME part), unless already attached.
             """
             fn = dialogs.openfileget(
-                prompttext="Email Attachment File: ", filetypes=(("All Files", "*"))
+                prompttext="Email Attachment File: ", filetypes=(("All Files", "*"),)
             )
             if fn:
                 try:

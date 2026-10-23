@@ -23,6 +23,12 @@ def faketerm(command):
     """
     import canvastk as ctk
 
+    def error(title, message):
+        threading.Thread(
+            target=state.console.dialog, args=(title, message, "41m"), daemon=True
+        ).start()
+        ctk.messagebox.showerror(title, message)
+
     termwin = ctk.Window()
     termwin.title("Terminal")
     term = ctk.Textbox(termwin, font=(monospace, 12))
@@ -45,7 +51,7 @@ def faketerm(command):
             termwin.update()
         process.wait()
     except Exception as e:
-        termwin.error(
+        error(
             "Error",
             f'An error occured while installing the module {command.split("pip install ")[1]}:\n{e}',
         )

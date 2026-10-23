@@ -969,6 +969,20 @@ def _python_unwrap_descriptor(val):
     return val
 
 
+def _python_is_staticmethod_wrapped(val):
+    """Whether val is literally staticmethod(...) - not classmethod(...)
+    or a bare value - the one wrapper that means there is no implicit
+    self/cls parameter to drop from whatever it wraps.
+    """
+    return (
+        isinstance(val, ast.Call)
+        and isinstance(val.func, ast.Name)
+        and val.func.id == "staticmethod"
+        and len(val.args) == 1
+        and not val.keywords
+    )
+
+
 def _python_import_fromlist_is_nonempty(call):
     """Whether an __import__(...) call's fromlist argument (positional
     or keyword) is a non-empty list/tuple/set - if so, __import__
@@ -2347,6 +2361,7 @@ def _python_build_scopes(
                     )
                     if isinstance(_clval, ast.NamedExpr):
                         _clval = _clval.value
+                    _cl_is_static = _python_is_staticmethod_wrapped(_clval)
                     _clval = _python_unwrap_descriptor(_clval)
                     if not isinstance(_clval, ast.Lambda):
                         continue
@@ -2360,10 +2375,15 @@ def _python_build_scopes(
                         + list(_clval.args.args)
                         + list(_clval.args.kwonlyargs)
                     )
-                    _clp = (
-                        set(a.arg for a in (_clargs[1:] if _clargs else _clargs))
-                        - set(a.arg for a in _clval.args.posonlyargs)
-                    ) | set(a.arg for a in _clval.args.kwonlyargs)
+                    if _cl_is_static:
+                        _clp = set(a.arg for a in _clargs) - set(
+                            a.arg for a in _clval.args.posonlyargs
+                        )
+                    else:
+                        _clp = (
+                            set(a.arg for a in (_clargs[1:] if _clargs else _clargs))
+                            - set(a.arg for a in _clval.args.posonlyargs)
+                        ) | set(a.arg for a in _clval.args.kwonlyargs)
                     for _cltgt in _cltgts:
                         if not isinstance(_cltgt, ast.Name):
                             continue

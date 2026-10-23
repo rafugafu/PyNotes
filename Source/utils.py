@@ -55,6 +55,8 @@ def bindtype_(buffer, event, func, break_=True, *args, **kwargs):
 
 def unbindtype_(buffer, *args, **kwargs):
     """Unbind an event from an Editor buffer's underlying text widget."""
+    import editor
+
     if isinstance(buffer, editor.Editor):
         buffer._own_type.unbind(*args, **kwargs)
 

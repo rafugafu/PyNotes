@@ -540,10 +540,16 @@ def cmdrun(fullcommand):
         if commandinput:
             utils.show(f"error: command '{command}' does not take input")
             return
+        if not hasattr(state.active, "undo"):
+            utils.show("cannot undo in current buffer")
+            return
         state.active.undo()
     elif command == "r" or command == "redo":
         if commandinput:
             utils.show(f"error: command '{command}' does not take input")
+            return
+        if not hasattr(state.active, "redo"):
+            utils.show("cannot redo in current buffer")
             return
         state.active.redo()
     elif command == "save" or command == "s":
@@ -568,6 +574,7 @@ def cmdrun(fullcommand):
             return
         if not isinstance(state.active, editor.Editor):
             utils.show("not an editor")
+            return
         if commandinput:
             state.active.f("backward")
         else:
@@ -580,6 +587,7 @@ def cmdrun(fullcommand):
             return
         if not isinstance(state.active, editor.Editor):
             utils.show("not an editor")
+            return
         if commandinput:
             state.active.fr("backward")
         else:
@@ -659,15 +667,24 @@ def cmdrun(fullcommand):
         if commandinput:
             utils.show(f"error: command '{command}' does not take input")
             return
+        if not hasattr(state.active, "cut"):
+            utils.show("cannot cut in current buffer")
+            return
         state.active.cut()
     elif command == "pf" or command == "pagenext":
         if commandinput:
             utils.show(f"error: command '{command}' does not take input")
             return
+        if not hasattr(state.active, "ptf"):
+            utils.show("cannot page turn forward in current buffer")
+            return
         state.active.ptf()
     elif command == "pb" or command == "pageback":
         if commandinput:
             utils.show(f"error: command '{command}' does not take input")
+            return
+        if not hasattr(state.active, "ptb"):
+            utils.show("cannot page turn backward in current buffer")
             return
         state.active.ptb()
     elif command == "paste" or command == "p":
@@ -681,6 +698,9 @@ def cmdrun(fullcommand):
     elif command == "sp" or command == "speak":
         if commandinput:
             utils.show(f"error: command '{command}' does not take input")
+            return
+        if not hasattr(state.active, "spk"):
+            utils.show("cannot speak text in current buffer")
             return
         state.active.spk()
     elif command == "full":

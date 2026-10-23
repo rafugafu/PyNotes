@@ -139,7 +139,7 @@ class MathGod:
         y = list(
             map(
                 lambda iterator: (
-                    func if type(func) == int else func.subs(var, iterator)
+                    func if type(func) in (int, float) else func.subs(var, iterator)
                 ),
                 np.linspace(start, end, linspace),
             )
@@ -181,7 +181,7 @@ class MathGod:
         X, Y = np.meshgrid(
             np.linspace(se1[0], se1[1], linspace), np.linspace(se2[0], se2[1], linspace)
         )
-        if not type(func) == int:
+        if type(func) not in (int, float):
             z = lambdify((x, y), func, "numpy")
             Z = z(X, Y)
         else:

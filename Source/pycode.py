@@ -561,8 +561,7 @@ def pycodeparse(code, defined, inwhat="of code"):
                     raise error(value_start, "Nothing follows the *")
                 check_expression(value_start, value_end)
                 translated.append(
-                    "*" * stars
-                    + translate_expression(value_start, value_end, defined)
+                    "*" * stars + translate_expression(value_start, value_end, defined)
                 )
                 continue
             match = PYCODE_KEYWORD_ARGUMENT_PATTERN.match(code, s, e)
@@ -1147,13 +1146,13 @@ def pcruncode():
 # (see help.helppycode()) named after the tkinter/PyNotes action it
 # forwards to.
 def pccopy(*args, **kwargs):
-    if not isinstance(state.active, editor.Editor):
+    if not hasattr(state.active, "cp"):
         return
     return state.active.cp(*args, **kwargs)
 
 
 def pccut(*args, **kwargs):
-    if not isinstance(state.active, editor.Editor):
+    if not hasattr(state.active, "cut"):
         return
     return state.active.cut(*args, **kwargs)
 
@@ -1207,25 +1206,25 @@ def pcopenfile(*args, **kwargs):
 
 
 def pcpageback(*args, **kwargs):
-    if not isinstance(state.active, editor.Editor):
+    if not hasattr(state.active, "ptb"):
         return
     return state.active.ptb(*args, **kwargs)
 
 
 def pcpageforw(*args, **kwargs):
-    if not isinstance(state.active, editor.Editor):
+    if not hasattr(state.active, "ptf"):
         return
     return state.active.ptf(*args, **kwargs)
 
 
 def pcpaste(*args, **kwargs):
-    if not isinstance(state.active, editor.Editor):
+    if not hasattr(state.active, "pst"):
         return
     return state.active.pst(*args, **kwargs)
 
 
 def pcredo(*args, **kwargs):
-    if not isinstance(state.active, editor.Editor):
+    if not hasattr(state.active, "redo"):
         return
     return state.active.redo(*args, **kwargs)
 
@@ -1297,7 +1296,7 @@ def pcsetselectionpoint(*args, **kwargs):
 
 
 def pcspeaktext(*args, **kwargs):
-    if not isinstance(state.active, editor.Editor):
+    if not hasattr(state.active, "spk"):
         return
     return state.active.spk(*args, **kwargs)
 
@@ -1315,7 +1314,7 @@ def pctoggleselectionpoint(*args, **kwargs):
 
 
 def pcundo(*args, **kwargs):
-    if not isinstance(state.active, editor.Editor):
+    if not hasattr(state.active, "undo"):
         return
     return state.active.undo(*args, **kwargs)
 
@@ -1885,7 +1884,7 @@ def _pclatexsections(text):
     lastline = len(lines)
     headings = []
     for ln, content in enumerate(lines, 1):
-        content = re.split(r"(?<!\\)%", content, 1)[0]
+        content = re.split(r"(?<!\\)%", content, maxsplit=1)[0]
         if re.match(r"\s*\\end\{document\}", content):
             lastline = ln - 1
             break
