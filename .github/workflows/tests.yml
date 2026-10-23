@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      PYNOTES_REQUIRE_OPTIONAL_PACKAGES: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk xvfb libcairo2-dev pkg-config fontconfig fonts-dejavu-core libportaudio2 libespeak1
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pillow numpy sympy matplotlib cairosvg ziamath pdfplumber tika watchdog SpeechRecognition pyttsx3 sounddevice
+
+      - name: Run tests without a display
+        run: python -m pytest -m "not display"
+
+      - name: Run tests that need a display
+        run: xvfb-run -a python -m pytest -m display
+
+      - name: Run the canvastk tests, which show windows
+        run: xvfb-run -a env PYNOTES_ALLOW_VISIBLE_WINDOWS=1 python -m pytest tests/canvastk_tests
