@@ -255,8 +255,6 @@ def helppycode():
         def match(key, expr):
             """Find and tag all exprs found in the code with key for syntax highlighting."""
             code = f.t.get("1.0", "end")
-            if not code:
-                return
             for m in re.finditer(expr, code, re.DOTALL):
                 for tag in f.t.tag_names():
                     if tag == "sel":
@@ -864,8 +862,6 @@ key_bind("<Control-e>", end_of_line, "editor");
 
     def parse():
         code = ttpct.t.get("1.0", "end-1c").strip()
-        if not code:
-            return
         ttpyt.config(state="normal")
         ttpyt.delete("1.0", "end")  # This also removes the error tag if present
         try:
