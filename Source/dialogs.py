@@ -67,9 +67,11 @@ def fileautocompletefunc(typed):
     typed = typed.strip()
     dir_ = os.path.abspath(os.path.expanduser(os.path.dirname(typed)))
     if not os.path.exists(dir_):
-        return ()
+        return []
+    elif not os.path.isdir(dir_):
+        return []
     else:
-        autocompletelist = ("../",)
+        autocompletelist = ["../"]
         for file in os.listdir(dir_):
             if (
                 platform.system() == "Linux"
@@ -81,7 +83,7 @@ def fileautocompletefunc(typed):
             fullpath = os.path.abspath(os.path.expanduser(completion))
             if os.path.isdir(fullpath):
                 completion += "/"
-            autocompletelist += (completion,)
+            autocompletelist.append(completion)
         return autocompletelist
 
 
