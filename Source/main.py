@@ -61,7 +61,20 @@ state.options, state.files_to_open = argparse(
 # The changelog shown by --changes / the "What's new" menu item.
 changelist = [
     # 1.
-    "Fixed many bugs across PyNotes.",
+    "Updated canvastk.",
+    # 2.
+    """\
+Fixed many bugs across PyNotes:
+  - Fixed error on find, find & replace, undo, redo, and some other editor function Alt-X commands when run outside editor buffers caused by either not checking for the function existing in the current active buffer, or missing a return after showing the message.
+  - Fixed error in installing a module in the starting dependency check calling undefined termwin.error, leftover from when PyNotes used to use easytk which had an 'error' attribute on windows. Now, it calls a custom 'error' function which shows the error both in a graphical messagebox and the console.
+  - Fixed go-to-line command not removing previous selection before selecting the new line.
+  - Fixed error on plotting (both 2D and 3D) a float (as well as already working int) constant in MathGod.
+  - Fixed func(arg=val, *args, **kwargs) PyCode incorrectly giving a SyntaxError: positional argument after keyword argument.
+  - Fixed Email Attachment File prompt giving a single tuple ("All Files", "*") instead of a tuple containing the tuple, caused by a missing comma, which caused an error.
+  - Fixed undefined 'editor' module in unbindtype_ in utils.py. It now imports editor as well.
+  - Fixed a class-body lambda in staticmethod() in Python syntax highlighting was dropping its first real parameter from keyword-argument recognition as self.
+  - Fixed typing path/existing-file/ in the Alt-X command box file prompts and trying to autocomplete showing NotADirectoryError.\
+""",
 ]
 state.changestr = ""
 for i in range(len(changelist) - 1):
