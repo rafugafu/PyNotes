@@ -73,7 +73,8 @@ Fixed many bugs across PyNotes:
   - Fixed Email Attachment File prompt giving a single tuple ("All Files", "*") instead of a tuple containing the tuple, caused by a missing comma, which caused an error.
   - Fixed undefined 'editor' module in unbindtype_ in utils.py. It now imports editor as well.
   - Fixed a class-body lambda in staticmethod() in Python syntax highlighting was dropping its first real parameter from keyword-argument recognition as self.
-  - Fixed typing path/existing-file/ in the Alt-X command box file prompts and trying to autocomplete showing NotADirectoryError.\
+  - Fixed typing path/existing-file/ in the Alt-X command box file prompts and trying to autocomplete showing NotADirectoryError.
+  - Fixed some terminal Unicode character bugs.\
 """,
 ]
 state.changestr = ""
