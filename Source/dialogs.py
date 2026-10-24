@@ -66,9 +66,7 @@ def fileautocompletefunc(typed):
     """
     typed = typed.strip()
     dir_ = os.path.abspath(os.path.expanduser(os.path.dirname(typed)))
-    if not os.path.exists(dir_):
-        return []
-    elif not os.path.isdir(dir_):
+    if not os.path.isdir(dir_):
         return []
     else:
         autocompletelist = ["../"]

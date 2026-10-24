@@ -60,7 +60,7 @@ def test_hidden_files_are_only_listed_when_a_dot_is_typed(tmp_path):
 
 
 def test_a_missing_directory_has_no_completions(tmp_path):
-    assert dialogs.fileautocompletefunc(str(tmp_path / "missing") + "/x") == ()
+    assert dialogs.fileautocompletefunc(str(tmp_path / "missing") + "/x") == []
 
 
 def test_a_path_with_surrounding_spaces_and_a_home_directory(tmp_path, monkeypatch):
